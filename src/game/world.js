@@ -1,0 +1,166 @@
+import { decryptPayload } from "../crypto/chacha.js";
+import { decompressLz4Frame } from "../compression/lz4.js";
+import { decodeMsgpack } from "../protocol/msgpack.js";
+
+export class WorldStore {
+  constructor() {
+    this.currentWorldId = null;
+    this.worlds = new Map();
+  }
+
+  get(id) {
+    const worldId = Number(id);
+    if (!this.worlds.has(worldId)) this.worlds.set(worldId, new WorldState(worldId));
+    return this.worlds.get(worldId);
+  }
+
+  apply(packet) {
+    if (!packet || packet.world == null) return null;
+    if (packet.type === 22) return this.#applyMeta(packet);
+    if (packet.type === 23) return this.#applyTiles(packet);
+    if (packet.type === 20) return this.#applyModel(packet);
+    return null;
+  }
+
+  snapshot({ includeTiles = false } = {}) {
+    return [...this.worlds.values()].map((world) => world.snapshot({ includeTiles }));
+  }
+
+  ids() {
+    return [...this.worlds.keys()];
+  }
+
+  overworld() {
+    return [...this.worlds.values()].find((world) => world.isOverworld === true) || null;
+  }
+
+  shipWorld() {
+    return this.currentWorldId != null ? this.worlds.get(Number(this.currentWorldId)) || null : [...this.worlds.values()].find((world) => world.isOverworld === false) || null;
+  }
+
+  #applyMeta(packet) {
+    const world = this.get(packet.world);
+    world.readMeta(packet);
+    if (this.currentWorldId == null && !world.isOverworld) this.currentWorldId = world.id;
+    return { type: "world", world };
+  }
+
+  #applyTiles(packet) {
+    const world = this.get(packet.world);
+    const decoded = world.decodeEncrypted(packet.data);
+    const updates = [];
+    if (decoded && typeof decoded === "object") {
+      for (const [kind, value] of Object.entries(decoded)) {
+        if (kind === "0") updates.push({ kind, tiles: world.applyChunk(value) });
+        else if (kind === "1") updates.push({ kind, tile: world.applyTile(value) });
+        else updates.push({ kind, value });
+      }
+    }
+    world.events.push({ type: "tiles", packet, decoded, updates });
+    return { type: "tiles", world, decoded, updates };
+  }
+
+  #applyModel(packet) {
+    const world = this.get(packet.world);
+    const result = { worldId: packet.world, full: Boolean(packet.full), events: Array.isArray(packet.events) ? packet.events : [], modelData: packet.model_data || null, decoded: null };
+    if (packet.model_data && world.seed != null) {
+      try { result.decoded = decryptPayload(packet.model_data, packet.world, world.seed); }
+      catch (error) { result.error = error; }
+    }
+    world.modelPackets.push(result);
+    world.events.push({ type: "model", packet, result });
+    world.lastPacket = packet;
+    return { type: "model", world, result };
+  }
+}
+
+export class WorldState {
+  constructor(id) {
+    this.id = id;
+    this.seed = null;
+    this.isOverworld = null;
+    this.blockWidth = null;
+    this.blockHeight = null;
+    this.parentWorld = null;
+    this.parentEntity = null;
+    this.tiles = new Map();
+    this.chunks = [];
+    this.events = [];
+    this.modelPackets = [];
+    this.lastChunkPatch = null;
+    this.lastPacket = null;
+    this.meta = null;
+  }
+
+  readMeta(packet) {
+    this.meta = packet;
+    this.seed = packet.seed ?? this.seed;
+    this.isOverworld = Boolean(packet.is_overworld);
+    this.blockWidth = packet.block_w ?? this.blockWidth;
+    this.blockHeight = packet.block_h ?? this.blockHeight;
+    this.parentWorld = packet.parent_world ?? this.parentWorld;
+    this.parentEntity = packet.parent_ent ?? this.parentEntity;
+    this.lastPacket = packet;
+  }
+
+  decodeEncrypted(data) {
+    if (!data || this.seed == null) return null;
+    try { return decodeMsgpack(decryptPayload(data, this.id, this.seed)); }
+    catch (_) { return null; }
+  }
+
+  applyTile(value) {
+    if (!Array.isArray(value) || value.length !== 6) return null;
+    const [x, y, material, shape, integrity, color] = value;
+    return this.setTile({ x, y, material, shape, integrity, color });
+  }
+
+  applyChunk(value) {
+    if (!Array.isArray(value) || value.length !== 7) return null;
+    const [chunkX, chunkY, minX, minY, maxX, maxY, compressedPatch] = value;
+    const patch = [...decompressLz4Frame(compressedPatch)];
+    const width = maxX - minX + 1;
+    const height = maxY - minY + 1;
+    const count = width * height;
+    const hasColor = patch.length >= count * 4;
+    const tiles = [];
+    for (let i = 0; i < count; i++) {
+      const localX = minX + Math.floor(i / height);
+      const localY = minY + (i % height);
+      tiles.push(this.setTile({
+        x: (chunkX << 6) + localX,
+        y: (chunkY << 6) + localY,
+        material: patch[i],
+        shape: patch[i + count],
+        integrity: patch[i + count * 2],
+        color: hasColor ? patch[i + count * 3] : null
+      }));
+    }
+    this.chunks.push({ chunkX, chunkY, minX, minY, maxX, maxY, tiles });
+    this.lastChunkPatch = { chunkX, chunkY, minX, minY, maxX, maxY, count, hasColor };
+    return tiles;
+  }
+
+  setTile(tile) {
+    this.tiles.set(`${tile.x},${tile.y}`, tile);
+    return tile;
+  }
+
+  snapshot({ includeTiles = false } = {}) {
+    return {
+      id: this.id,
+      is_overworld: this.isOverworld,
+      seed: this.seed,
+      block_w: this.blockWidth,
+      block_h: this.blockHeight,
+      parent_world: this.parentWorld,
+      parent_ent: this.parentEntity,
+      tileCount: this.tiles.size,
+      chunkCount: this.chunks.length,
+      lastChunkPatch: this.lastChunkPatch,
+      lastPacket: this.lastPacket,
+      meta: this.meta,
+      tiles: includeTiles ? [...this.tiles.values()] : undefined
+    };
+  }
+}

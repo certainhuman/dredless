@@ -1,0 +1,58 @@
+import { DEFAULT_BASE_URL } from "../constants.js";
+import { isBrowser, normalizeBaseUrl, hostName } from "../runtime.js";
+
+export function cookiePrefix(baseUrl = DEFAULT_BASE_URL) {
+  const host = hostName(baseUrl);
+  if (host === "test.drednot.io") return "test_";
+  if (host === "local.drednot.io") return "local_";
+  return "";
+}
+
+export const cookieName = (baseUrl, name) => `${cookiePrefix(baseUrl)}${name}`;
+
+export function parseCookies(text = "") {
+  const cookies = new Map();
+  for (const part of String(text).split(/;\s*/)) {
+    const index = part.indexOf("=");
+    if (index <= 0) continue;
+    cookies.set(part.slice(0, index).trim(), decodeURIComponent(part.slice(index + 1).trim()));
+  }
+  return cookies;
+}
+
+export function browserCookies() {
+  return isBrowser() ? parseCookies(document.cookie || "") : new Map();
+}
+
+export function setCookieValues(baseUrl, source = {}) {
+  const base = normalizeBaseUrl(baseUrl);
+  const values = source instanceof Map ? source : source?.cookies instanceof Map ? source.cookies : Object.entries(source || {});
+  const cookies = new Map(values);
+  const prefix = cookiePrefix(base);
+  const anonKey = source.anonKey || source.anon_key;
+  const gameSession = source.gameSession || source.game_session;
+  const noticeVersion = source.noticeVersion || source.notice_version;
+  if (anonKey && !cookies.has(`${prefix}anon_key`)) cookies.set(`${prefix}anon_key`, anonKey);
+  if (gameSession && !cookies.has(`${prefix}game_session`)) cookies.set(`${prefix}game_session`, gameSession);
+  if (noticeVersion && !cookies.has(`${prefix}notice_version`)) cookies.set(`${prefix}notice_version`, noticeVersion);
+  return cookies;
+}
+
+export function cookieHeader(baseUrl, source = {}) {
+  return [...setCookieValues(baseUrl, source)].map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join("; ");
+}
+
+export function readSetCookies(headers, names = ["game_session", "anon_key"]) {
+  const values = typeof headers?.getSetCookie === "function"
+    ? headers.getSetCookie()
+    : headers?.get?.("set-cookie") ? [headers.get("set-cookie")] : [];
+  const found = new Map();
+  for (const header of values) {
+    for (const name of names) {
+      const regex = new RegExp(`(?:^|,\\s*)${name}=([^;]+)`, "g");
+      let match;
+      while ((match = regex.exec(header))) found.set(name, decodeURIComponent(match[1]));
+    }
+  }
+  return found;
+}
