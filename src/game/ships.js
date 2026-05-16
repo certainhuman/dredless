@@ -1,23 +1,8 @@
 import { DEFAULT_BASE_URL } from "../constants.js";
-import { asNumber, normalizeBaseUrl } from "../runtime.js";
+import { asNumber } from "../runtime.js";
 import { HttpClient } from "../net/http.js";
 
-export class ShipService {
-  constructor(session, { baseUrl = session?.baseUrl || DEFAULT_BASE_URL } = {}) {
-    if (!session) throw new Error("ShipService requires a session");
-    this.session = session;
-    this.baseUrl = normalizeBaseUrl(baseUrl);
-  }
-
-  async list(serverId = this.session.geoServer ?? 0) {
-    const data = await new HttpClient({ baseUrl: this.baseUrl, session: this.session }).json(`shiplist?server=${Number(serverId)}`, {
-      headers: { accept: "application/json" }
-    });
-    return extractShips(data).map(([key, raw]) => normalizeShip(raw, key)).filter(Boolean);
-  }
-}
-
-export function newShip(name = "", color = "") {
+export function createShipSpec(name = "", color = "") {
   return { type: "new", name: String(name ?? ""), color: String(color ?? "") };
 }
 
@@ -30,8 +15,6 @@ export function shipRef(ship) {
   return ship;
 }
 
-export const createShip = newShip;
-export const createShipSpec = newShip;
 export const normalizeShipSpec = shipRef;
 
 export function normalizeShip(raw, key = null) {
@@ -40,26 +23,47 @@ export function normalizeShip(raw, key = null) {
   return {
     id: Number.isFinite(id) ? id : null,
     hexCode: raw.hex_code || raw.hexCode || raw.id || key || null,
-    name: raw.team_name || raw.teamName || raw.ship_name || raw.name || "Unknown Ship",
-    imgUrl: raw.icon_path || raw.iconPath || raw.icon || null,
-    playerCount: asNumber(raw.player_count ?? raw.playerCount, 0),
+    name: raw.team_name || "Unknown Ship",
+    iconUrl: raw.icon_path || null,
+    playerCount: asNumber(raw.player_count, 0),
     owned: Boolean(raw.owned),
     saved: Boolean(raw.saved),
     color: raw.color || "",
-    time: raw.time ?? null,
-    raw
+    time: asNumber(raw.time, null)
   };
 }
 
 function extractShips(data) {
-  if (Array.isArray(data)) return data.map((ship, index) => [ship?.hex_code || ship?.id || String(index), ship]);
-  if (Array.isArray(data?.ships)) return data.ships.map((ship, index) => [ship?.hex_code || ship?.id || String(index), ship]);
+  if (Array.isArray(data)) return data.map((ship, index) => [ship?.id || String(index), ship]);
+  if (Array.isArray(data?.ships)) return data.ships.map((ship, index) => [ship?.id || String(index), ship]);
   if (data?.ships && typeof data.ships === "object") return Object.entries(data.ships);
-  if (Array.isArray(data?.owned)) return data.owned.map((ship, index) => [ship?.hex_code || ship?.id || String(index), ship]);
-  if (data?.owned && typeof data.owned === "object") return Object.entries(data.owned);
   return [];
 }
 
-export async function listShips({ session, serverId = null, baseUrl = session?.baseUrl || DEFAULT_BASE_URL } = {}) {
-  return new ShipService(session, { baseUrl }).list(serverId ?? session?.geoServer ?? 0);
+export async function fetchShips(session, server, baseUrl = session?.baseUrl || DEFAULT_BASE_URL) {
+  const data = await fetchShipList(session, server, baseUrl);
+  return Array.isArray(data) ? data : Array.isArray(data?.ships) ? data.ships : [];
+}
+
+export async function fetchShipList(session, server, baseUrl = session?.baseUrl || DEFAULT_BASE_URL) {
+  if (!session) throw new Error("fetchShipList requires a session");
+  const serverId = Number(server && typeof server === "object" ? server.index ?? server.id : server ?? session.geoServer ?? 0);
+  const data = await new HttpClient({ baseUrl, session }).json(`shiplist?server=${serverId}`, {
+    headers: { accept: "application/json" }
+  });
+  const ships = normalizeShipList(data);
+  if (Array.isArray(data)) return { ships };
+  if (data && typeof data === "object") {
+    return {
+      playerCount: asNumber(data.player_count, 0),
+      maxPlayerCount: asNumber(data.max_player_count, 0),
+      isMuted: Boolean(data.is_muted),
+      ships
+    };
+  }
+  return { ships };
+}
+
+function normalizeShipList(data) {
+  return extractShips(data).map(([key, raw]) => normalizeShip(raw, key)).filter(Boolean);
 }

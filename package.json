@@ -4,18 +4,63 @@
   "description": "A from-scratch simple headless drednot.io client.",
   "type": "module",
   "main": "src/index.js",
+  "types": "./src/index.d.ts",
   "exports": {
-    ".": "./src/index.js",
-    "./client": "./src/client.js",
-    "./session": "./src/net/session.js",
-    "./servers": "./src/net/servers.js",
-    "./ships": "./src/game/ships.js",
-    "./connection": "./src/game/connection.js",
-    "./world": "./src/game/world.js",
-    "./protocol/msgpack": "./src/protocol/msgpack.js",
-    "./protocol/commands": "./src/protocol/commands.js",
-    "./crypto/chacha": "./src/crypto/chacha.js",
-    "./compression/lz4": "./src/compression/lz4.js"
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js",
+      "default": "./src/index.js"
+    },
+    "./client": {
+      "types": "./src/client.d.ts",
+      "import": "./src/client.js",
+      "default": "./src/client.js"
+    },
+    "./session": {
+      "types": "./src/net/session.d.ts",
+      "import": "./src/net/session.js",
+      "default": "./src/net/session.js"
+    },
+    "./servers": {
+      "types": "./src/net/servers.d.ts",
+      "import": "./src/net/servers.js",
+      "default": "./src/net/servers.js"
+    },
+    "./ships": {
+      "types": "./src/game/ships.d.ts",
+      "import": "./src/game/ships.js",
+      "default": "./src/game/ships.js"
+    },
+    "./connection": {
+      "types": "./src/game/connection.d.ts",
+      "import": "./src/game/connection.js",
+      "default": "./src/game/connection.js"
+    },
+    "./world": {
+      "types": "./src/game/world.d.ts",
+      "import": "./src/game/world.js",
+      "default": "./src/game/world.js"
+    },
+    "./protocol/msgpack": {
+      "types": "./src/protocol/msgpack.d.ts",
+      "import": "./src/protocol/msgpack.js",
+      "default": "./src/protocol/msgpack.js"
+    },
+    "./protocol/commands": {
+      "types": "./src/protocol/commands.d.ts",
+      "import": "./src/protocol/commands.js",
+      "default": "./src/protocol/commands.js"
+    },
+    "./crypto/chacha": {
+      "types": "./src/crypto/chacha.d.ts",
+      "import": "./src/crypto/chacha.js",
+      "default": "./src/crypto/chacha.js"
+    },
+    "./compression/lz4": {
+      "types": "./src/compression/lz4.d.ts",
+      "import": "./src/compression/lz4.js",
+      "default": "./src/compression/lz4.js"
+    }
   },
   "dependencies": {
     "ws": "^8.18.0"

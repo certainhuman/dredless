@@ -1,10 +1,10 @@
 import { DEFAULT_BASE_URL } from "../constants.js";
-import { hostName, normalizeBaseUrl, resolveUrl } from "../runtime.js";
+import { hostName, normalizeBaseUrl } from "../runtime.js";
 import { HttpClient } from "./http.js";
 
 const cache = new Map();
 
-export class ServerDirectory {
+class ServerDirectory {
   constructor(baseUrl = DEFAULT_BASE_URL) {
     this.baseUrl = normalizeBaseUrl(baseUrl);
     this.meta = null;
@@ -27,10 +27,18 @@ export class ServerDirectory {
     return this.meta.version;
   }
 
+  async list() {
+    return this.servers();
+  }
+
   async servers() {
     await this.load();
     if (!this.meta.serverInfo) throw new Error("Unable to locate server list in drednot bundle");
     return this.meta.serverInfo.servers;
+  }
+
+  async get(id = null) {
+    return this.pick(id);
   }
 
   async pick(id = null) {
@@ -46,11 +54,54 @@ export class ServerDirectory {
   }
 }
 
-export const fetchLatestGameVersion = (baseUrl = DEFAULT_BASE_URL) => new ServerDirectory(baseUrl).version();
-export const listServers = (baseUrl = DEFAULT_BASE_URL) => new ServerDirectory(baseUrl).servers();
+export const fetchGameVersion = (baseUrl = DEFAULT_BASE_URL) => new ServerDirectory(baseUrl).version();
+export const fetchServers = (baseUrl = DEFAULT_BASE_URL) => new ServerDirectory(baseUrl).servers();
+
+export async function fetchNoticeVersion(baseUrl = DEFAULT_BASE_URL) {
+  const response = await new HttpClient({ baseUrl }).request("index.html");
+  if (!response.ok) throw new Error(`Failed to fetch notice version: ${response.status} ${response.statusText}`);
+  const text = await response.text();
+  const version = parseNoticeVersion(text);
+  if (version == null) throw new Error("Unable to locate notice version in drednot page");
+  return version;
+}
+
+export async function resolveServer(server, baseUrl = DEFAULT_BASE_URL) {
+  if (server && typeof server === "object") return server;
+  const id = Number(server);
+  const servers = await fetchServers(baseUrl);
+  return servers.find((item) => item.index === id) || null;
+}
+
+export function serverId(server) {
+  if (server && typeof server === "object") return Number(server.index ?? server.id);
+  return Number(server);
+}
 
 function parseGameVersion(text) {
   return text.match(/Object\.defineProperty\(exports,"GAME_VERSION",\{enumerable:true,get:\(\)=>e\}\);const e="([^"]+)"/)?.[1] || null;
+}
+
+function parseNoticeVersion(text) {
+  const moduleMatch = text.match(/Object\.defineProperty\(exports,"checkNotice"[\s\S]{0,8000}?setCookie\)\("notice_version",([A-Za-z_$][\w$]*)\)/);
+  if (moduleMatch) {
+    const constant = moduleMatch[1];
+    const prefix = text.slice(Math.max(0, moduleMatch.index - 1000), moduleMatch.index + moduleMatch[0].length);
+    const constantMatch = prefix.match(new RegExp(`const\\s+${constant}\\s*=\\s*(\\d+)\\s*;`));
+    if (constantMatch) return Number(constantMatch[1]);
+  }
+
+  const patterns = [
+    /notice_version["']?\s*[:=]\s*["']?(\d+)/i,
+    /noticeVersion["']?\s*[:=]\s*["']?(\d+)/i,
+    /NOTICE_VERSION["']?\s*[:=]\s*["']?(\d+)/,
+    /notice[^0-9]{0,40}version[^0-9]{0,20}(\d+)/i
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) return Number(match[1]);
+  }
+  return null;
 }
 
 function parseServerInfo(text, baseUrl) {

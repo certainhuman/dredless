@@ -1,16 +1,19 @@
 import { DEFAULT_BASE_URL, DEFAULT_NOTICE_VERSION, JOIN_USER_AGENT } from "../constants.js";
 import { asNumber, isNode, normalizeBaseUrl } from "../runtime.js";
-import { browserCookies, cookieName, cookiePrefix, readSetCookies, setCookieValues } from "./cookies.js";
+import { cookieName, cookiePrefix, readSetCookies, setCookieValues } from "./cookies.js";
 import { HttpClient } from "./http.js";
+import { fetchGameVersion, resolveServer, serverId } from "./servers.js";
+import { createShipSpec, fetchShips, fetchShipList, shipRef } from "../game/ships.js";
+import { Connection } from "../game/connection.js";
+import { DredlessClient } from "../client.js";
 
-export class GameSession {
-  constructor({ baseUrl = DEFAULT_BASE_URL, cookies = {}, noticeVersion = DEFAULT_NOTICE_VERSION, raw = null } = {}) {
-    this.baseUrl = normalizeBaseUrl(baseUrl);
-    this.cookies = setCookieValues(this.baseUrl, cookies);
-    const noticeCookie = cookieName(this.baseUrl, "notice_version");
-    if (noticeVersion != null && !this.cookies.has(noticeCookie)) this.cookies.set(noticeCookie, String(noticeVersion));
-    this.noticeVersion = this.cookies.get(noticeCookie) || noticeVersion;
-    this.raw = raw;
+export class Session {
+  constructor(gameSession = null, gameVersion = null) {
+    this.baseUrl = DEFAULT_BASE_URL;
+    this.cookies = setCookieValues(this.baseUrl, {});
+    this.gameVersion = gameVersion || null;
+    this._noticeVersion = null;
+    this.raw = null;
     this.account = null;
     this.geoServer = null;
     this.upgraded = false;
@@ -18,41 +21,85 @@ export class GameSession {
     this.showAds = false;
     this.forceTutorial = false;
     this.ban = null;
-    if (raw) this.#readStatus(raw);
-  }
-
-  static async anonymous(baseUrl = DEFAULT_BASE_URL) {
-    const session = new GameSession({ baseUrl });
-    await session.loginAnon();
-    await session.refresh();
-    return session;
-  }
-
-  static async fromCookies({ baseUrl = DEFAULT_BASE_URL, anonKey = null, gameSession = null, noticeVersion = DEFAULT_NOTICE_VERSION, cookies = null } = {}) {
-    const base = normalizeBaseUrl(baseUrl);
-    const prefix = cookiePrefix(base);
-    const source = cookies ? setCookieValues(base, cookies) : browserCookies();
-    if (anonKey) source.set(`${prefix}anon_key`, anonKey);
-    if (gameSession) source.set(`${prefix}game_session`, gameSession);
-    const session = new GameSession({ baseUrl: base, cookies: source, noticeVersion });
-    if (!session.anonKey && !session.gameSession) return GameSession.anonymous(base);
-    await session.refresh();
-    return session;
-  }
-
-  get anonKey() {
-    return this.cookies.get(cookieName(this.baseUrl, "anon_key")) || "";
+    if (gameSession) this.cookies.set(cookieName(this.baseUrl, "game_session"), String(gameSession));
   }
 
   get gameSession() {
     return this.cookies.get(cookieName(this.baseUrl, "game_session")) || "";
   }
 
+  get gameToken() {
+    return this.cookies.get(cookieName(this.baseUrl, "game_token")) || "";
+  }
+
+  get noticeVersion() {
+    return this._noticeVersion ?? this.cookies.get(cookieName(this.baseUrl, "notice_version")) ?? null;
+  }
+
+  set noticeVersion(value) {
+    this._noticeVersion = value == null ? null : Number(value);
+    const key = cookieName(this.baseUrl, "notice_version");
+    if (value == null) this.cookies.delete(key);
+    else this.cookies.set(key, String(value));
+  }
+
+  request(path, init = {}) {
+    return new HttpClient({ baseUrl: this.baseUrl, session: this }).request(path, init);
+  }
+
+  async fetchAccountStatus() {
+    const response = await this.request("account/status", {
+      method: "GET",
+      mode: "cors",
+      credentials: "include",
+      referrer: `${this.baseUrl}/`,
+      headers: statusHeaders(this.baseUrl)
+    });
+    if (!response.ok) throw new Error(`account/status failed: ${response.status} ${response.statusText}`);
+    this.mergeSetCookies(response);
+    const raw = await response.json();
+    this.#readStatus(raw);
+    return raw;
+  }
+
+  async fetchShips(server) {
+    return fetchShips(this, server);
+  }
+
+  async fetchShipList(server) {
+    return fetchShipList(this, server);
+  }
+
+  async startJoinConnection(server, ship = null) {
+    return this.#startConnection(server, ship, true);
+  }
+
+  async startConnection(server, ship = null) {
+    return this.#startConnection(server, ship, false);
+  }
+
+  async startNewShipConnection(server, name = "", color = "") {
+    return this.#startConnection(server, createShipSpec(name, color), false);
+  }
+
+  async join(server, ship = null) {
+    return readyClient(await this.startJoinConnection(server, ship));
+  }
+
+  async start(server, ship = null) {
+    return readyClient(await this.startConnection(server, ship));
+  }
+
+  async newShip(server, name = "", color = "") {
+    return readyClient(await this.startNewShipConnection(server, name, color));
+  }
+
   toJSON() {
     return {
       baseUrl: this.baseUrl,
-      anonKey: this.anonKey,
       gameSession: this.gameSession,
+      gameToken: this.gameToken,
+      gameVersion: this.gameVersion,
       noticeVersion: this.noticeVersion,
       cookies: Object.fromEntries(this.cookies),
       account: this.account,
@@ -66,67 +113,50 @@ export class GameSession {
     };
   }
 
-  request(path, init = {}) {
-    return new HttpClient({ baseUrl: this.baseUrl, session: this }).request(path, init);
-  }
+  async #startConnection(server, ship, neverLoad) {
+    if (server == null) throw new Error("A server id or server object is required");
+    const resolvedServer = await resolveServer(server, this.baseUrl);
+    if (!resolvedServer) throw new Error(`Unable to resolve server ${serverId(server)}`);
+    if (!this.gameVersion) this.gameVersion = await fetchGameVersion(this.baseUrl);
+    if (this.noticeVersion == null) this.noticeVersion = DEFAULT_NOTICE_VERSION;
 
-  async refresh() {
-    const response = await this.request("account/status", {
-      method: "GET",
-      mode: "cors",
-      credentials: "include",
-      referrer: `${this.baseUrl}/`,
-      headers: this.#statusHeaders()
-    });
-    if (!response.ok) throw new Error(`account/status failed: ${response.status} ${response.statusText}`);
-    this.#mergeSetCookies(response);
-    this.#readStatus(await response.json());
-    return this;
-  }
-
-  #statusHeaders() {
-    const headers = {
-      accept: "*/*"
-    };
-    if (isNode()) {
-      Object.assign(headers, {
-        "user-agent": JOIN_USER_AGENT,
-        "accept-language": "en-US,en;q=0.9",
-        referer: `${this.baseUrl}/`,
-        dnt: "1",
-        "sec-gpc": "1",
-        "sec-fetch-dest": "empty",
-        "sec-fetch-mode": "cors",
-        "sec-fetch-site": "same-origin"
-      });
-    }
-    return headers;
-  }
-
-  async loginAnon() {
-    // Only use this endpoint when creating a brand-new anonymous identity.
-    const headers = { accept: "application/json" };
-    if (isNode()) headers["user-agent"] = JOIN_USER_AGENT;
-    const response = await this.request("account/login/anon", {
+    const joinShip = ship == null ? createShipSpec("", "") : shipRef(ship);
+    const response = await this.request("join", {
       method: "POST",
       mode: "cors",
       credentials: "include",
       referrer: `${this.baseUrl}/`,
-      headers
+      body: {
+        join_info: {
+          game_version: this.gameVersion,
+          hide_badges: false,
+          never_load: Boolean(neverLoad),
+          server_id: resolvedServer.index,
+          ship: joinShip
+        }
+      },
+      headers: joinHeaders(this.baseUrl)
     });
-    if (!response.ok) throw new Error(`account/login/anon failed: ${response.status} ${response.statusText}`);
-    this.#mergeSetCookies(response);
-    if (!this.anonKey) throw new Error("Unable to obtain anon_key");
-    return this;
+    if (!response.ok) throw new Error(`Join request failed: ${await response.text()}`);
+    this.mergeSetCookies(response, ["game_session", "anon_key", "game_token"]);
+    const join = await response.json();
+    if (join.reject != null) {
+      const error = new Error(joinRejectMessage(join.reject, { neverLoad, ship: joinShip, server: resolvedServer }));
+      error.code = join.reject;
+      error.join = join;
+      throw error;
+    }
+    if (join.okay !== true) throw new Error("Bad join result");
+
+    const token = this.gameToken;
+    if (!token) throw new Error("Join did not return a game_token cookie");
+    return new Connection(this, token, join.net_port, Number.isInteger(join.server_id) ? join.server_id : resolvedServer.index, resolvedServer);
   }
 
-  #mergeSetCookies(response) {
+  mergeSetCookies(response, names = ["game_session", "anon_key"]) {
     const prefix = cookiePrefix(this.baseUrl);
-    for (const [name, value] of readSetCookies(response.headers)) {
+    for (const [name, value] of readSetCookies(response.headers, names)) {
       this.cookies.set(`${prefix}${name}`, value);
-    }
-    for (const [name, value] of browserCookies()) {
-      if (name === `${prefix}anon_key` || name === `${prefix}game_session`) this.cookies.set(name, value);
     }
   }
 
@@ -150,6 +180,121 @@ export class GameSession {
   }
 }
 
-export const createSession = (options = {}) => GameSession.fromCookies(options);
-export const createAnonSession = (baseUrl = DEFAULT_BASE_URL) => GameSession.anonymous(baseUrl);
-export const createAnonKey = async (baseUrl = DEFAULT_BASE_URL) => (await GameSession.anonymous(baseUrl)).anonKey;
+export class AnonSession extends Session {
+  constructor(gameSession = null, anonKey = null, gameVersion = null) {
+    super(gameSession, gameVersion);
+    if (anonKey) this.cookies.set(cookieName(this.baseUrl, "anon_key"), String(anonKey));
+  }
+
+  get anonKey() {
+    return this.cookies.get(cookieName(this.baseUrl, "anon_key")) || "";
+  }
+
+  toJSON() {
+    return {
+      ...super.toJSON(),
+      anonKey: this.anonKey
+    };
+  }
+}
+
+export async function createSession(noticeVersion = null) {
+  const session = new Session();
+  session.noticeVersion = await internalNoticeVersion(noticeVersion);
+  await session.fetchAccountStatus();
+  return session;
+}
+
+export async function createAnonToken(noticeVersion = null) {
+  const session = new AnonSession();
+  session.noticeVersion = await internalNoticeVersion(noticeVersion);
+  const response = await session.request("account/login/anon", {
+    method: "POST",
+    mode: "cors",
+    credentials: "include",
+    referrer: `${session.baseUrl}/`,
+    headers: anonHeaders()
+  });
+  if (response.status === 503) throw new Error("Anon token creation is rate limited by the server");
+  if (!response.ok) throw new Error(`account/login/anon failed: ${response.status} ${response.statusText}`);
+  session.mergeSetCookies(response, ["anon_key", "game_session"]);
+  if (!session.anonKey) throw new Error("Unable to obtain anon_key");
+  return session.anonKey;
+}
+
+export async function createAnonSession(anonKey = null, noticeVersion = null) {
+  const resolvedAnonKey = anonKey || await createAnonToken(noticeVersion);
+  const session = new AnonSession(null, resolvedAnonKey);
+  session.noticeVersion = await internalNoticeVersion(noticeVersion);
+  await session.fetchAccountStatus();
+  return session;
+}
+
+async function readyClient(connection) {
+  const client = new DredlessClient(connection);
+  await client.waitUntilReady();
+  return client;
+}
+
+async function internalNoticeVersion(value) {
+  if (value != null) return value;
+  try {
+    const { fetchNoticeVersion } = await import("./servers.js");
+    return await fetchNoticeVersion(DEFAULT_BASE_URL);
+  } catch (_) {
+    return DEFAULT_NOTICE_VERSION;
+  }
+}
+
+function statusHeaders(baseUrl) {
+  const headers = { accept: "*/*" };
+  if (isNode()) {
+    Object.assign(headers, {
+      "user-agent": JOIN_USER_AGENT,
+      "accept-language": "en-US,en;q=0.9",
+      referer: `${normalizeBaseUrl(baseUrl)}/`,
+      dnt: "1",
+      "sec-gpc": "1",
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-origin"
+    });
+  }
+  return headers;
+}
+
+function anonHeaders() {
+  const headers = { accept: "application/json" };
+  if (isNode()) headers["user-agent"] = JOIN_USER_AGENT;
+  return headers;
+}
+
+function joinHeaders(baseUrl) {
+  const headers = {
+    accept: "*/*",
+    "accept-language": "en-US,en;q=0.9",
+    "content-type": "application/json",
+    origin: normalizeBaseUrl(baseUrl),
+    referer: `${normalizeBaseUrl(baseUrl)}/`,
+    pragma: "no-cache",
+    "cache-control": "no-cache",
+    dnt: "1",
+    "sec-gpc": "1",
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-origin",
+    priority: "u=0"
+  };
+  if (isNode()) headers["user-agent"] = JOIN_USER_AGENT;
+  return headers;
+}
+
+function joinRejectMessage(code, { neverLoad, ship, server } = {}) {
+  if (code === 4007 && neverLoad) {
+    const name = ship?.name ? ` "${ship.name}"` : "";
+    const id = ship?.id != null ? ` (${ship.id})` : "";
+    const serverText = server?.description ? ` on ${server.description}` : "";
+    return `join rejected: 4007. ${name}${id}${serverText} could not be joined with never_load=true. Use session.start(server, ship) instead of session.join(server, ship) when loading or starting a saved ship.`;
+  }
+  return `join rejected: ${code}`;
+}

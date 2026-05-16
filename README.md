@@ -1,1 +1,105 @@
 # dredless
+
+Object-oriented headless client primitives for `drednot.io`.
+
+## Quick Start
+
+```js
+import Dredless from "dredless";
+
+const servers = await Dredless.fetchServers();
+const client = await Dredless.newShip(servers[0], "bot", "#de9797");
+
+client.send({ x: 1, y: 0 });
+```
+
+## Core Objects
+
+```js
+import Dredless, {
+  Session,
+  AnonSession,
+  Connection,
+  DredlessClient
+} from "dredless";
+```
+
+- `Session` stores `game_session`, notice/version state, and authenticated HTTP helpers.
+- `AnonSession` extends `Session` with `anon_key`.
+- `Connection` stores the result of `/join`: session, `game_token`, net port, and server id.
+- `DredlessClient` is the live WebSocket client that sends commands and processes packets.
+- `Dredless` is the default and named namespace for factories and unauthenticated fetch helpers.
+
+## Sessions
+
+Declaring existing sessions does not run network I/O:
+
+```js
+const session = new Session("game-session-token", "game-version");
+const anon = new AnonSession("game-session-token", "anon-key", "game-version");
+```
+
+Creating sessions does run the required HTTP calls:
+
+```js
+const emptySession = await Dredless.createSession(17);
+const anonSession = await Dredless.createAnonSession("anon-key", 17);
+const anonToken = await Dredless.createAnonToken(17);
+```
+
+If notice version is omitted, session factories try to scrape it and internally fall back to `17`.
+Direct `Dredless.fetchNoticeVersion()` throws when scraping fails.
+
+## Data Fetching
+
+```js
+const noticeVersion = await Dredless.fetchNoticeVersion();
+const gameVersion = await Dredless.fetchGameVersion();
+const servers = await Dredless.fetchServers();
+
+const status = await session.fetchAccountStatus();
+const ships = await Dredless.fetchShips(session, servers[0]);
+const shipList = await Dredless.fetchShipList(session, 0);
+
+const ships2 = await session.fetchShips(servers[0]);
+const shipList2 = await session.fetchShipList(1);
+```
+
+`fetchShips()` returns normalized ships only.
+`fetchShipList()` returns the full response body with `ships: Ship[]` normalized.
+
+## Connections And Clients
+
+Declare an existing joined connection without network I/O:
+
+```js
+const connection = new Connection(session, "game-token", 4003, 0);
+const client = new DredlessClient(connection);
+await client.waitUntilReady();
+```
+
+Start connections from a session:
+
+```js
+const joinConnection = await session.startJoinConnection(servers[0], ships[0]);
+const startConnection = await session.startConnection(servers[0], ships[0]);
+const newShipConnection = await session.startNewShipConnection(servers[0], "myship", "#de9797");
+```
+
+Start ready clients from a session:
+
+```js
+const joined = await session.join(servers[0], ships[0]);
+const started = await session.start(servers[0], ships[0]);
+const created = await session.newShip(servers[0], "myship", "#24f320ff");
+```
+
+Top-level convenience factories create an anonymous session when none is supplied:
+
+```js
+const joined = await Dredless.join(servers[0]);
+const started = await Dredless.start(servers[0]);
+const created = await Dredless.newShip(servers[0], "myship", "#24f320ff");
+```
+
+Server is required. If ship is omitted, a new unnamed ship is created.

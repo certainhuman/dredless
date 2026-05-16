@@ -1,37 +1,62 @@
-export { DrednotClient, createClient } from "./client.js";
-export { GameSession, createSession, createAnonSession, createAnonKey } from "./net/session.js";
-export { ServerDirectory, listServers, fetchLatestGameVersion } from "./net/servers.js";
-export { ShipService, listShips, newShip, createShip, createShipSpec, shipRef } from "./game/ships.js";
-export { GameConnection, connect, connectAnon } from "./game/connection.js";
+export { Session, AnonSession } from "./net/session.js";
+export { Connection } from "./game/connection.js";
+export { DredlessClient } from "./client.js";
 export { WorldStore, WorldState } from "./game/world.js";
 export { decodeMsgpack, encodeMsgpack } from "./protocol/msgpack.js";
 export { buildSignedCommandPacket } from "./protocol/commands.js";
 export { decryptPayload } from "./crypto/chacha.js";
 export { decompressLz4Frame } from "./compression/lz4.js";
 
-import { DrednotClient, createClient } from "./client.js";
-import { GameSession, createSession, createAnonSession, createAnonKey } from "./net/session.js";
-import { ServerDirectory, listServers, fetchLatestGameVersion } from "./net/servers.js";
-import { ShipService, listShips, newShip, createShip, createShipSpec, shipRef } from "./game/ships.js";
-import { GameConnection, connect, connectAnon } from "./game/connection.js";
+import { Session, AnonSession, createSession, createAnonSession, createAnonToken } from "./net/session.js";
+import { Connection } from "./game/connection.js";
+import { DredlessClient } from "./client.js";
+import { fetchNoticeVersion, fetchGameVersion, fetchServers } from "./net/servers.js";
+import { fetchShips, fetchShipList } from "./game/ships.js";
+import { WorldStore, WorldState } from "./game/world.js";
+import { decodeMsgpack, encodeMsgpack } from "./protocol/msgpack.js";
+import { buildSignedCommandPacket } from "./protocol/commands.js";
+import { decryptPayload } from "./crypto/chacha.js";
+import { decompressLz4Frame } from "./compression/lz4.js";
 
-export default {
-  DrednotClient,
-  createClient,
-  GameSession,
+async function sessionOrAnon(session) {
+  return session || createAnonSession();
+}
+
+async function join(server, ship = null, session = null) {
+  return (await sessionOrAnon(session)).join(server, ship);
+}
+
+async function start(server, ship = null, session = null) {
+  return (await sessionOrAnon(session)).start(server, ship);
+}
+
+async function newShip(server, name = "", color = "", session = null) {
+  return (await sessionOrAnon(session)).newShip(server, name, color);
+}
+
+export const Dredless = {
+  Session,
+  AnonSession,
+  Connection,
+  DredlessClient,
   createSession,
   createAnonSession,
-  createAnonKey,
-  ServerDirectory,
-  listServers,
-  fetchLatestGameVersion,
-  ShipService,
-  listShips,
+  createAnonToken,
+  fetchNoticeVersion,
+  fetchGameVersion,
+  fetchServers,
+  fetchShips,
+  fetchShipList,
+  join,
+  start,
   newShip,
-  createShip,
-  createShipSpec,
-  shipRef,
-  GameConnection,
-  connect,
-  connectAnon
+  WorldStore,
+  WorldState,
+  decodeMsgpack,
+  encodeMsgpack,
+  buildSignedCommandPacket,
+  decryptPayload,
+  decompressLz4Frame
 };
+
+export default Dredless;
