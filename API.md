@@ -77,7 +77,6 @@ session.gameVersion
 session.noticeVersion
 session.account
 session.geoServer
-session.raw
 ```
 
 Methods:
@@ -209,7 +208,7 @@ Ship arguments accept either:
 
 ```js
 123
-{ id: 123, name: "Existing ship", raw: {} }
+{ id: 123, name: "Existing ship" }
 { type: "new", name: "myship", color: "#de9797" }
 ```
 

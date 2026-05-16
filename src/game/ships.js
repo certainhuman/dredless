@@ -10,7 +10,7 @@ export function shipRef(ship) {
   if (ship == null) return null;
   if (typeof ship !== "object") return { type: "join_or_load", id: ship };
   if (ship.type) return ship;
-  const id = ship.id ?? ship.hexCode ?? ship.hex_code ?? ship.raw?.id ?? ship.raw?.hex_code;
+  const id = ship.id ?? ship.hexCode ?? ship.hex_code;
   if (id != null) return { type: "join_or_load", id };
   return ship;
 }

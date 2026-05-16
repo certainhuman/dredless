@@ -13,7 +13,6 @@ export class Session {
     this.cookies = setCookieValues(this.baseUrl, {});
     this.gameVersion = gameVersion || null;
     this._noticeVersion = null;
-    this.raw = null;
     this.account = null;
     this.geoServer = null;
     this.upgraded = false;
@@ -109,7 +108,6 @@ export class Session {
       showAds: this.showAds,
       forceTutorial: this.forceTutorial,
       ban: this.ban,
-      raw: this.raw
     };
   }
 
@@ -162,14 +160,12 @@ export class Session {
 
   #readStatus(raw) {
     const account = raw?.account && typeof raw.account === "object" ? raw.account : null;
-    this.raw = raw;
     this.account = account ? {
       name: account.name || account.username || account.display_name || account.displayName || account.handle || "Unknown",
       color: asNumber(account.color, 0),
       game_rank: asNumber(account.game_rank, 0),
       user_badges: Array.isArray(account.user_badges) ? account.user_badges.filter((item) => typeof item === "string") : [],
-      is_registered: Boolean(account.is_registered),
-      raw: account
+      is_registered: Boolean(account.is_registered)
     } : null;
     this.geoServer = asNumber(raw?.geo_server ?? raw?.geoServer, null);
     this.upgraded = Boolean(raw?.upgraded ?? account?.upgraded);

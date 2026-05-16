@@ -5,7 +5,6 @@ export interface Server {
   playerCount: number;
   maxPlayerCount: number;
   ping: number | null;
-  raw: unknown;
 }
 
 export interface Ship {
@@ -49,7 +48,6 @@ export class Session {
   showAds: boolean;
   forceTutorial: boolean;
   ban: unknown;
-  raw: unknown;
 
   get gameSession(): string;
   get gameToken(): string;
@@ -83,7 +81,6 @@ export interface Account {
   game_rank: number;
   user_badges: string[];
   is_registered: boolean;
-  raw: unknown;
 }
 
 export interface SessionSnapshot {
@@ -100,7 +97,6 @@ export interface SessionSnapshot {
   showAds: boolean;
   forceTutorial: boolean;
   ban: unknown;
-  raw: unknown;
   anonKey?: string;
 }
 

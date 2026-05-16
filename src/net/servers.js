@@ -118,5 +118,5 @@ function parseServerInfo(text, baseUrl) {
 }
 
 function server(index, domain, description) {
-  return { index, domain, description, playerCount: 0, maxPlayerCount: 0, ping: null, raw: { index, domain, description } };
+  return { index, domain, description, playerCount: 0, maxPlayerCount: 0, ping: null };
 }
