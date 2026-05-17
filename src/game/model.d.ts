@@ -1,12 +1,12 @@
 export {
-  WorldStore,
-  WorldState,
   ModelState,
-  type Tile,
-  type WorldSnapshot,
-  type WorldUpdate,
+  decodeModelData,
   type ModelRecord,
   type ModelSnapshot,
   type TransformSummary,
+  type ItemHolderSummary,
+  type FabricatorSummary,
+  type PlayerSummary,
+  type ShipControlSummary,
   type MachineSummary
 } from "../index.js";

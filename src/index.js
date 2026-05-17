@@ -2,6 +2,7 @@ export { Session, AnonSession } from "./net/session.js";
 export { Connection } from "./game/connection.js";
 export { DredlessClient } from "./client.js";
 export { WorldStore, WorldState } from "./game/world.js";
+export { ModelState, decodeModelData } from "./game/model.js";
 export { decodeMsgpack, encodeMsgpack } from "./protocol/msgpack.js";
 export { buildSignedCommandPacket } from "./protocol/commands.js";
 export { decryptPayload } from "./crypto/chacha.js";
@@ -13,6 +14,7 @@ import { DredlessClient } from "./client.js";
 import { fetchNoticeVersion, fetchGameVersion, fetchServers } from "./net/servers.js";
 import { fetchShips, fetchShipList } from "./game/ships.js";
 import { WorldStore, WorldState } from "./game/world.js";
+import { ModelState, decodeModelData } from "./game/model.js";
 import { decodeMsgpack, encodeMsgpack } from "./protocol/msgpack.js";
 import { buildSignedCommandPacket } from "./protocol/commands.js";
 import { decryptPayload } from "./crypto/chacha.js";
@@ -52,6 +54,8 @@ export const Dredless = {
   newShip,
   WorldStore,
   WorldState,
+  ModelState,
+  decodeModelData,
   decodeMsgpack,
   encodeMsgpack,
   buildSignedCommandPacket,

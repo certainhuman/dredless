@@ -1,6 +1,7 @@
 import { decryptPayload } from "../crypto/chacha.js";
 import { decompressLz4Frame } from "../compression/lz4.js";
 import { decodeMsgpack } from "../protocol/msgpack.js";
+import { ModelState } from "./model.js";
 
 export class WorldStore {
   constructor() {
@@ -22,8 +23,8 @@ export class WorldStore {
     return null;
   }
 
-  snapshot({ includeTiles = false } = {}) {
-    return [...this.worlds.values()].map((world) => world.snapshot({ includeTiles }));
+  snapshot({ includeTiles = false, includeModel = false } = {}) {
+    return [...this.worlds.values()].map((world) => world.snapshot({ includeTiles, includeModel }));
   }
 
   ids() {
@@ -39,6 +40,13 @@ export class WorldStore {
   }
 
   #applyMeta(packet) {
+    if (packet.removed) {
+      const world = this.worlds.get(Number(packet.world));
+      if (world) world.readMeta(packet);
+      this.worlds.delete(Number(packet.world));
+      if (this.currentWorldId === Number(packet.world)) this.currentWorldId = null;
+      return { type: "world-removed", world: world || null, packet };
+    }
     const world = this.get(packet.world);
     world.readMeta(packet);
     if (this.currentWorldId == null && !world.isOverworld) this.currentWorldId = world.id;
@@ -62,9 +70,31 @@ export class WorldStore {
 
   #applyModel(packet) {
     const world = this.get(packet.world);
-    const result = { worldId: packet.world, full: Boolean(packet.full), events: Array.isArray(packet.events) ? packet.events : [], modelData: packet.model_data || null, decoded: null };
+    const result = {
+      worldId: packet.world,
+      full: Boolean(packet.full),
+      events: Array.isArray(packet.events) ? packet.events : [],
+      modelData: packet.model_data || null,
+      decoded: null,
+      model: null,
+      commandNumber: typeof packet.command_number === "number" ? packet.command_number : null,
+      timing: {
+        roundTimeLeft: packet.round_time_left ?? null,
+        regenTimeLeft: packet.regen_time_left ?? null,
+        removeOnRegen: packet.remove_on_regen ?? null,
+        globalEventTime: packet.global_event_time ?? null,
+        tickTime: packet.tick_time ?? null,
+        tickQuota: packet.tick_quota ?? null,
+        cpuLoad: packet.cpu_load ?? null,
+        relayTime: packet.relay_time ?? null
+      }
+    };
+    if (packet.full) world.model = new ModelState();
     if (packet.model_data && world.seed != null) {
-      try { result.decoded = decryptPayload(packet.model_data, packet.world, world.seed); }
+      try {
+        result.decoded = decryptPayload(packet.model_data, packet.world, world.seed);
+        result.model = world.model.apply(result.decoded);
+      }
       catch (error) { result.error = error; }
     }
     world.modelPackets.push(result);
@@ -87,6 +117,7 @@ export class WorldState {
     this.chunks = [];
     this.events = [];
     this.modelPackets = [];
+    this.model = new ModelState();
     this.lastChunkPatch = null;
     this.lastPacket = null;
     this.meta = null;
@@ -146,7 +177,7 @@ export class WorldState {
     return tile;
   }
 
-  snapshot({ includeTiles = false } = {}) {
+  snapshot({ includeTiles = false, includeModel = false } = {}) {
     return {
       id: this.id,
       is_overworld: this.isOverworld,
@@ -160,7 +191,20 @@ export class WorldState {
       lastChunkPatch: this.lastChunkPatch,
       lastPacket: this.lastPacket,
       meta: this.meta,
+      model: this.model.snapshot({ includeTables: includeModel }),
+      transforms: this.model.transforms(),
+      machines: this.model.machines(),
+      players: this.model.players(),
+      shipControls: this.model.shipControls(),
       tiles: includeTiles ? [...this.tiles.values()] : undefined
     };
+  }
+
+  table(id) {
+    return this.model.table(id);
+  }
+
+  record(tableId, entityId) {
+    return this.model.record(tableId, entityId);
   }
 }

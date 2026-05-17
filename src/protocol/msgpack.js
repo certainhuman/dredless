@@ -1,4 +1,4 @@
-import { decoder, encoder, COMMAND_DEFAULT_FORMATS } from "../constants.js";
+import { decoder, encoder, COMMAND_FIELDS, COMMAND_DEFAULT_FORMATS } from "../constants.js";
 import { toUint8Array, concatBytes, valuesEqual } from "./binary.js";
 
 function cloneDragValue(drag) {

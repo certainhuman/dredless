@@ -29,6 +29,17 @@ export class DredlessClient extends EventBus {
     this.lastPacket = null;
     this.packets = [];
     this.worlds = new WorldStore();
+    this.cpuLoad = null;
+    this.inventory = null;
+    this.puiPanels = new Map();
+    this.warnings = [];
+    this.effects = [];
+    this.chat = [];
+    this.motd = [];
+    this.sessionMessages = [];
+    this.outfits = new Map();
+    this.commandAcks = new Map();
+    this.lastCommandAck = null;
     this.readyPromise = new Promise((resolve, reject) => {
       this.#resolveReady = resolve;
       this.#rejectReady = reject;
@@ -39,6 +50,7 @@ export class DredlessClient extends EventBus {
 
   #commandNumber = 1;
   #queuedCommands = [];
+  #queuedMessages = [];
   #keepalive = null;
   #bootstrapped = false;
   #resolveReady = null;
@@ -60,6 +72,56 @@ export class DredlessClient extends EventBus {
     return this;
   }
 
+  sendMessage(message, { afterReady = true } = {}) {
+    if (!this.connected || (afterReady && !this.ready)) {
+      this.#queuedMessages.push({ message, afterReady });
+      return this;
+    }
+    this.ws.send(encodeMsgpack(message));
+    this.emit("message", message);
+    return this;
+  }
+
+  sendRaw(message, options = {}) {
+    return this.sendMessage(message, options);
+  }
+
+  setOutfit(outfit) {
+    return this.sendMessage({ type: 7, outfit });
+  }
+
+  sendFabricatorCommand(itemId, count = 1, index = -1) {
+    return this.sendMessage({ type: 5, cmd: "craft_add", args: [itemId, count, index] });
+  }
+
+  craftAdd(itemId, count = 1, index = -1) {
+    return this.sendFabricatorCommand(itemId, count, index);
+  }
+
+  sendUiConfig(data) {
+    return this.sendMessage({ type: 8, data });
+  }
+
+  move(x = 0, y = 0, command = {}) {
+    return this.send({ ...command, x, y });
+  }
+
+  aim(mx = 0, my = 0, command = {}) {
+    return this.send({ ...command, mx, my });
+  }
+
+  action(flags = {}, command = {}) {
+    return this.send({ ...command, ...flags });
+  }
+
+  selectSlot(invSlot = 0, command = {}) {
+    return this.send({ ...command, inv_slot: invSlot });
+  }
+
+  drag(source, target, split = false, command = {}) {
+    return this.send({ ...command, drag: { source, target, split } });
+  }
+
   close(code = 1000, reason = "client") {
     try { this.ws?.close(code, reason); } catch (_) {}
     return this;
@@ -69,7 +131,7 @@ export class DredlessClient extends EventBus {
     return this.close(code, reason);
   }
 
-  snapshot({ includeTiles = false } = {}) {
+  snapshot({ includeTiles = false, includeModel = false } = {}) {
     return {
       baseUrl: this.baseUrl,
       session: this.session?.toJSON?.() || this.session,
@@ -81,7 +143,18 @@ export class DredlessClient extends EventBus {
       ready: this.ready,
       connected: this.connected,
       currentWorldId: this.worlds.currentWorldId,
-      worlds: this.worlds.snapshot({ includeTiles }),
+      worlds: this.worlds.snapshot({ includeTiles, includeModel }),
+      cpuLoad: this.cpuLoad,
+      inventory: this.inventory,
+      puiPanels: [...this.puiPanels.values()],
+      warnings: this.warnings.slice(-50),
+      effects: this.effects.slice(-50),
+      chat: this.chat.slice(-50),
+      motd: this.motd.slice(-20),
+      sessionMessages: this.sessionMessages.slice(-50),
+      outfits: [...this.outfits.entries()].map(([sid, outfit]) => ({ sid, outfit })),
+      commandAcks: [...this.commandAcks.entries()].map(([world, commandNumber]) => ({ world, commandNumber })),
+      lastCommandAck: this.lastCommandAck,
       packetCount: this.packetCount,
       lastPacket: this.lastPacket
     };
@@ -122,6 +195,7 @@ export class DredlessClient extends EventBus {
       this.connected = true;
       this.ws.send(encodeMsgpack({ type: 1 }));
       this.emit("open", this);
+      this.#flushMessages();
     };
 
     this.ws.onmessage = (event) => this.#handleMessage(event.data);
@@ -151,10 +225,9 @@ export class DredlessClient extends EventBus {
     if (packet.type === 21) return this.#markReady(packet);
     const worldUpdate = this.worlds.apply(packet);
     if (worldUpdate) {
-      this.emit(worldUpdate.type, worldUpdate);
-      this.emit("world", worldUpdate.world.snapshot());
-    } else if (packet.type === 25 || packet.type === 26) {
-      this.emit("event", packet);
+      this.#handleWorldUpdate(worldUpdate);
+    } else {
+      this.#handlePacketEvent(packet);
     }
   }
 
@@ -164,6 +237,7 @@ export class DredlessClient extends EventBus {
     this.ready = true;
     this.#sendBootstrap();
     this.#startKeepalive();
+    this.#flushMessages();
     this.#flushCommands();
     this.#resolveReady?.(this);
     this.#resolveReady = null;
@@ -187,6 +261,97 @@ export class DredlessClient extends EventBus {
 
   #flushCommands() {
     while (this.#queuedCommands.length) this.send(this.#queuedCommands.shift());
+  }
+
+  #flushMessages() {
+    if (!this.connected) return;
+    const pending = [];
+    for (const item of this.#queuedMessages) {
+      if (item.afterReady && !this.ready) pending.push(item);
+      else this.sendMessage(item.message, { afterReady: item.afterReady });
+    }
+    this.#queuedMessages = pending;
+  }
+
+  #handleWorldUpdate(worldUpdate) {
+    this.emit(worldUpdate.type, worldUpdate);
+    if (worldUpdate.world) this.emit("world", worldUpdate.world.snapshot());
+    if (worldUpdate.type === "world-removed") {
+      this.emit("world-removed", worldUpdate.packet);
+      return;
+    }
+
+    const result = worldUpdate.result;
+    if (result?.timing?.cpuLoad != null) this.cpuLoad = result.timing.cpuLoad;
+    if (result?.commandNumber != null) this.#ackCommand(result.worldId, result.commandNumber);
+    for (const event of result?.events || []) this.#handleSideEvent(event, worldUpdate.world);
+  }
+
+  #handlePacketEvent(packet) {
+    switch (packet.type) {
+      case 14:
+        if (packet.sid != null) this.outfits.set(packet.sid, packet.outfit);
+        this.emit("outfit", packet);
+        break;
+      case 18:
+        this.cpuLoad = packet.cpu_load ?? null;
+        this.emit("cpu", packet);
+        break;
+      case 24:
+        this.#pushLimited(this.chat, packet);
+        this.emit("chat", packet);
+        break;
+      case 25:
+        this.#pushLimited(this.sessionMessages, packet);
+        this.emit("session", packet);
+        break;
+      case 26:
+        this.#pushLimited(this.motd, packet);
+        this.emit("motd", packet);
+        break;
+      default:
+        this.emit("event", packet);
+        break;
+    }
+  }
+
+  #handleSideEvent(event, world) {
+    if (!event || typeof event !== "object") return;
+    if (event.type === "inventory") {
+      this.inventory = normalizeInventory(event);
+      this.emit("inventory", this.inventory, world);
+      return;
+    }
+    if (event.type === "pui") {
+      const panel = { ...event, world: world?.id ?? null };
+      if (event.ent_id != null) this.puiPanels.set(event.ent_id, panel);
+      this.emit("pui", panel, world);
+      return;
+    }
+    if (event.type === "tip_warn") {
+      this.#pushLimited(this.warnings, event);
+      this.emit("tip_warn", event, world);
+      return;
+    }
+    if (event.type === "sfx") {
+      this.#pushLimited(this.effects, event);
+      this.emit("sfx", event, world);
+      return;
+    }
+    this.emit("side-event", event, world);
+  }
+
+  #ackCommand(worldId, commandNumber) {
+    this.commandAcks.set(Number(worldId), commandNumber);
+    if (commandNumber >= 0 && (this.lastCommandAck == null || commandNumber > this.lastCommandAck.commandNumber)) {
+      this.lastCommandAck = { world: Number(worldId), commandNumber };
+      this.emit("ack", this.lastCommandAck);
+    }
+  }
+
+  #pushLimited(target, value, limit = 200) {
+    target.push(value);
+    if (target.length > limit) target.splice(0, target.length - limit);
   }
 
   #wsHeaders() {
@@ -222,4 +387,31 @@ export class DredlessClient extends EventBus {
     this.#rejectReady = null;
     try { this.emit("error", error); } catch (_) {}
   }
+}
+
+function normalizeInventory(event) {
+  const items = Array.isArray(event.items) ? event.items : [];
+  const counts = Array.isArray(event.item_counts) ? event.item_counts : [];
+  const generalSlots = Number(event.general_slots ?? 0);
+  const length = Math.max(items.length, counts.length, generalSlots);
+  const slots = [];
+  for (let index = 0; index < length; index++) {
+    slots.push({
+      index,
+      itemId: items[index] ?? null,
+      count: counts[index] ?? 0,
+      kind: index < generalSlots ? "hotbar" : "equipment"
+    });
+  }
+  return {
+    ...event,
+    general_slots: generalSlots,
+    slots,
+    hotbar: slots.slice(0, generalSlots),
+    equipment: {
+      back: slots[19] || null,
+      hands: slots[20] || null,
+      feet: slots[21] || null
+    }
+  };
 }

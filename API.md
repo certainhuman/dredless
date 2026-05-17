@@ -11,9 +11,11 @@ import Dredless, {
   DredlessClient,
   WorldStore,
   WorldState,
+  ModelState,
   decodeMsgpack,
   encodeMsgpack,
   buildSignedCommandPacket,
+  decodeModelData,
   decryptPayload,
   decompressLz4Frame
 } from "dredless";
@@ -163,6 +165,14 @@ client.readyPromise
 client.packetCount
 client.lastPacket
 client.worlds
+client.cpuLoad
+client.inventory
+client.puiPanels
+client.chat
+client.motd
+client.sessionMessages
+client.commandAcks
+client.lastCommandAck
 client.packetsRaw
 ```
 
@@ -171,13 +181,29 @@ Methods:
 ```js
 await client.waitUntilReady();
 client.send(command);
+client.sendMessage(message, { afterReady? });
+client.sendRaw(message, { afterReady? });
+client.setOutfit(outfit);
+client.sendFabricatorCommand(itemId, count?, index?);
+client.craftAdd(itemId, count?, index?);
+client.sendUiConfig(data);
+client.move(x?, y?, command?);
+client.aim(mx?, my?, command?);
+client.action(flags?, command?);
+client.selectSlot(invSlot?, command?);
+client.drag(source, target, split?, command?);
 client.close(code?, reason?);
 client.disconnect(code?, reason?);
-client.snapshot({ includeTiles? });
-client.world(id, { includeTiles? });
-client.overworld({ includeTiles? });
-client.shipWorld({ includeTiles? });
+client.snapshot({ includeTiles?, includeModel? });
+client.world(id, { includeTiles?, includeModel? });
+client.overworld({ includeTiles?, includeModel? });
+client.shipWorld({ includeTiles?, includeModel? });
 ```
+
+`send()` builds a signed `type: 0` input command and waits for the server `sid`
+before sending. `sendMessage()` sends ordinary MsgPack websocket messages such
+as `type: 5` fabricator commands, `type: 7` outfits, and `type: 8` UI/config
+payloads.
 
 Events:
 
@@ -186,14 +212,33 @@ client.on("open", fn);
 client.on("ready", fn);
 client.on("packet", fn);
 client.on("world", fn);
+client.on("world-removed", fn);
 client.on("tiles", fn);
 client.on("model", fn);
+client.on("inventory", fn);
+client.on("pui", fn);
+client.on("tip_warn", fn);
+client.on("sfx", fn);
+client.on("chat", fn);
+client.on("motd", fn);
+client.on("session", fn);
+client.on("outfit", fn);
+client.on("cpu", fn);
+client.on("ack", fn);
 client.on("event", fn);
 client.on("command", fn);
+client.on("message", fn);
 client.on("bootstrap", fn);
 client.on("close", fn);
 client.on("error", fn);
 ```
+
+World snapshots include decoded tile counts, metadata, and model summaries.
+`includeTiles` includes tile arrays; `includeModel` includes decoded model table
+records. The model decoder is best-effort and currently covers the component
+tables documented in `spec/game-state-transmission-spec.md`, including
+transforms, item holders, fabricators, players, ship controls, fluid tanks,
+shield charge, and starter cannon state.
 
 ## Server And Ship Arguments
 

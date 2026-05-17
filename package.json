@@ -41,6 +41,16 @@
       "import": "./src/game/world.js",
       "default": "./src/game/world.js"
     },
+    "./model": {
+      "types": "./src/game/model.d.ts",
+      "import": "./src/game/model.js",
+      "default": "./src/game/model.js"
+    },
+    "./game/model": {
+      "types": "./src/game/model.d.ts",
+      "import": "./src/game/model.js",
+      "default": "./src/game/model.js"
+    },
     "./protocol/msgpack": {
       "types": "./src/protocol/msgpack.d.ts",
       "import": "./src/protocol/msgpack.js",
@@ -66,6 +76,7 @@
     "ws": "^8.18.0"
   },
   "scripts": {
-    "check": "node --check src/index.js && find src -name '*.js' -print0 | xargs -0 -n1 node --check"
+    "check": "node --check src/index.js && find src -name '*.js' -print0 | xargs -0 -n1 node --check",
+    "watch": "node watch.js"
   }
 }

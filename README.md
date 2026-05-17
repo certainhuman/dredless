@@ -11,6 +11,10 @@ const servers = await Dredless.fetchServers();
 const client = await Dredless.newShip(servers[0], "bot", "#de9797");
 
 client.send({ x: 1, y: 0 });
+client.craftAdd(150, 1);
+
+client.on("inventory", (inventory) => console.log(inventory.hotbar));
+client.on("model", ({ world }) => console.log(world.model.transforms()));
 ```
 
 ## Core Objects
@@ -28,6 +32,7 @@ import Dredless, {
 - `AnonSession` extends `Session` with `anon_key`.
 - `Connection` stores the result of `/join`: session, `game_token`, net port, and server id.
 - `DredlessClient` is the live WebSocket client that sends commands and processes packets.
+- `WorldStore` / `WorldState` keep decoded world metadata, tiles, model packets, and best-effort ECS model tables.
 - `Dredless` is the default and named namespace for factories and unauthenticated fetch helpers.
 
 ## Sessions
@@ -103,3 +108,15 @@ const created = await Dredless.newShip(servers[0], "myship", "#24f320ff");
 ```
 
 Server is required. If ship is omitted, a new unnamed ship is created.
+
+## Live Watch Script
+
+```sh
+npm run watch
+```
+
+`watch.js` joins the first owned ship, or creates an unnamed ship when none is
+available, and redraws known websocket state until Ctrl+C. Optional environment
+variables: `DRED_ANON_KEY`, `DRED_SERVER`, `DRED_SHIP`, `DRED_REFRESH_MS`,
+`DRED_LINES`, `DRED_COLUMNS`, and `DRED_ALT_SCREEN=0` to draw in the current
+terminal buffer instead of the alternate screen.
