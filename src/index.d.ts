@@ -277,6 +277,36 @@ export interface PuiEvent {
   world?: number | null;
 }
 
+export interface EntityContentsSummary {
+  itemHolder?: ItemHolderSummary;
+  fabricator?: FabricatorSummary;
+  processor?: { entity: number; state: ModelRecord };
+  cannon?: CannonSummary;
+  fluidTank?: { entity: number; amount: number | null; state: ModelRecord };
+  shieldGenerator?: { entity: number; charge: number | null; state: ModelRecord };
+  player?: PlayerSummary;
+  shipControl?: ShipControlSummary;
+}
+
+export interface EntitySummary {
+  entity: number;
+  typeId: number | null;
+  typeName: string | null;
+  label: string;
+  kind: string[];
+  transform: TransformSummary | null;
+  footprint: { width: number; height: number; source: "type" | "heuristic" | "default" };
+  contents: EntityContentsSummary | null;
+  occupies: { x: number; y: number }[];
+  tables: { tableId: number; name: string | null; record: ModelRecord }[];
+}
+
+export interface BlockSummary {
+  x: number;
+  y: number;
+  entities: EntitySummary[];
+}
+
 export class WorldStore {
   currentWorldId: number | null;
   worlds: Map<number, WorldState>;
@@ -295,6 +325,7 @@ export class WorldState {
   id: number;
   seed: number | null;
   isOverworld: boolean | null;
+  tileset: Tileset | null;
   blockWidth: number | null;
   blockHeight: number | null;
   parentWorld: number | null;
@@ -316,6 +347,10 @@ export class WorldState {
   snapshot(options?: { includeTiles?: boolean; includeModel?: boolean }): WorldSnapshot;
   table(id: number): Map<number, ModelRecord>;
   record(tableId: number, entityId: number): ModelRecord | null;
+  tileDefinition(material: number): TileDefinition | null;
+  entity(entityId: number): EntitySummary | null;
+  entities(): EntitySummary[];
+  blocks(): BlockSummary[];
 }
 
 export interface Tile {
@@ -327,9 +362,38 @@ export interface Tile {
   color: number | null;
 }
 
+export interface TilePhysics {
+  filter?: {
+    categoryBits: number;
+    maskBits: number;
+    groupIndex: number;
+  };
+  transparent?: boolean;
+  walkway?: boolean;
+  restitution?: number;
+  friction?: number;
+}
+
+export interface TileDefinition {
+  solid: boolean;
+  destruct_item?: number;
+  blocks_bullets?: boolean;
+  hp?: number;
+  no_build_surface?: boolean;
+  physics?: TilePhysics;
+}
+
+export interface Tileset {
+  scale: number;
+  atlas: string;
+  tile_width: number;
+  tiles: TileDefinition[];
+}
+
 export interface WorldSnapshot {
   id: number;
   is_overworld: boolean | null;
+  tileset: Tileset | null;
   seed: number | null;
   block_w: number | null;
   block_h: number | null;
@@ -341,6 +405,8 @@ export interface WorldSnapshot {
   lastPacket: unknown;
   meta: unknown;
   model: ModelSnapshot;
+  entities: EntitySummary[];
+  blocks: BlockSummary[];
   transforms: TransformSummary[];
   machines: MachineSummary;
   players: PlayerSummary[];
@@ -366,6 +432,9 @@ export class ModelState {
 
   table(id: number): Map<number, ModelRecord>;
   record(tableId: number, entityId: number): ModelRecord | null;
+  entity(entityId: number): EntitySummary | null;
+  entities(): EntitySummary[];
+  blocks(): BlockSummary[];
   apply(bytes: Uint8Array | ArrayBuffer | number[]): unknown;
   snapshot(options?: { includeTables?: boolean }): ModelSnapshot;
   tablesSnapshot(): unknown[];
@@ -386,6 +455,8 @@ export interface ModelSnapshot {
   removedEntities: number[];
   lastUpdate: unknown;
   errors: unknown[];
+  entities: EntitySummary[];
+  blocks: BlockSummary[];
   tables: unknown[];
 }
 
@@ -400,14 +471,27 @@ export interface TransformSummary {
 export interface ItemHolderSummary {
   entity: number;
   itemId: number | null;
+  itemName: string | null;
   count: number | null;
 }
 
 export interface FabricatorSummary {
   entity: number;
   state: ModelRecord;
-  rows: { itemId: number | null; count: number | null }[];
+  rows: { itemId: number | null; itemName: string | null; count: number | null }[];
   progress: number | null;
+}
+
+export interface CannonSummary {
+  entity: number;
+  ammoItemId: number | null;
+  ammoName: string | null;
+  ammoCount: number;
+  aim: number | null;
+  recoil: number | null;
+  charge: number | null;
+  charged: boolean | null;
+  state: ModelRecord;
 }
 
 export interface PlayerSummary {
@@ -427,7 +511,7 @@ export interface MachineSummary {
   itemHolders: ItemHolderSummary[];
   fabricators: FabricatorSummary[];
   processors: { entity: number; state: ModelRecord }[];
-  cannons: { entity: number; state: ModelRecord }[];
+  cannons: CannonSummary[];
   fluidTanks: { entity: number; amount: number | null; state: ModelRecord }[];
   shieldGenerators: { entity: number; charge: number | null; state: ModelRecord }[];
 }

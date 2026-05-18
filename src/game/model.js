@@ -79,11 +79,15 @@ const MODEL_TABLE_SPECS = new Map([
       };
     }
   }],
+  [1, { name: "body_state", fields: numericFields({ 1: 20, 8: 24, 16: 28, 32: 32 }) }],
   [3, { name: "gate_width", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40 }) }],
   [4, { name: "motion_aux", packedBits: [{ bit: 8, offset: 33 }], fields: numericFields({ 1: 20, 2: 24, 4: 28 }) }],
   [5, { name: "entity_state", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32 }) }],
   [6, { name: "item_holder", ...TWO_FIELD_SPEC }],
+  [7, { name: "entity_type", ...TWO_FIELD_SPEC }],
   [11, { name: "numeric_sparse", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36 }) }],
+  [14, { name: "size_state", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40, 64: 44 }) }],
+  [16, { name: "named_state", fields: numericFields({ 1: 20, 2: 24, 8: 28 }), blobs: [{ bit: 16, offset: 32 }] }],
   [19, { name: "motion_state", packedBits: [{ bit: 4, offset: 29 }], ...TWO_FIELD_SPEC }],
   [20, {
     name: "ship_control",
@@ -118,6 +122,7 @@ const MODEL_TABLE_SPECS = new Map([
   [47, { name: "flag_state", packedBits: [{ bit: 1, offset: 21 }], fields: [] }],
   [49, { name: "processor_cycle", packedBits: [{ bit: 2, offset: 33 }], fields: numericFields({ 1: 20, 4: 24, 8: 28 }) }],
   [50, { name: "rare_snapshot", packedBits: [{ bit: 2, offset: 33 }, { bit: 8, offset: 34 }, { bit: 32, offset: 35 }], fields: numericFields({ 1: 20, 4: 24, 16: 28 }) }],
+  [51, { name: "numeric_pair", ...TWO_FIELD_SPEC }],
   [53, {
     name: "fabricator",
     packedBits: [{ bit: 2, offset: 61 }],
@@ -126,6 +131,7 @@ const MODEL_TABLE_SPECS = new Map([
   [54, { name: "starter_cannon", fields: numericFields({ 1: 20, 2: 32, 4: 24, 8: 28, 32: 36, 256: 40 }) }],
   [55, {
     name: "player",
+    packedBeforeValues: true,
     fields: numericFields({
       256: 20, 512: 24, 1024: 28, 2048: 32, 4096: 36, 8192: 40,
       16384: 44, 32768: 48, 65536: 52, 131072: 56, 262144: 60,
@@ -144,6 +150,7 @@ const MODEL_TABLE_SPECS = new Map([
       { bit: 134217728, offset: 112 }
     ]
   }],
+  [56, { name: "numeric_snapshot", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 64: 40, 256: 44, 1024: 48 }) }],
   [60, { name: "fluid_tank", packedBits: [{ bit: 4, offset: 29 }], ...TWO_FIELD_SPEC }],
   [61, { name: "shield_charge", ...TWO_FIELD_SPEC }],
   [62, { name: "flag_state", packedBits: [{ bit: 1, offset: 21 }], fields: [] }],
@@ -154,10 +161,15 @@ const MODEL_TABLE_SPECS = new Map([
 
 const WIRE_TAG_TABLES = new Map([
   [1, 0],
+  [2, 1],
   [4, 3],
   [5, 4],
   [40, 5],
+  [42, 6],
+  [43, 7],
   [47, 11],
+  [50, 14],
+  [52, 16],
   [82, 19],
   [83, 20],
   [84, 21],
@@ -170,18 +182,120 @@ const WIRE_TAG_TABLES = new Map([
   [130, 47],
   [132, 49],
   [133, 50],
+  [134, 51],
   [136, 53],
   [137, 54],
   [138, 55],
+  [139, 56],
   [143, 60],
   [144, 61],
   [145, 62],
+  [148, 65],
   [152, 69],
   [153, 70],
-  [158, 75]
+  [158, 75],
+  [160, 76],
+  [161, 77],
+  [164, 73],
+  [165, 74],
+  [168, 78]
 ]);
 
-const MASK_ONLY_TABLES = new Set([13, 21, 22, 23, 27, 30, 36, 40, 46, 52, 58, 65, 66, 68, 73, 74, 77]);
+const MASK_ONLY_TABLES = new Set([13, 21, 22, 23, 27, 30, 36, 40, 46, 52, 58, 65, 66, 68, 73, 74, 76, 77, 78]);
+
+const ENTITY_TYPE_NAMES = new Map([
+  [1, "Iron"],
+  [2, "Explosives"],
+  [4, "Hyper Rubber"],
+  [5, "Flux Crystals"],
+  [6, "Thruster Fuel"],
+  [100, "Wrench"],
+  [101, "Item Shredder"],
+  [103, "Repair Tool"],
+  [115, "Manifest Scanner"],
+  [116, "BoM Scanner"],
+  [117, "Starter Wrench"],
+  [118, "Starter Shredder"],
+  [119, "Hand Cannon"],
+  [120, "Blueprint Scanner"],
+  [121, "Sandbox RCD"],
+  [122, "Flux RCD"],
+  [123, "Shield Core"],
+  [150, "Standard Ammo"],
+  [151, "ScatterShot Ammo"],
+  [152, "Flak Ammo"],
+  [153, "Sniper Ammo"],
+  [154, "Punch Ammo"],
+  [155, "Yank Ammo"],
+  [156, "Slug Ammo"],
+  [157, "Trash Box"],
+  [159, "Booster Fuel (Low Grade)"],
+  [160, "Booster Fuel (High Grade)"],
+  [166, "Cooling Cell"],
+  [168, "Burst Charge"],
+  [215, "Helm"],
+  [216, "Helm (Starter)"],
+  [217, "Comms Station"],
+  [218, "Sign"],
+  [219, "Spawn Point"],
+  [220, "Door"],
+  [221, "Cargo Hatch"],
+  [222, "Cargo Hatch (Starter)"],
+  [223, "Cargo Ejector"],
+  [224, "Turret Controller"],
+  [226, "Cannon"],
+  [227, "Starter Cannon"],
+  [228, "Burst Cannon"],
+  [229, "Machine Cannon"],
+  [230, "Thruster"],
+  [231, "Starter Thruster"],
+  [232, "Iron Block"],
+  [233, "Hyper Rubber Block"],
+  [234, "Hyper Ice Block"],
+  [235, "Ladder"],
+  [236, "Walkway"],
+  [237, "Item Net"],
+  [239, "Paint"],
+  [240, "Expando Box"],
+  [241, "Safety Anchor"],
+  [242, "Pusher"],
+  [243, "Item Launcher"],
+  [245, "Recycler"],
+  [246, "Fabricator (Legacy)"],
+  [247, "Fabricator (Starter)"],
+  [248, "Fabricator (Munitions)"],
+  [249, "Fabricator (Engineering)"],
+  [250, "Fabricator (Deprecated)"],
+  [251, "Fabricator (Equipment)"],
+  [252, "Loader"],
+  [253, "Lockdown Override Unit"],
+  [254, "Annihilator Tile"],
+  [255, "Fluid Tank"],
+  [256, "Shield Generator"],
+  [257, "Shield Projector"],
+  [258, "Enhanced Turret Controller"],
+  [259, "Bulk Ejector"],
+  [260, "Bulk Loading Bay Designator"],
+  [261, "Navigation Unit"],
+  [262, "Logistics Rail"],
+  [263, "Acute Cannon"],
+  [264, "Munitions Supply Unit"],
+  [265, "Obtuse Cannon"]
+]);
+
+const ENTITY_FOOTPRINTS = new Map([
+  [240, { width: 2, height: 2 }],
+  [247, { width: 2, height: 2 }],
+  [248, { width: 2, height: 2 }],
+  [249, { width: 2, height: 2 }],
+  [251, { width: 2, height: 2 }],
+  [256, { width: 2, height: 2 }],
+  [261, { width: 2, height: 2 }]
+]);
+
+const CANNON_AMMO_COLOR_ITEM_IDS = new Map([
+  [0xff9600, 150]
+]);
 
 function numberOrNull(value, divisor = 1) {
   return typeof value === "number" ? value / divisor : null;
@@ -209,6 +323,94 @@ function decodeText(blob) {
   catch (_) { return null; }
 }
 
+function entityNameFromType(typeId) {
+  return typeId == null ? null : ENTITY_TYPE_NAMES.get(Number(typeId)) || null;
+}
+
+function itemSummary(itemId, count = null) {
+  const id = itemId == null ? null : Number(itemId);
+  return {
+    itemId: Number.isFinite(id) ? id : null,
+    itemName: Number.isFinite(id) ? entityNameFromType(id) : null,
+    count
+  };
+}
+
+function summarizeItemHolder(entity, record) {
+  if (!record) return null;
+  return {
+    entity,
+    ...itemSummary(record.q20, record.q24 ?? null)
+  };
+}
+
+function summarizeFabricator(entity, record) {
+  if (!record) return null;
+  return {
+    entity,
+    state: cloneRecord(record),
+    rows: [
+      itemSummary(record.q28, record.q40 ?? null),
+      itemSummary(record.q32, record.q44 ?? null),
+      itemSummary(record.q36, record.q48 ?? null)
+    ],
+    progress: record.q24 ?? null
+  };
+}
+
+function summarizeCannon(entity, record) {
+  if (!record) return null;
+  const ammoItemId = record.q24 == null ? null : CANNON_AMMO_COLOR_ITEM_IDS.get(record.q24) ?? null;
+  const charge = record.q40 ?? null;
+  return {
+    entity,
+    ammoItemId,
+    ammoName: entityNameFromType(ammoItemId),
+    ammoCount: record.q28 ?? 0,
+    aim: record.q32 ?? null,
+    recoil: record.q36 ?? null,
+    charge,
+    charged: charge == null ? null : charge >= 50,
+    state: cloneRecord(record)
+  };
+}
+
+function mergeContents(...parts) {
+  const out = {};
+  for (const part of parts) {
+    if (!part) continue;
+    for (const [key, value] of Object.entries(part)) {
+      if (value == null) continue;
+      out[key] = value;
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+function entityFootprint(entity) {
+  if (entity?.typeId != null && ENTITY_FOOTPRINTS.has(entity.typeId)) {
+    const footprint = ENTITY_FOOTPRINTS.get(entity.typeId);
+    return { ...footprint, source: "type" };
+  }
+  if (entity?.fabricator || entity?.shieldGenerator) return { width: 2, height: 2, source: "heuristic" };
+  return { width: 1, height: 1, source: "default" };
+}
+
+function entityLabel(entity) {
+  if (entity?.typeName) return entity.typeName;
+  if (entity?.fabricator) return "Fabricator";
+  if (entity?.shieldGenerator) return "Shield Generator";
+  if (entity?.fluidTank) return "Fluid Tank";
+  if (entity?.cannon) return "Cannon";
+  if (entity?.processor) return "Processor";
+  if (entity?.itemHolder && !entity?.processor && !entity?.cannon && !entity?.fluidTank && !entity?.shieldGenerator) {
+    return entity.itemHolder.itemName || "Item Holder";
+  }
+  if (entity?.player) return "Player";
+  if (entity?.shipControl) return "Ship Control";
+  return entity?.typeId != null ? `Entity ${entity.typeId}` : "Entity";
+}
+
 export class ModelState {
   constructor() {
     this.generation = null;
@@ -224,6 +426,36 @@ export class ModelState {
 
   record(tableId, entityId) {
     return this.table(tableId).get(Number(entityId)) || null;
+  }
+
+  entity(entityId) {
+    const id = Number(entityId);
+    if (!Number.isFinite(id)) return null;
+    return this.#summarizeEntity(id);
+  }
+
+  entities() {
+    return this.#entityIds().map((entityId) => this.#summarizeEntity(entityId));
+  }
+
+  blocks() {
+    const blocks = new Map();
+    for (const entity of this.entities()) {
+      if (!entity.transform) continue;
+      const footprint = entity.footprint || { width: 1, height: 1 };
+      const startX = Math.floor(entity.transform.x);
+      const startY = Math.floor(entity.transform.y);
+      for (let dx = 0; dx < footprint.width; dx++) {
+        for (let dy = 0; dy < footprint.height; dy++) {
+          const x = startX + dx;
+          const y = startY + dy;
+          const key = `${x},${y}`;
+          if (!blocks.has(key)) blocks.set(key, { x, y, entities: [] });
+          blocks.get(key).entities.push(entity);
+        }
+      }
+    }
+    return [...blocks.values()].sort((a, b) => (a.y - b.y) || (a.x - b.x));
   }
 
   apply(bytes) {
@@ -280,6 +512,8 @@ export class ModelState {
       removedEntities: this.removedEntities.slice(-50),
       lastUpdate: this.lastUpdate ? summarizeUpdate(this.lastUpdate) : null,
       errors: this.errors.slice(-10),
+      entities: this.entities(),
+      blocks: this.blocks(),
       tables: includeTables ? this.tablesSnapshot() : tables
     };
   }
@@ -303,24 +537,11 @@ export class ModelState {
   }
 
   itemHolders() {
-    return this.#records(6).map((entry) => ({
-      entity: entry.entity,
-      itemId: entry.q20 ?? null,
-      count: entry.q24 ?? null
-    }));
+    return this.#records(6).map((entry) => summarizeItemHolder(entry.entity, entry));
   }
 
   fabricators() {
-    return this.#records(53).map((entry) => ({
-      entity: entry.entity,
-      state: cloneRecord(entry),
-      rows: [
-        { itemId: entry.q28 ?? null, count: entry.q40 ?? null },
-        { itemId: entry.q32 ?? null, count: entry.q44 ?? null },
-        { itemId: entry.q36 ?? null, count: entry.q48 ?? null }
-      ],
-      progress: entry.q24 ?? null
-    }));
+    return this.#records(53).map((entry) => summarizeFabricator(entry.entity, entry));
   }
 
   players() {
@@ -345,10 +566,96 @@ export class ModelState {
       itemHolders: this.itemHolders(),
       fabricators: this.fabricators(),
       processors: this.#records(49).map((entry) => ({ entity: entry.entity, state: cloneRecord(entry) })),
-      cannons: this.#records(54).map((entry) => ({ entity: entry.entity, state: cloneRecord(entry) })),
+      cannons: this.#records(54).map((entry) => summarizeCannon(entry.entity, entry)),
       fluidTanks: this.#records(60).map((entry) => ({ entity: entry.entity, amount: entry.q24 ?? null, state: cloneRecord(entry) })),
       shieldGenerators: this.#records(61).map((entry) => ({ entity: entry.entity, charge: entry.q20 ?? null, state: cloneRecord(entry) }))
     };
+  }
+
+  #entityIds() {
+    return [...new Set([...this.tables.values()].flatMap((records) => [...records.keys()]))].sort((a, b) => a - b);
+  }
+
+  #summarizeEntity(entityId) {
+    const transformRecord = this.record(0, entityId);
+    const itemHolderRecord = this.record(6, entityId);
+    const fabricatorRecord = this.record(53, entityId);
+    const processorRecord = this.record(49, entityId);
+    const cannonRecord = this.record(54, entityId);
+    const fluidTankRecord = this.record(60, entityId);
+    const shieldRecord = this.record(61, entityId);
+    const playerRecord = this.record(55, entityId);
+    const shipControlRecord = this.record(20, entityId);
+    const typeRecord = this.record(7, entityId);
+    const typeId = typeRecord?.q20 ?? null;
+    const itemHolder = summarizeItemHolder(entityId, itemHolderRecord);
+    const fabricator = summarizeFabricator(entityId, fabricatorRecord);
+    const processor = processorRecord ? { entity: entityId, state: cloneRecord(processorRecord) } : null;
+    const cannon = summarizeCannon(entityId, cannonRecord);
+    const fluidTank = fluidTankRecord ? { entity: entityId, amount: fluidTankRecord.q24 ?? null, state: cloneRecord(fluidTankRecord) } : null;
+    const shieldGenerator = shieldRecord ? { entity: entityId, charge: shieldRecord.q20 ?? null, state: cloneRecord(shieldRecord) } : null;
+    const player = playerRecord ? {
+      entity: entityId,
+      name: decodeText(playerRecord.blob92),
+      state: cloneRecord(playerRecord)
+    } : null;
+    const shipControl = shipControlRecord ? {
+      entity: entityId,
+      thrustX: numberOrNull(shipControlRecord.q24, 20),
+      thrustY: numberOrNull(shipControlRecord.q28, 20),
+      state: cloneRecord(shipControlRecord)
+    } : null;
+    const transform = transformRecord ? {
+      entity: entityId,
+      x: numberOrNull(transformRecord.q20, 40),
+      y: numberOrNull(transformRecord.q24, 40),
+      rot: numberOrNull(transformRecord.q28, 127.324),
+      flags: [transformRecord.q33, transformRecord.q34, transformRecord.q35].filter((value) => value != null)
+    } : null;
+    const contents = mergeContents({ itemHolder }, { fabricator }, { processor }, { cannon }, { fluidTank }, { shieldGenerator }, { player }, { shipControl });
+    const footprint = entityFootprint({ entity: entityId, typeId, itemHolder, fabricator, processor, cannon, fluidTank, shieldGenerator, player, shipControl });
+    const typeName = entityNameFromType(typeId);
+    const summary = {
+      entity: entityId,
+      typeId,
+      typeName,
+      label: entityLabel({ typeId, typeName, itemHolder, fabricator, processor, cannon, fluidTank, shieldGenerator, player, shipControl }),
+      kind: [
+        transform ? "transform" : null,
+        itemHolder ? "item_holder" : null,
+        fabricator ? "fabricator" : null,
+        processor ? "processor" : null,
+        cannon ? "cannon" : null,
+        fluidTank ? "fluid_tank" : null,
+        shieldGenerator ? "shield_generator" : null,
+        player ? "player" : null,
+        shipControl ? "ship_control" : null
+      ].filter(Boolean),
+      transform,
+      footprint,
+      contents,
+      tables: [...this.tables.entries()]
+        .filter(([, records]) => records.has(entityId))
+        .map(([tableId, records]) => ({
+          tableId,
+          name: MODEL_TABLE_SPECS.get(tableId)?.name || null,
+          record: cloneRecord(records.get(entityId))
+        }))
+    };
+    summary.occupies = transform ? this.#occupiedBlocks(transform, footprint) : [];
+    return summary;
+  }
+
+  #occupiedBlocks(transform, footprint) {
+    const startX = Math.floor(transform.x ?? 0);
+    const startY = Math.floor(transform.y ?? 0);
+    const cells = [];
+    for (let dx = 0; dx < footprint.width; dx++) {
+      for (let dy = 0; dy < footprint.height; dy++) {
+        cells.push({ x: startX + dx, y: startY + dy });
+      }
+    }
+    return cells;
   }
 
   #records(tableId) {

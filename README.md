@@ -32,7 +32,7 @@ import Dredless, {
 - `AnonSession` extends `Session` with `anon_key`.
 - `Connection` stores the result of `/join`: session, `game_token`, net port, and server id.
 - `DredlessClient` is the live WebSocket client that sends commands and processes packets.
-- `WorldStore` / `WorldState` keep decoded world metadata, tiles, model packets, and best-effort ECS model tables.
+- `WorldStore` / `WorldState` keep decoded world metadata, tiles, the world tileset, model packets, and best-effort ECS model tables, plus derived ship entity and block occupancy summaries.
 - `Dredless` is the default and named namespace for factories and unauthenticated fetch helpers.
 
 ## Sessions
@@ -119,4 +119,7 @@ npm run watch
 available, and redraws known websocket state until Ctrl+C. Optional environment
 variables: `DRED_ANON_KEY`, `DRED_SERVER`, `DRED_SHIP`, `DRED_REFRESH_MS`,
 `DRED_LINES`, `DRED_COLUMNS`, and `DRED_ALT_SCREEN=0` to draw in the current
-terminal buffer instead of the alternate screen.
+terminal buffer instead of the alternate screen. The dashboard includes initial
+model state decoded from the websocket full snapshot, including entity package
+ids, fabricator rows, storage holders, loose items, fluid tanks, and starter
+cannon ammo/charge state.

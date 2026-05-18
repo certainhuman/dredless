@@ -233,12 +233,16 @@ client.on("close", fn);
 client.on("error", fn);
 ```
 
-World snapshots include decoded tile counts, metadata, and model summaries.
-`includeTiles` includes tile arrays; `includeModel` includes decoded model table
-records. The model decoder is best-effort and currently covers the component
-tables documented in `spec/game-state-transmission-spec.md`, including
-transforms, item holders, fabricators, players, ship controls, fluid tanks,
-shield charge, and starter cannon state.
+World snapshots include decoded tile counts, the world tileset definition,
+metadata, entity summaries, and block occupancy summaries. `includeTiles`
+includes tile arrays; `includeModel` includes decoded model table records.
+`WorldState.entity(id)`, `WorldState.entities()`, `WorldState.blocks()`, and
+`WorldState.tileDefinition(material)` expose the same normalized ship view
+directly. The model decoder is best-effort and currently covers the component
+tables documented in
+`spec/game-state-transmission-spec.md`, including transforms, item holders,
+entity/package item ids, fabricators, players, ship controls, fluid tanks,
+shield charge, and starter cannon ammo/charge state.
 
 ## Server And Ship Arguments
 

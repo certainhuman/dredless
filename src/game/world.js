@@ -2,6 +2,7 @@ import { decryptPayload } from "../crypto/chacha.js";
 import { decompressLz4Frame } from "../compression/lz4.js";
 import { decodeMsgpack } from "../protocol/msgpack.js";
 import { ModelState } from "./model.js";
+import { getTilesetForWorld } from "./tilesets.js";
 
 export class WorldStore {
   constructor() {
@@ -109,6 +110,7 @@ export class WorldState {
     this.id = id;
     this.seed = null;
     this.isOverworld = null;
+    this.tileset = null;
     this.blockWidth = null;
     this.blockHeight = null;
     this.parentWorld = null;
@@ -126,7 +128,9 @@ export class WorldState {
   readMeta(packet) {
     this.meta = packet;
     this.seed = packet.seed ?? this.seed;
-    this.isOverworld = Boolean(packet.is_overworld);
+    const isOverworld = packet.is_overworld ?? this.isOverworld;
+    this.isOverworld = isOverworld == null ? null : Boolean(isOverworld);
+    this.tileset = this.isOverworld == null ? null : getTilesetForWorld(this.isOverworld);
     this.blockWidth = packet.block_w ?? this.blockWidth;
     this.blockHeight = packet.block_h ?? this.blockHeight;
     this.parentWorld = packet.parent_world ?? this.parentWorld;
@@ -181,6 +185,7 @@ export class WorldState {
     return {
       id: this.id,
       is_overworld: this.isOverworld,
+      tileset: this.tileset,
       seed: this.seed,
       block_w: this.blockWidth,
       block_h: this.blockHeight,
@@ -192,6 +197,8 @@ export class WorldState {
       lastPacket: this.lastPacket,
       meta: this.meta,
       model: this.model.snapshot({ includeTables: includeModel }),
+      entities: this.model.entities(),
+      blocks: this.model.blocks(),
       transforms: this.model.transforms(),
       machines: this.model.machines(),
       players: this.model.players(),
@@ -206,5 +213,22 @@ export class WorldState {
 
   record(tableId, entityId) {
     return this.model.record(tableId, entityId);
+  }
+
+  tileDefinition(material) {
+    if (!this.tileset || !Array.isArray(this.tileset.tiles)) return null;
+    return this.tileset.tiles[Number(material)] || null;
+  }
+
+  entity(entityId) {
+    return this.model.entity(entityId);
+  }
+
+  entities() {
+    return this.model.entities();
+  }
+
+  blocks() {
+    return this.model.blocks();
   }
 }
