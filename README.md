@@ -48,8 +48,8 @@ Creating sessions does run the required HTTP calls:
 
 ```js
 const emptySession = await Dredless.createSession(17);
-const anonSession = await Dredless.createAnonSession("anon-key", 17);
-const anonToken = await Dredless.createAnonToken(17);
+const anonSession = await Dredless.createAnonSession("anon-key", 17, "https://test.drednot.io");
+const anonToken = await Dredless.createAnonToken(17, "https://test.drednot.io");
 ```
 
 If notice version is omitted, session factories try to scrape it and internally fall back to `17`.

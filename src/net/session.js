@@ -8,8 +8,8 @@ import { Connection } from "../game/connection.js";
 import { DredlessClient } from "../client.js";
 
 export class Session {
-  constructor(gameSession = null, gameVersion = null) {
-    this.baseUrl = DEFAULT_BASE_URL;
+  constructor(gameSession = null, gameVersion = null, baseUrl = DEFAULT_BASE_URL) {
+    this.baseUrl = baseUrl;
     this.cookies = setCookieValues(this.baseUrl, {});
     this.gameVersion = gameVersion || null;
     this._noticeVersion = null;
@@ -153,8 +153,9 @@ export class Session {
 
   mergeSetCookies(response, names = ["game_session", "anon_key"]) {
     const prefix = cookiePrefix(this.baseUrl);
-    for (const [name, value] of readSetCookies(response.headers, names)) {
-      this.cookies.set(`${prefix}${name}`, value);
+    for (const [name, value] of readSetCookies(response.headers, names, this.baseUrl)) {
+      const cookieName = name.startsWith(prefix) ? name : `${prefix}${name}`;
+      this.cookies.set(cookieName, value);
     }
   }
 
@@ -177,8 +178,8 @@ export class Session {
 }
 
 export class AnonSession extends Session {
-  constructor(gameSession = null, anonKey = null, gameVersion = null) {
-    super(gameSession, gameVersion);
+  constructor(gameSession = null, anonKey = null, gameVersion = null, baseUrl = DEFAULT_BASE_URL) {
+    super(gameSession, gameVersion, baseUrl);
     if (anonKey) this.cookies.set(cookieName(this.baseUrl, "anon_key"), String(anonKey));
   }
 
@@ -194,16 +195,18 @@ export class AnonSession extends Session {
   }
 }
 
-export async function createSession(noticeVersion = null) {
-  const session = new Session();
-  session.noticeVersion = await internalNoticeVersion(noticeVersion);
+export async function createSession(noticeVersion = null, baseUrl = DEFAULT_BASE_URL) {
+  const resolvedBaseUrl = normalizeBaseUrl(arguments.length >= 2 ? arguments[1] : baseUrl);
+  const session = new Session(null, null, resolvedBaseUrl);
+  session.noticeVersion = await internalNoticeVersion(noticeVersion, resolvedBaseUrl);
   await session.fetchAccountStatus();
   return session;
 }
 
-export async function createAnonToken(noticeVersion = null) {
-  const session = new AnonSession();
-  session.noticeVersion = await internalNoticeVersion(noticeVersion);
+export async function createAnonToken(noticeVersion = null, baseUrl = DEFAULT_BASE_URL) {
+  const resolvedBaseUrl = normalizeBaseUrl(arguments.length >= 2 ? arguments[1] : baseUrl);
+  const session = new AnonSession(null, null, null, resolvedBaseUrl);
+  session.noticeVersion = await internalNoticeVersion(noticeVersion, resolvedBaseUrl);
   const response = await session.request("account/login/anon", {
     method: "POST",
     mode: "cors",
@@ -218,10 +221,16 @@ export async function createAnonToken(noticeVersion = null) {
   return session.anonKey;
 }
 
-export async function createAnonSession(anonKey = null, noticeVersion = null) {
-  const resolvedAnonKey = anonKey || await createAnonToken(noticeVersion);
-  const session = new AnonSession(null, resolvedAnonKey);
-  session.noticeVersion = await internalNoticeVersion(noticeVersion);
+export async function createAnonSession(anonKey = null, noticeVersion = null, baseUrl = DEFAULT_BASE_URL) {
+  if (typeof noticeVersion === "string" && noticeVersion.includes("://") && (baseUrl == null || baseUrl === DEFAULT_BASE_URL)) {
+    baseUrl = noticeVersion;
+    noticeVersion = null;
+  }
+  const resolvedBaseUrl = normalizeBaseUrl(arguments.length >= 3 ? arguments[2] : baseUrl);
+  const resolvedAnonKey = anonKey || await createAnonToken(noticeVersion, resolvedBaseUrl);
+  const session = new AnonSession(null, resolvedAnonKey, null, resolvedBaseUrl);
+  session.baseUrl = resolvedBaseUrl;
+  session.noticeVersion = await internalNoticeVersion(noticeVersion, resolvedBaseUrl);
   await session.fetchAccountStatus();
   return session;
 }
@@ -232,11 +241,11 @@ async function readyClient(connection) {
   return client;
 }
 
-async function internalNoticeVersion(value) {
+async function internalNoticeVersion(value, baseUrl = DEFAULT_BASE_URL) {
   if (value != null) return value;
   try {
     const { fetchNoticeVersion } = await import("./servers.js");
-    return await fetchNoticeVersion(DEFAULT_BASE_URL);
+    return await fetchNoticeVersion(baseUrl);
   } catch (_) {
     return DEFAULT_NOTICE_VERSION;
   }

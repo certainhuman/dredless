@@ -29,8 +29,8 @@ Static namespace methods:
 
 ```js
 await Dredless.createSession(noticeVersion?);
-await Dredless.createAnonSession(anonKey?, noticeVersion?);
-await Dredless.createAnonToken(noticeVersion?);
+await Dredless.createAnonSession(anonKey?, noticeVersion?, baseUrl?);
+await Dredless.createAnonToken(noticeVersion?, baseUrl?);
 
 await Dredless.fetchNoticeVersion();
 await Dredless.fetchGameVersion();
@@ -106,7 +106,7 @@ session.toJSON();
 ## `AnonSession`
 
 ```js
-const anon = new AnonSession(gameSession, anonKey, gameVersion?);
+const anon = new AnonSession(gameSession, anonKey, gameVersion?, baseUrl?);
 ```
 
 `AnonSession` extends `Session` and adds:

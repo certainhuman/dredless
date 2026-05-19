@@ -542,8 +542,8 @@ export function decompressLz4Frame(bytes: Uint8Array | ArrayBuffer | number[]): 
 export function decodeModelData(bytes: Uint8Array | ArrayBuffer | number[]): unknown;
 
 export function createSession(noticeVersion?: number | null): Promise<Session>;
-export function createAnonSession(anonKey?: string | null, noticeVersion?: number | null): Promise<AnonSession>;
-export function createAnonToken(noticeVersion?: number | null): Promise<string>;
+export function createAnonSession(anonKey?: string | null, noticeVersion?: number | null, baseUrl?: string): Promise<AnonSession>;
+export function createAnonToken(noticeVersion?: number | null, baseUrl?: string): Promise<string>;
 export function fetchNoticeVersion(): Promise<number>;
 export function fetchGameVersion(): Promise<string>;
 export function fetchServers(): Promise<Server[]>;

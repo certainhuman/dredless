@@ -42,16 +42,19 @@ export function cookieHeader(baseUrl, source = {}) {
   return [...setCookieValues(baseUrl, source)].map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join("; ");
 }
 
-export function readSetCookies(headers, names = ["game_session", "anon_key"]) {
+export function readSetCookies(headers, names = ["game_session", "anon_key"], baseUrl = DEFAULT_BASE_URL) {
   const values = typeof headers?.getSetCookie === "function"
     ? headers.getSetCookie()
     : headers?.get?.("set-cookie") ? [headers.get("set-cookie")] : [];
   const found = new Map();
+  const prefix = cookiePrefix(baseUrl);
   for (const header of values) {
     for (const name of names) {
-      const regex = new RegExp(`(?:^|,\\s*)${name}=([^;]+)`, "g");
-      let match;
-      while ((match = regex.exec(header))) found.set(name, decodeURIComponent(match[1]));
+      for (const key of prefix ? [name, `${prefix}${name}`] : [name]) {
+        const regex = new RegExp(`(?:^|,\\s*)${key}=([^;]+)`, "g");
+        let match;
+        while ((match = regex.exec(header))) found.set(key, decodeURIComponent(match[1]));
+      }
     }
   }
   return found;
