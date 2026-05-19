@@ -82,7 +82,7 @@ const MODEL_TABLE_SPECS = new Map([
   [1, { name: "body_state", fields: numericFields({ 1: 20, 8: 24, 16: 28, 32: 32 }) }],
   [3, { name: "gate_width", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40 }) }],
   [4, { name: "motion_aux", packedBits: [{ bit: 8, offset: 33 }], fields: numericFields({ 1: 20, 2: 24, 4: 28 }) }],
-  [5, { name: "entity_state", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32 }) }],
+  [5, { name: "entity_health", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32 }) }],
   [6, { name: "item_holder", ...TWO_FIELD_SPEC }],
   [7, { name: "entity_type", ...TWO_FIELD_SPEC }],
   [11, { name: "numeric_sparse", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36 }) }],
@@ -113,7 +113,7 @@ const MODEL_TABLE_SPECS = new Map([
       };
     }
   }],
-  [37, { name: "scaled_flag", packedBits: [{ bit: 2, offset: 29 }], fields: numericFields({ 1: 20, 4: 24 }) }],
+  [37, { name: "loose_item_marker", packedBits: [{ bit: 2, offset: 29 }], fields: numericFields({ 1: 20, 4: 24 }) }],
   [38, { name: "flag_state", packedBits: [{ bit: 1, offset: 21 }], fields: [] }],
   [41, { name: "blob_state", fields: numericFields({ 2: 20 }), blobs: [{ bit: 1, offset: 24 }] }],
   [42, { name: "numeric_pair", ...TWO_FIELD_SPEC }],
@@ -156,6 +156,8 @@ const MODEL_TABLE_SPECS = new Map([
   [62, { name: "flag_state", packedBits: [{ bit: 1, offset: 21 }], fields: [] }],
   [69, { name: "rare_snapshot", packedBits: [{ bit: 32, offset: 41 }, { bit: 64, offset: 42 }], fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36 }) }],
   [70, { name: "rare_snapshot", packedBits: [{ bit: 16, offset: 40 }], fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 32: 36 }) }],
+  [73, { name: "expando_box_marker", fields: [] }],
+  [74, { name: "processor_marker", fields: [] }],
   [75, { name: "rare_snapshot", fields: numericFields({ 1: 20, 8: 24, 16: 28 }) }]
 ]);
 
@@ -293,8 +295,18 @@ const ENTITY_FOOTPRINTS = new Map([
   [261, { width: 2, height: 2 }]
 ]);
 
+const PLACED_ENTITY_TYPE_IDS = new Set([
+  215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 226, 227, 228, 229,
+  230, 231, 240, 241, 242, 243, 245, 246, 247, 248, 249, 250, 251, 252,
+  253, 255, 256, 257, 258, 259, 260, 261, 263, 264, 265
+]);
+
 const CANNON_AMMO_COLOR_ITEM_IDS = new Map([
   [0xff9600, 150]
+]);
+
+const MARKER_TYPE_IDS = new Map([
+  [73, 240]
 ]);
 
 function numberOrNull(value, divisor = 1) {
@@ -327,12 +339,20 @@ function entityNameFromType(typeId) {
   return typeId == null ? null : ENTITY_TYPE_NAMES.get(Number(typeId)) || null;
 }
 
+function markerTypeIdForTables(tableIds) {
+  for (const tableId of tableIds) {
+    if (MARKER_TYPE_IDS.has(tableId)) return MARKER_TYPE_IDS.get(tableId);
+  }
+  return null;
+}
+
 function itemSummary(itemId, count = null) {
   const id = itemId == null ? null : Number(itemId);
+  const normalizedId = Number.isFinite(id) && id !== 0 ? id : null;
   return {
-    itemId: Number.isFinite(id) ? id : null,
-    itemName: Number.isFinite(id) ? entityNameFromType(id) : null,
-    count
+    itemId: normalizedId,
+    itemName: normalizedId == null ? null : entityNameFromType(normalizedId),
+    count: count === 0 ? null : count
   };
 }
 
@@ -375,6 +395,32 @@ function summarizeCannon(entity, record) {
   };
 }
 
+function summarizeHealth(entity, record) {
+  if (!record) return null;
+  const maxHp = record.q20 ?? null;
+  const hp = record.q24 ?? null;
+  return {
+    entity,
+    hp,
+    maxHp,
+    ratio: typeof hp === "number" && typeof maxHp === "number" && maxHp !== 0 ? hp / maxHp : null,
+    state: cloneRecord(record)
+  };
+}
+
+function summarizePlayer(entity, record) {
+  if (!record) return null;
+  const rawHeldItemId = record.q28 == null ? null : Number(record.q28);
+  const heldItemId = Number.isFinite(rawHeldItemId) && rawHeldItemId !== 0 ? rawHeldItemId : null;
+  return {
+    entity,
+    name: decodeText(record.blob92),
+    heldItemId,
+    heldItemName: entityNameFromType(heldItemId),
+    state: cloneRecord(record)
+  };
+}
+
 function mergeContents(...parts) {
   const out = {};
   for (const part of parts) {
@@ -388,6 +434,10 @@ function mergeContents(...parts) {
 }
 
 function entityFootprint(entity) {
+  if (entity?.markerTypeId != null && ENTITY_FOOTPRINTS.has(entity.markerTypeId)) {
+    const footprint = ENTITY_FOOTPRINTS.get(entity.markerTypeId);
+    return { ...footprint, source: "marker" };
+  }
   if (entity?.typeId != null && ENTITY_FOOTPRINTS.has(entity.typeId)) {
     const footprint = ENTITY_FOOTPRINTS.get(entity.typeId);
     return { ...footprint, source: "type" };
@@ -397,6 +447,10 @@ function entityFootprint(entity) {
 }
 
 function entityLabel(entity) {
+  if (entity?.category === "metadata" && entity?.typeName) return `Metadata ${entity.typeName}`;
+  if (entity?.category === "loose_item" && entity?.itemHolder?.itemName) return `Loose ${entity.itemHolder.itemName}`;
+  if (entity?.category === "untyped_holder" && entity?.itemHolder?.itemName) return `Untyped Holder (${entity.itemHolder.itemName})`;
+  if (entity?.markerTypeName) return entity.markerTypeName;
   if (entity?.typeName) return entity.typeName;
   if (entity?.fabricator) return "Fabricator";
   if (entity?.shieldGenerator) return "Shield Generator";
@@ -409,6 +463,32 @@ function entityLabel(entity) {
   if (entity?.player) return "Player";
   if (entity?.shipControl) return "Ship Control";
   return entity?.typeId != null ? `Entity ${entity.typeId}` : "Entity";
+}
+
+function entityCategory(entity) {
+  if (entity?.player) return "player";
+  if (entity?.shipControl) return "ship_control";
+  const hasMachineComponent = Boolean(entity?.fabricator || entity?.processor || entity?.cannon || entity?.fluidTank || entity?.shieldGenerator);
+  const hasValidTransform = Boolean(
+    entity?.transform &&
+    Number.isFinite(entity.transform.x) &&
+    Number.isFinite(entity.transform.y)
+  );
+  const hasPhysicalComponent = Boolean(hasValidTransform || entity?.itemHolder || hasMachineComponent);
+  if (!hasPhysicalComponent) return "metadata";
+  if (entity?.transform && !hasValidTransform && !entity?.itemHolder && !hasMachineComponent) return "metadata";
+  if (entity?.typeId != null && !hasPhysicalComponent) return "metadata";
+  if (entity?.markerTypeId != null) return "placed_entity";
+  if (entity?.looseItemMarker && entity?.itemHolder?.itemId != null) return "loose_item";
+  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.fluidTank && !entity?.shieldGenerator) {
+    if (entity.typeId != null && (!PLACED_ENTITY_TYPE_IDS.has(Number(entity.typeId)) || entity.typeId === entity.itemHolder.itemId)) return "loose_item";
+    if (entity.typeId == null) return "untyped_holder";
+  }
+  if (entity?.fabricator || entity?.cannon || entity?.fluidTank || entity?.shieldGenerator) return "placed_entity";
+  if (entity?.typeId != null && PLACED_ENTITY_TYPE_IDS.has(Number(entity.typeId))) return "placed_entity";
+  if (entity?.typeId != null && !hasPhysicalComponent) return "metadata";
+  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.fluidTank && !entity?.shieldGenerator) return "untyped_holder";
+  return "entity";
 }
 
 export class ModelState {
@@ -545,11 +625,7 @@ export class ModelState {
   }
 
   players() {
-    return this.#records(55).map((entry) => ({
-      entity: entry.entity,
-      name: decodeText(entry.blob92),
-      state: cloneRecord(entry)
-    }));
+    return this.#records(55).map((entry) => summarizePlayer(entry.entity, entry));
   }
 
   shipControls() {
@@ -567,6 +643,7 @@ export class ModelState {
       fabricators: this.fabricators(),
       processors: this.#records(49).map((entry) => ({ entity: entry.entity, state: cloneRecord(entry) })),
       cannons: this.#records(54).map((entry) => summarizeCannon(entry.entity, entry)),
+      health: this.#records(5).map((entry) => summarizeHealth(entry.entity, entry)),
       fluidTanks: this.#records(60).map((entry) => ({ entity: entry.entity, amount: entry.q24 ?? null, state: cloneRecord(entry) })),
       shieldGenerators: this.#records(61).map((entry) => ({ entity: entry.entity, charge: entry.q20 ?? null, state: cloneRecord(entry) }))
     };
@@ -579,6 +656,7 @@ export class ModelState {
   #summarizeEntity(entityId) {
     const transformRecord = this.record(0, entityId);
     const itemHolderRecord = this.record(6, entityId);
+    const healthRecord = this.record(5, entityId);
     const fabricatorRecord = this.record(53, entityId);
     const processorRecord = this.record(49, entityId);
     const cannonRecord = this.record(54, entityId);
@@ -586,19 +664,22 @@ export class ModelState {
     const shieldRecord = this.record(61, entityId);
     const playerRecord = this.record(55, entityId);
     const shipControlRecord = this.record(20, entityId);
+    const bodyStateRecord = this.record(1, entityId);
     const typeRecord = this.record(7, entityId);
+    const markerTableIds = [73].filter((tableId) => this.record(tableId, entityId));
+    const markerTypeId = markerTypeIdForTables(markerTableIds);
+    const markerTypeName = entityNameFromType(markerTypeId);
+    const looseItemMarker = Boolean(this.record(37, entityId));
+    const dynamicBody = bodyStateRecord?.q20 === -4;
     const typeId = typeRecord?.q20 ?? null;
     const itemHolder = summarizeItemHolder(entityId, itemHolderRecord);
+    const health = summarizeHealth(entityId, healthRecord);
     const fabricator = summarizeFabricator(entityId, fabricatorRecord);
     const processor = processorRecord ? { entity: entityId, state: cloneRecord(processorRecord) } : null;
     const cannon = summarizeCannon(entityId, cannonRecord);
     const fluidTank = fluidTankRecord ? { entity: entityId, amount: fluidTankRecord.q24 ?? null, state: cloneRecord(fluidTankRecord) } : null;
     const shieldGenerator = shieldRecord ? { entity: entityId, charge: shieldRecord.q20 ?? null, state: cloneRecord(shieldRecord) } : null;
-    const player = playerRecord ? {
-      entity: entityId,
-      name: decodeText(playerRecord.blob92),
-      state: cloneRecord(playerRecord)
-    } : null;
+    const player = summarizePlayer(entityId, playerRecord);
     const shipControl = shipControlRecord ? {
       entity: entityId,
       thrustX: numberOrNull(shipControlRecord.q24, 20),
@@ -612,17 +693,25 @@ export class ModelState {
       rot: numberOrNull(transformRecord.q28, 127.324),
       flags: [transformRecord.q33, transformRecord.q34, transformRecord.q35].filter((value) => value != null)
     } : null;
-    const contents = mergeContents({ itemHolder }, { fabricator }, { processor }, { cannon }, { fluidTank }, { shieldGenerator }, { player }, { shipControl });
-    const footprint = entityFootprint({ entity: entityId, typeId, itemHolder, fabricator, processor, cannon, fluidTank, shieldGenerator, player, shipControl });
+    const contents = mergeContents({ itemHolder }, { health }, { fabricator }, { processor }, { cannon }, { fluidTank }, { shieldGenerator }, { player }, { shipControl });
+    const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, fabricator, processor, cannon, fluidTank, shieldGenerator, player, shipControl });
     const typeName = entityNameFromType(typeId);
+    const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, fabricator, processor, cannon, fluidTank, shieldGenerator, player, shipControl });
     const summary = {
       entity: entityId,
+      category,
       typeId,
       typeName,
-      label: entityLabel({ typeId, typeName, itemHolder, fabricator, processor, cannon, fluidTank, shieldGenerator, player, shipControl }),
+      markerTypeId,
+      markerTypeName,
+      label: entityLabel({ category, typeId, typeName, markerTypeName, itemHolder, fabricator, processor, cannon, fluidTank, shieldGenerator, player, shipControl }),
       kind: [
         transform ? "transform" : null,
+        dynamicBody ? "dynamic_body" : null,
         itemHolder ? "item_holder" : null,
+        health ? "health" : null,
+        markerTableIds.length ? "marker" : null,
+        looseItemMarker ? "loose_item_marker" : null,
         fabricator ? "fabricator" : null,
         processor ? "processor" : null,
         cannon ? "cannon" : null,

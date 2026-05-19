@@ -31,6 +31,26 @@ export const OFFICIAL_CLIENT_FILTERS = {
   FILTER_BLOCK_GLASS: { categoryBits: 1, maskBits: 65535, groupIndex: 0 }
 };
 
+export const OFFICIAL_CLIENT_SUBWORLD_MATERIAL_NAMES = new Map([
+  [0, "Nothing"],
+  [1, "Ship Border Corner"],
+  [2, "Ship Border Edge Horizontal"],
+  [3, "Ship Border Edge Vertical"],
+  [4, "Iron Block"],
+  [5, "Ladder"],
+  [6, "Walkway"],
+  [7, "Item Net"],
+  [8, "Iron Block"],
+  [9, "Iron Block"],
+  [10, "Iron Block"],
+  [11, "Iron Block"],
+  [12, "Paint"],
+  [13, "Hyper Rubber Block"],
+  [14, "Hyper Ice Block"],
+  [15, "Annihilator Tile"],
+  [16, "Logistics Rail"]
+]);
+
 const I = OFFICIAL_CLIENT_ITEM_ID;
 const F = OFFICIAL_CLIENT_FILTERS;
 

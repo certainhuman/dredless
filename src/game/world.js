@@ -146,8 +146,8 @@ export class WorldState {
 
   applyTile(value) {
     if (!Array.isArray(value) || value.length !== 6) return null;
-    const [x, y, material, shape, integrity, color] = value;
-    return this.setTile({ x, y, material, shape, integrity, color });
+    const [x, y, material, shape, hp, color] = value;
+    return this.setTile({ x, y, material, shape, hp, integrity: hp, color });
   }
 
   applyChunk(value) {
@@ -160,13 +160,14 @@ export class WorldState {
     const hasColor = patch.length >= count * 4;
     const tiles = [];
     for (let i = 0; i < count; i++) {
-      const localX = minX + Math.floor(i / height);
-      const localY = minY + (i % height);
+      const localX = minX + (i % width);
+      const localY = minY + Math.floor(i / width);
       tiles.push(this.setTile({
         x: (chunkX << 6) + localX,
         y: (chunkY << 6) + localY,
         material: patch[i],
         shape: patch[i + count],
+        hp: patch[i + count * 2],
         integrity: patch[i + count * 2],
         color: hasColor ? patch[i + count * 3] : null
       }));

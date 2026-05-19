@@ -279,6 +279,7 @@ export interface PuiEvent {
 
 export interface EntityContentsSummary {
   itemHolder?: ItemHolderSummary;
+  health?: HealthSummary;
   fabricator?: FabricatorSummary;
   processor?: { entity: number; state: ModelRecord };
   cannon?: CannonSummary;
@@ -290,12 +291,15 @@ export interface EntityContentsSummary {
 
 export interface EntitySummary {
   entity: number;
+  category: "placed_entity" | "loose_item" | "untyped_holder" | "metadata" | "player" | "ship_control" | "entity";
   typeId: number | null;
   typeName: string | null;
+  markerTypeId: number | null;
+  markerTypeName: string | null;
   label: string;
   kind: string[];
   transform: TransformSummary | null;
-  footprint: { width: number; height: number; source: "type" | "heuristic" | "default" };
+  footprint: { width: number; height: number; source: "type" | "marker" | "heuristic" | "default" };
   contents: EntityContentsSummary | null;
   occupies: { x: number; y: number }[];
   tables: { tableId: number; name: string | null; record: ModelRecord }[];
@@ -358,6 +362,8 @@ export interface Tile {
   y: number;
   material: number;
   shape: number;
+  hp: number;
+  /** @deprecated Use hp. This is the raw 0-255 HP fraction byte, not absolute integrity. */
   integrity: number;
   color: number | null;
 }
@@ -375,6 +381,7 @@ export interface TilePhysics {
 }
 
 export interface TileDefinition {
+  name?: string;
   solid: boolean;
   destruct_item?: number;
   blocks_bullets?: boolean;
@@ -475,6 +482,14 @@ export interface ItemHolderSummary {
   count: number | null;
 }
 
+export interface HealthSummary {
+  entity: number;
+  hp: number | null;
+  maxHp: number | null;
+  ratio: number | null;
+  state: ModelRecord;
+}
+
 export interface FabricatorSummary {
   entity: number;
   state: ModelRecord;
@@ -497,6 +512,8 @@ export interface CannonSummary {
 export interface PlayerSummary {
   entity: number;
   name: string | null;
+  heldItemId: number | null;
+  heldItemName: string | null;
   state: ModelRecord;
 }
 
@@ -509,6 +526,7 @@ export interface ShipControlSummary {
 
 export interface MachineSummary {
   itemHolders: ItemHolderSummary[];
+  health: HealthSummary[];
   fabricators: FabricatorSummary[];
   processors: { entity: number; state: ModelRecord }[];
   cannons: CannonSummary[];

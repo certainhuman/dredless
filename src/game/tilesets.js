@@ -1,4 +1,4 @@
-import { OFFICIAL_CLIENT_TILESETS } from "./official-client-data.js";
+import { OFFICIAL_CLIENT_SUBWORLD_MATERIAL_NAMES, OFFICIAL_CLIENT_TILESETS } from "./official-client-data.js";
 
 function cloneFilter(filter) {
   if (!filter) return null;
@@ -11,6 +11,7 @@ function cloneFilter(filter) {
 
 function cloneTile(tile) {
   const copy = { solid: Boolean(tile.solid) };
+  if (tile.name != null) copy.name = tile.name;
   if (tile.destruct_item != null) copy.destruct_item = tile.destruct_item;
   if (tile.blocks_bullets != null) copy.blocks_bullets = tile.blocks_bullets;
   if (tile.hp != null) copy.hp = tile.hp;
@@ -27,11 +28,15 @@ function cloneTile(tile) {
 }
 
 export function cloneTileset(tileset) {
+  const materialNames = tileset.atlas === "tiles_subworld" ? OFFICIAL_CLIENT_SUBWORLD_MATERIAL_NAMES : null;
   return {
     scale: tileset.scale,
     atlas: tileset.atlas,
     tile_width: tileset.tile_width,
-    tiles: tileset.tiles.map((tile) => cloneTile(tile))
+    tiles: tileset.tiles.map((tile, materialId) => cloneTile({
+      ...tile,
+      name: materialNames?.get(materialId)
+    }))
   };
 }
 
