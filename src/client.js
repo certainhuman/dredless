@@ -40,6 +40,7 @@ export class DredlessClient extends EventBus {
     this.outfits = new Map();
     this.commandAcks = new Map();
     this.lastCommandAck = null;
+    this.decodeErrors = [];
     this.readyPromise = new Promise((resolve, reject) => {
       this.#resolveReady = resolve;
       this.#rejectReady = reject;
@@ -155,6 +156,7 @@ export class DredlessClient extends EventBus {
       outfits: [...this.outfits.entries()].map(([sid, outfit]) => ({ sid, outfit })),
       commandAcks: [...this.commandAcks.entries()].map(([world, commandNumber]) => ({ world, commandNumber })),
       lastCommandAck: this.lastCommandAck,
+      decodeErrors: this.decodeErrors.slice(-50),
       packetCount: this.packetCount,
       lastPacket: this.lastPacket
     };
@@ -222,12 +224,16 @@ export class DredlessClient extends EventBus {
     this.emit("packet", packet);
 
     if (!packet || typeof packet !== "object") return;
-    if (packet.type === 21) return this.#markReady(packet);
-    const worldUpdate = this.worlds.apply(packet);
-    if (worldUpdate) {
-      this.#handleWorldUpdate(worldUpdate);
-    } else {
-      this.#handlePacketEvent(packet);
+    try {
+      if (packet.type === 21) return this.#markReady(packet);
+      const worldUpdate = this.worlds.apply(packet);
+      if (worldUpdate) {
+        this.#handleWorldUpdate(worldUpdate);
+      } else {
+        this.#handlePacketEvent(packet);
+      }
+    } catch (error) {
+      this.#recordDecodeError(error, packet);
     }
   }
 
@@ -275,13 +281,15 @@ export class DredlessClient extends EventBus {
 
   #handleWorldUpdate(worldUpdate) {
     this.emit(worldUpdate.type, worldUpdate);
-    if (worldUpdate.world) this.emit("world", worldUpdate.world.snapshot());
     if (worldUpdate.type === "world-removed") {
       this.emit("world-removed", worldUpdate.packet);
       return;
     }
+    for (const error of worldUpdate.errors || []) this.#recordDecodeError(error, worldUpdate.packet, worldUpdate.world);
 
     const result = worldUpdate.result;
+    if (result?.error) this.#recordDecodeError(result.error, worldUpdate.packet, worldUpdate.world);
+    if (result?.model?.error) this.#recordDecodeError(result.model.error, worldUpdate.packet, worldUpdate.world);
     if (result?.timing?.cpuLoad != null) this.cpuLoad = result.timing.cpuLoad;
     if (result?.commandNumber != null) this.#ackCommand(result.worldId, result.commandNumber);
     for (const event of result?.events || []) this.#handleSideEvent(event, worldUpdate.world);
@@ -352,6 +360,17 @@ export class DredlessClient extends EventBus {
   #pushLimited(target, value, limit = 200) {
     target.push(value);
     if (target.length > limit) target.splice(0, target.length - limit);
+  }
+
+  #recordDecodeError(error, packet = null, world = null) {
+    const entry = {
+      time: Date.now(),
+      message: error?.message || String(error),
+      packetType: packet && typeof packet === "object" ? packet.type ?? null : null,
+      world: world?.id ?? (packet && typeof packet === "object" ? packet.world ?? null : null)
+    };
+    this.#pushLimited(this.decodeErrors, entry);
+    try { this.emit("decode-error", entry, error, packet, world); } catch (_) {}
   }
 
   #wsHeaders() {

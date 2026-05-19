@@ -181,6 +181,7 @@ const WIRE_TAG_TABLES = new Map([
   [125, 42],
   [126, 43],
   [128, 45],
+  [129, 46],
   [130, 47],
   [132, 49],
   [133, 50],
@@ -498,6 +499,7 @@ export class ModelState {
     this.removedEntities = [];
     this.lastUpdate = null;
     this.errors = [];
+    this._derived = null;
   }
 
   table(id) {
@@ -511,37 +513,22 @@ export class ModelState {
   entity(entityId) {
     const id = Number(entityId);
     if (!Number.isFinite(id)) return null;
-    return this.#summarizeEntity(id);
+    return this.#derivedState().entitiesById.get(id) || null;
   }
 
   entities() {
-    return this.#entityIds().map((entityId) => this.#summarizeEntity(entityId));
+    return this.#derivedState().entities.slice();
   }
 
   blocks() {
-    const blocks = new Map();
-    for (const entity of this.entities()) {
-      if (!entity.transform) continue;
-      const footprint = entity.footprint || { width: 1, height: 1 };
-      const startX = Math.floor(entity.transform.x);
-      const startY = Math.floor(entity.transform.y);
-      for (let dx = 0; dx < footprint.width; dx++) {
-        for (let dy = 0; dy < footprint.height; dy++) {
-          const x = startX + dx;
-          const y = startY + dy;
-          const key = `${x},${y}`;
-          if (!blocks.has(key)) blocks.set(key, { x, y, entities: [] });
-          blocks.get(key).entities.push(entity);
-        }
-      }
-    }
-    return [...blocks.values()].sort((a, b) => (a.y - b.y) || (a.x - b.x));
+    return this.#derivedState().blocks.slice();
   }
 
   apply(bytes) {
     const reader = new ModelReader(bytes);
     const update = {
       generation: null,
+      changedEntities: new Set(),
       sections: [],
       removals: [],
       unknownTags: [],
@@ -569,6 +556,7 @@ export class ModelState {
 
         const section = this.#readSection(reader, tag, tableId);
         update.sections.push(section);
+        for (const record of section.records) update.changedEntities.add(record.entity);
       }
     } catch (error) {
       update.error = error;
@@ -576,25 +564,22 @@ export class ModelState {
     }
 
     this.lastUpdate = update;
+    this.#updateDerived(update);
     return update;
   }
 
   snapshot({ includeTables = false } = {}) {
-    const tables = [...this.tables.entries()].map(([id, records]) => ({
-      id,
-      name: MODEL_TABLE_SPECS.get(id)?.name || null,
-      count: records.size
-    }));
+    const derived = this.#derivedState();
     return {
       generation: this.generation,
       tableCount: this.tables.size,
-      entityCount: new Set([...this.tables.values()].flatMap((records) => [...records.keys()])).size,
+      entityCount: derived.entityCount,
       removedEntities: this.removedEntities.slice(-50),
       lastUpdate: this.lastUpdate ? summarizeUpdate(this.lastUpdate) : null,
       errors: this.errors.slice(-10),
-      entities: this.entities(),
-      blocks: this.blocks(),
-      tables: includeTables ? this.tablesSnapshot() : tables
+      entities: derived.entities.slice(),
+      blocks: derived.blocks.slice(),
+      tables: includeTables ? this.tablesSnapshot() : derived.tableSummaries.slice()
     };
   }
 
@@ -607,13 +592,7 @@ export class ModelState {
   }
 
   transforms() {
-    return this.#records(0).map((entry) => ({
-      entity: entry.entity,
-      x: numberOrNull(entry.q20, 40),
-      y: numberOrNull(entry.q24, 40),
-      rot: numberOrNull(entry.q28, 127.324),
-      flags: [entry.q33, entry.q34, entry.q35].filter((value) => value != null)
-    }));
+    return this.#derivedState().transforms.slice();
   }
 
   itemHolders() {
@@ -625,35 +604,197 @@ export class ModelState {
   }
 
   players() {
-    return this.#records(55).map((entry) => summarizePlayer(entry.entity, entry));
+    return this.#derivedState().players.slice();
   }
 
   shipControls() {
-    return this.#records(20).map((entry) => ({
-      entity: entry.entity,
-      thrustX: numberOrNull(entry.q24, 20),
-      thrustY: numberOrNull(entry.q28, 20),
-      state: cloneRecord(entry)
-    }));
+    return this.#derivedState().shipControls.slice();
   }
 
   machines() {
+    const machines = this.#derivedState().machines;
     return {
-      itemHolders: this.itemHolders(),
-      fabricators: this.fabricators(),
-      processors: this.#records(49).map((entry) => ({ entity: entry.entity, state: cloneRecord(entry) })),
-      cannons: this.#records(54).map((entry) => summarizeCannon(entry.entity, entry)),
-      health: this.#records(5).map((entry) => summarizeHealth(entry.entity, entry)),
-      fluidTanks: this.#records(60).map((entry) => ({ entity: entry.entity, amount: entry.q24 ?? null, state: cloneRecord(entry) })),
-      shieldGenerators: this.#records(61).map((entry) => ({ entity: entry.entity, charge: entry.q20 ?? null, state: cloneRecord(entry) }))
+      itemHolders: machines.itemHolders.slice(),
+      fabricators: machines.fabricators.slice(),
+      processors: machines.processors.slice(),
+      cannons: machines.cannons.slice(),
+      health: machines.health.slice(),
+      fluidTanks: machines.fluidTanks.slice(),
+      shieldGenerators: machines.shieldGenerators.slice()
     };
   }
 
-  #entityIds() {
-    return [...new Set([...this.tables.values()].flatMap((records) => [...records.keys()]))].sort((a, b) => a - b);
+  #invalidateDerived() {
+    this._derived = null;
   }
 
-  #summarizeEntity(entityId) {
+  #updateDerived(update) {
+    if (!this._derived) return;
+    if (!update.removals.length && !update.changedEntities.size) return;
+
+    for (const entityId of update.removals) this.#removeDerivedEntity(entityId);
+    for (const entityId of update.changedEntities) this.#refreshDerivedEntity(entityId);
+    this._derived.tableSummaries = this.#tableSummaries();
+    this.#refreshDerivedSummaries();
+  }
+
+  #derivedState() {
+    if (this._derived) return this._derived;
+
+    const entityIds = [];
+    const seenEntities = new Set();
+    const tableSummaries = [];
+
+    for (const [tableId, records] of this.tables.entries()) {
+      const name = MODEL_TABLE_SPECS.get(tableId)?.name || null;
+      tableSummaries.push({ id: tableId, name, count: records.size });
+      for (const entity of records.keys()) {
+        if (!seenEntities.has(entity)) {
+          seenEntities.add(entity);
+          entityIds.push(entity);
+        }
+      }
+    }
+
+    entityIds.sort((a, b) => a - b);
+    const entities = entityIds.map((entityId) => this.#summarizeEntity(entityId, this.#tableRowsForEntity(entityId)));
+    const entitiesById = new Map(entities.map((entity) => [entity.entity, entity]));
+    const blocksByKey = this.#blocksByKeyForEntities(entities);
+
+    this._derived = {
+      entityCount: entityIds.length,
+      entityIds,
+      entitiesById,
+      blocksByKey,
+      tableSummaries
+    };
+    this.#refreshDerivedSummaries();
+    return this._derived;
+  }
+
+  #tableRowsForEntity(entityId) {
+    const rows = [];
+    for (const [tableId, records] of this.tables.entries()) {
+      const record = records.get(entityId);
+      if (record) rows.push({ tableId, name: MODEL_TABLE_SPECS.get(tableId)?.name || null, record });
+    }
+    return rows;
+  }
+
+  #removeDerivedEntity(entityId) {
+    const derived = this._derived;
+    const old = derived.entitiesById.get(entityId);
+    if (old) this.#removeEntityFromDerivedBlocks(derived, old);
+    derived.entitiesById.delete(entityId);
+    const index = derived.entityIds.indexOf(entityId);
+    if (index >= 0) derived.entityIds.splice(index, 1);
+    derived.entityCount = derived.entityIds.length;
+  }
+
+  #refreshDerivedEntity(entityId) {
+    const rows = this.#tableRowsForEntity(entityId);
+    if (!rows.length) {
+      this.#removeDerivedEntity(entityId);
+      return;
+    }
+
+    const derived = this._derived;
+    const old = derived.entitiesById.get(entityId);
+    if (old) this.#removeEntityFromDerivedBlocks(derived, old);
+
+    const next = this.#summarizeEntity(entityId, rows);
+    derived.entitiesById.set(entityId, next);
+    if (!derived.entityIds.includes(entityId)) insertSorted(derived.entityIds, entityId);
+    this.#addEntityToDerivedBlocks(derived, next);
+    derived.entityCount = derived.entityIds.length;
+  }
+
+  #tableSummaries() {
+    return [...this.tables.entries()].map(([id, records]) => ({
+      id,
+      name: MODEL_TABLE_SPECS.get(id)?.name || null,
+      count: records.size
+    }));
+  }
+
+  #blocksByKeyForEntities(entities) {
+    const blocks = new Map();
+    for (const entity of entities) {
+      this.#addEntityToBlockMap(blocks, entity);
+    }
+    return blocks;
+  }
+
+  #addEntityToDerivedBlocks(derived, entity) {
+    this.#addEntityToBlockMap(derived.blocksByKey, entity);
+  }
+
+  #addEntityToBlockMap(blocks, entity) {
+    if (!entity.transform || !Number.isFinite(entity.transform.x) || !Number.isFinite(entity.transform.y)) return;
+    const footprint = entity.footprint || { width: 1, height: 1 };
+    const startX = Math.floor(entity.transform.x);
+    const startY = Math.floor(entity.transform.y);
+    for (let dx = 0; dx < footprint.width; dx++) {
+      for (let dy = 0; dy < footprint.height; dy++) {
+        const x = startX + dx;
+        const y = startY + dy;
+        const key = `${x},${y}`;
+        if (!blocks.has(key)) blocks.set(key, { x, y, entities: [] });
+        blocks.get(key).entities.push(entity);
+      }
+    }
+  }
+
+  #removeEntityFromDerivedBlocks(derived, entity) {
+    for (const cell of entity.occupies || []) {
+      const key = `${cell.x},${cell.y}`;
+      const block = derived.blocksByKey.get(key);
+      if (!block) continue;
+      block.entities = block.entities.filter((item) => item.entity !== entity.entity);
+      if (!block.entities.length) derived.blocksByKey.delete(key);
+    }
+  }
+
+  #refreshDerivedSummaries() {
+    const derived = this._derived;
+    const entities = derived.entityIds.map((entityId) => derived.entitiesById.get(entityId)).filter(Boolean);
+    const machines = {
+      itemHolders: [],
+      fabricators: [],
+      processors: [],
+      cannons: [],
+      health: [],
+      fluidTanks: [],
+      shieldGenerators: []
+    };
+    const players = [];
+    const shipControls = [];
+    const transforms = [];
+
+    for (const entity of entities) {
+      if (entity.transform) transforms.push(entity.transform);
+      const contents = entity.contents;
+      if (!contents) continue;
+      if (contents.itemHolder) machines.itemHolders.push(contents.itemHolder);
+      if (contents.fabricator) machines.fabricators.push(contents.fabricator);
+      if (contents.processor) machines.processors.push(contents.processor);
+      if (contents.cannon) machines.cannons.push(contents.cannon);
+      if (contents.health) machines.health.push(contents.health);
+      if (contents.fluidTank) machines.fluidTanks.push(contents.fluidTank);
+      if (contents.shieldGenerator) machines.shieldGenerators.push(contents.shieldGenerator);
+      if (contents.player) players.push(contents.player);
+      if (contents.shipControl) shipControls.push(contents.shipControl);
+    }
+
+    derived.entities = entities;
+    derived.blocks = [...derived.blocksByKey.values()].sort((a, b) => (a.y - b.y) || (a.x - b.x));
+    derived.transforms = transforms;
+    derived.players = players;
+    derived.shipControls = shipControls;
+    derived.machines = machines;
+  }
+
+  #summarizeEntity(entityId, tableRows = []) {
     const transformRecord = this.record(0, entityId);
     const itemHolderRecord = this.record(6, entityId);
     const healthRecord = this.record(5, entityId);
@@ -723,13 +864,11 @@ export class ModelState {
       transform,
       footprint,
       contents,
-      tables: [...this.tables.entries()]
-        .filter(([, records]) => records.has(entityId))
-        .map(([tableId, records]) => ({
-          tableId,
-          name: MODEL_TABLE_SPECS.get(tableId)?.name || null,
-          record: cloneRecord(records.get(entityId))
-        }))
+      tables: tableRows.map(({ tableId, name, record }) => ({
+        tableId,
+        name,
+        record: cloneRecord(record)
+      }))
     };
     summary.occupies = transform ? this.#occupiedBlocks(transform, footprint) : [];
     return summary;
@@ -858,6 +997,17 @@ function summarizeUpdate(update) {
       records: section.records.length
     }))
   };
+}
+
+function insertSorted(values, value) {
+  let low = 0;
+  let high = values.length;
+  while (low < high) {
+    const mid = (low + high) >> 1;
+    if (values[mid] < value) low = mid + 1;
+    else high = mid;
+  }
+  values.splice(low, 0, value);
 }
 
 export function decodeModelData(bytes) {

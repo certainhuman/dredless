@@ -173,6 +173,7 @@ client.motd
 client.sessionMessages
 client.commandAcks
 client.lastCommandAck
+client.decodeErrors
 client.packetsRaw
 ```
 
@@ -225,6 +226,7 @@ client.on("session", fn);
 client.on("outfit", fn);
 client.on("cpu", fn);
 client.on("ack", fn);
+client.on("decode-error", fn);
 client.on("event", fn);
 client.on("command", fn);
 client.on("message", fn);
@@ -234,8 +236,9 @@ client.on("error", fn);
 ```
 
 World snapshots include decoded tile counts, the world tileset definition,
-metadata, entity summaries, and block occupancy summaries. `includeTiles`
-includes tile arrays; `includeModel` includes decoded model table records.
+metadata, entity summaries, block occupancy summaries, machine/player/control
+lists, and raw per-entity component records. `includeTiles` includes tile arrays;
+`includeModel` includes decoded model table records.
 `WorldState.entity(id)`, `WorldState.entities()`, `WorldState.blocks()`, and
 `WorldState.tileDefinition(material)` expose the same normalized ship view
 directly. The model decoder is best-effort and currently covers the component
@@ -243,6 +246,8 @@ tables documented in
 `spec/game-state-transmission-spec.md`, including transforms, item holders,
 entity/package item ids, fabricators, players, ship controls, fluid tanks,
 shield charge, and starter cannon ammo/charge state.
+Packets that cannot be fully decoded are recorded in `client.decodeErrors` and
+emit `decode-error`; they do not close the websocket.
 
 ## Server And Ship Arguments
 

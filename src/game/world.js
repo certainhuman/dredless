@@ -58,15 +58,21 @@ export class WorldStore {
     const world = this.get(packet.world);
     const decoded = world.decodeEncrypted(packet.data);
     const updates = [];
+    const errors = [];
     if (decoded && typeof decoded === "object") {
       for (const [kind, value] of Object.entries(decoded)) {
-        if (kind === "0") updates.push({ kind, tiles: world.applyChunk(value) });
-        else if (kind === "1") updates.push({ kind, tile: world.applyTile(value) });
-        else updates.push({ kind, value });
+        try {
+          if (kind === "0") updates.push({ kind, tiles: world.applyChunk(value) });
+          else if (kind === "1") updates.push({ kind, tile: world.applyTile(value) });
+          else updates.push({ kind, value });
+        } catch (error) {
+          errors.push(error);
+          updates.push({ kind, value, error: error.message });
+        }
       }
     }
-    world.events.push({ type: "tiles", packet, decoded, updates });
-    return { type: "tiles", world, decoded, updates };
+    world.events.push({ type: "tiles", packet, decoded, updates, errors });
+    return { type: "tiles", world, decoded, updates, errors };
   }
 
   #applyModel(packet) {
@@ -183,6 +189,7 @@ export class WorldState {
   }
 
   snapshot({ includeTiles = false, includeModel = false } = {}) {
+    const model = this.model.snapshot({ includeTables: includeModel });
     return {
       id: this.id,
       is_overworld: this.isOverworld,
@@ -197,9 +204,9 @@ export class WorldState {
       lastChunkPatch: this.lastChunkPatch,
       lastPacket: this.lastPacket,
       meta: this.meta,
-      model: this.model.snapshot({ includeTables: includeModel }),
-      entities: this.model.entities(),
-      blocks: this.model.blocks(),
+      model,
+      entities: model.entities,
+      blocks: model.blocks,
       transforms: this.model.transforms(),
       machines: this.model.machines(),
       players: this.model.players(),

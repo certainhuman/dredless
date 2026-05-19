@@ -113,13 +113,42 @@ Server is required. If ship is omitted, a new unnamed ship is created.
 
 ```sh
 npm run watch
+npm run watch:test
 ```
 
 `watch.js` joins the first owned ship, or creates an unnamed ship when none is
 available, and redraws known websocket state until Ctrl+C. Optional environment
-variables: `DRED_ANON_KEY`, `DRED_SERVER`, `DRED_SHIP`, `DRED_REFRESH_MS`,
-`DRED_LINES`, `DRED_COLUMNS`, and `DRED_ALT_SCREEN=0` to draw in the current
-terminal buffer instead of the alternate screen. The dashboard includes initial
+variables: `DRED_BASE_URL`, `DRED_TEST_SERVER=1`, `DRED_ANON_KEY`,
+`DRED_SERVER`, `DRED_SHIP`, `DRED_REFRESH_MS`, `DRED_LINES`, `DRED_COLUMNS`,
+`DRED_ALT_SCREEN=0`, `DRED_LOG_FILE=watch.log`, and `DRED_LOG_PACKETS=1`.
+Use `DRED_ALT_SCREEN=0` to draw in the current terminal buffer instead of the
+alternate screen. Pass `--test` or run `npm run watch:test` to use
+`https://test.drednot.io`. The script writes JSON-lines diagnostics to
+`watch.log` by default; set `DRED_LOG_FILE=0` to disable logging or pass
+`--log-packets` to include full packet bodies. The dashboard includes initial
 model state decoded from the websocket full snapshot, including entity package
 ids, fabricator rows, storage holders, loose items, fluid tanks, and starter
 cannon ammo/charge state.
+
+## Replay Benchmarks
+
+Capture a replayable live packet log:
+
+```sh
+npm run capture -- --out captures/near-ship.jsonl
+```
+
+Stop with Ctrl+C after reproducing the scenario. The capture script logs only
+brief progress messages and writes full packet payloads to JSON-lines. Replay it
+offline with:
+
+```sh
+npm run benchmark -- captures/near-ship.jsonl
+```
+
+Benchmark another implementation by pointing at a module that exports
+`WorldStore`:
+
+```sh
+npm run benchmark -- captures/near-ship.jsonl --module ./src/game/world.js --module ../other-client/src/game/world.js
+```

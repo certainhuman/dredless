@@ -186,6 +186,7 @@ export class DredlessClient {
   outfits: Map<number, unknown>;
   commandAcks: Map<number, number>;
   lastCommandAck: CommandAck | null;
+  decodeErrors: unknown[];
   readyPromise: Promise<this>;
   get packetsRaw(): unknown[];
 
@@ -237,6 +238,7 @@ export interface ClientSnapshot {
   outfits: { sid: number; outfit: unknown }[];
   commandAcks: CommandAck[];
   lastCommandAck: CommandAck | null;
+  decodeErrors: unknown[];
   packetCount: number;
   lastPacket: unknown;
 }
