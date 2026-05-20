@@ -79,12 +79,26 @@ const MODEL_TABLE_SPECS = new Map([
       };
     }
   }],
-  [1, { name: "body_state", fields: numericFields({ 1: 20, 8: 24, 16: 28, 32: 32 }) }],
+  [1, {
+    name: "body_state",
+    fields: numericFields({
+      1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40, 64: 44, 128: 48,
+      256: 52, 512: 56, 1024: 60, 2048: 64, 4096: 68, 8192: 72,
+      16384: 76, 32768: 80, 65536: 84, 131072: 88, 262144: 92,
+      524288: 96, 1048576: 100, 2097152: 104
+    })
+  }],
+  [2, { name: "numeric_pair", ...TWO_FIELD_SPEC }],
   [3, { name: "gate_width", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40 }) }],
   [4, { name: "motion_aux", packedBits: [{ bit: 8, offset: 33 }], fields: numericFields({ 1: 20, 2: 24, 4: 28 }) }],
   [5, { name: "entity_health", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32 }) }],
   [6, { name: "item_holder", ...TWO_FIELD_SPEC }],
-  [7, { name: "entity_type", ...TWO_FIELD_SPEC }],
+  [7, {
+    name: "entity_type",
+    fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40, 64: 44, 128: 48, 256: 52 })
+  }],
+  [8, { name: "numeric_sparse", fields: numericFields({ 2: 20, 4: 24, 8: 28, 16: 32, 32: 36 }) }],
+  [9, { name: "numeric_snapshot", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40, 64: 44 }) }],
   [11, { name: "numeric_sparse", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36 }) }],
   [14, { name: "size_state", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40, 64: 44 }) }],
   [16, { name: "named_state", fields: numericFields({ 1: 20, 2: 24, 8: 28 }), blobs: [{ bit: 16, offset: 32 }] }],
@@ -113,8 +127,10 @@ const MODEL_TABLE_SPECS = new Map([
       };
     }
   }],
+  [26, { name: "numeric_single", fields: numericFields({ 1: 20 }) }],
   [37, { name: "loose_item_marker", packedBits: [{ bit: 2, offset: 29 }], fields: numericFields({ 1: 20, 4: 24 }) }],
   [38, { name: "flag_state", packedBits: [{ bit: 1, offset: 21 }], fields: [] }],
+  [39, { name: "comms_transmit", ...TWO_FIELD_SPEC }],
   [41, { name: "blob_state", fields: numericFields({ 2: 20 }), blobs: [{ bit: 1, offset: 24 }] }],
   [42, { name: "numeric_pair", ...TWO_FIELD_SPEC }],
   [43, { name: "numeric_single", fields: numericFields({ 1: 20 }) }],
@@ -154,6 +170,7 @@ const MODEL_TABLE_SPECS = new Map([
   [60, { name: "fluid_tank", packedBits: [{ bit: 4, offset: 29 }], ...TWO_FIELD_SPEC }],
   [61, { name: "shield_charge", ...TWO_FIELD_SPEC }],
   [62, { name: "flag_state", packedBits: [{ bit: 1, offset: 21 }], fields: [] }],
+  [67, { name: "numeric_single", fields: numericFields({ 1: 20 }) }],
   [69, { name: "rare_snapshot", packedBits: [{ bit: 32, offset: 41 }, { bit: 64, offset: 42 }], fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36 }) }],
   [70, { name: "rare_snapshot", packedBits: [{ bit: 16, offset: 40 }], fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 32: 36 }) }],
   [73, { name: "expando_box_marker", fields: [] }],
@@ -164,19 +181,30 @@ const MODEL_TABLE_SPECS = new Map([
 const WIRE_TAG_TABLES = new Map([
   [1, 0],
   [2, 1],
+  [3, 2],
   [4, 3],
   [5, 4],
   [40, 5],
   [42, 6],
   [43, 7],
+  [44, 8],
+  [45, 9],
   [47, 11],
   [50, 14],
   [52, 16],
   [82, 19],
   [83, 20],
   [84, 21],
+  [85, 22],
+  [86, 23],
+  [89, 26],
+  [90, 27],
+  [93, 30],
+  [99, 36],
   [120, 37],
   [121, 38],
+  [122, 39],
+  [123, 40],
   [124, 41],
   [125, 42],
   [126, 43],
@@ -186,6 +214,7 @@ const WIRE_TAG_TABLES = new Map([
   [132, 49],
   [133, 50],
   [134, 51],
+  [135, 52],
   [136, 53],
   [137, 54],
   [138, 55],
@@ -194,11 +223,15 @@ const WIRE_TAG_TABLES = new Map([
   [144, 61],
   [145, 62],
   [148, 65],
+  [149, 66],
+  [150, 67],
+  [151, 68],
   [152, 69],
   [153, 70],
   [158, 75],
   [160, 76],
   [161, 77],
+  [162, 78],
   [164, 73],
   [165, 74],
   [168, 78]
@@ -409,6 +442,29 @@ function summarizeHealth(entity, record) {
   };
 }
 
+function summarizeShipControl(entity, record) {
+  if (!record) return null;
+  const color = record.q32 == null ? null : Number(record.q32);
+  return {
+    entity,
+    name: decodeText(record.blob116),
+    hexCode: decodeText(record.blob128),
+    shipWorldId: record.q20 ?? null,
+    color: Number.isFinite(color) ? color : null,
+    colorCss: Number.isFinite(color) ? colorToCss(color) : null,
+    thrustX: numberOrNull(record.q24, 20),
+    thrustY: numberOrNull(record.q28, 20),
+    value52: numberOrNull(record.q52, 20),
+    value84: numberOrNull(record.q84, 20),
+    value96: numberOrNull(record.q96, 1000),
+    state: cloneRecord(record)
+  };
+}
+
+function colorToCss(color) {
+  return `rgb(${(color >> 16) & 0xff},${(color >> 8) & 0xff},${color & 0xff})`;
+}
+
 function summarizePlayer(entity, record) {
   if (!record) return null;
   const rawHeldItemId = record.q28 == null ? null : Number(record.q28);
@@ -451,6 +507,7 @@ function entityLabel(entity) {
   if (entity?.category === "metadata" && entity?.typeName) return `Metadata ${entity.typeName}`;
   if (entity?.category === "loose_item" && entity?.itemHolder?.itemName) return `Loose ${entity.itemHolder.itemName}`;
   if (entity?.category === "untyped_holder" && entity?.itemHolder?.itemName) return `Untyped Holder (${entity.itemHolder.itemName})`;
+  if (entity?.shipControl && entity?.isOverworld) return "Overworld Ship";
   if (entity?.markerTypeName) return entity.markerTypeName;
   if (entity?.typeName) return entity.typeName;
   if (entity?.fabricator) return "Fabricator";
@@ -493,13 +550,21 @@ function entityCategory(entity) {
 }
 
 export class ModelState {
-  constructor() {
+  constructor({ isOverworld = null } = {}) {
+    this.isOverworld = isOverworld == null ? null : Boolean(isOverworld);
     this.generation = null;
     this.tables = new Map();
     this.removedEntities = [];
     this.lastUpdate = null;
     this.errors = [];
     this._derived = null;
+  }
+
+  setWorldKind(isOverworld) {
+    const next = isOverworld == null ? null : Boolean(isOverworld);
+    if (this.isOverworld === next) return;
+    this.isOverworld = next;
+    this.#invalidateDerived();
   }
 
   table(id) {
@@ -821,12 +886,7 @@ export class ModelState {
     const fluidTank = fluidTankRecord ? { entity: entityId, amount: fluidTankRecord.q24 ?? null, state: cloneRecord(fluidTankRecord) } : null;
     const shieldGenerator = shieldRecord ? { entity: entityId, charge: shieldRecord.q20 ?? null, state: cloneRecord(shieldRecord) } : null;
     const player = summarizePlayer(entityId, playerRecord);
-    const shipControl = shipControlRecord ? {
-      entity: entityId,
-      thrustX: numberOrNull(shipControlRecord.q24, 20),
-      thrustY: numberOrNull(shipControlRecord.q28, 20),
-      state: cloneRecord(shipControlRecord)
-    } : null;
+    const shipControl = summarizeShipControl(entityId, shipControlRecord);
     const transform = transformRecord ? {
       entity: entityId,
       x: numberOrNull(transformRecord.q20, 40),
@@ -845,7 +905,21 @@ export class ModelState {
       typeName,
       markerTypeId,
       markerTypeName,
-      label: entityLabel({ category, typeId, typeName, markerTypeName, itemHolder, fabricator, processor, cannon, fluidTank, shieldGenerator, player, shipControl }),
+      label: entityLabel({
+        category,
+        typeId,
+        typeName,
+        markerTypeName,
+        itemHolder,
+        fabricator,
+        processor,
+        cannon,
+        fluidTank,
+        shieldGenerator,
+        player,
+        shipControl,
+        isOverworld: this.isOverworld
+      }),
       kind: [
         transform ? "transform" : null,
         dynamicBody ? "dynamic_body" : null,
@@ -859,7 +933,8 @@ export class ModelState {
         fluidTank ? "fluid_tank" : null,
         shieldGenerator ? "shield_generator" : null,
         player ? "player" : null,
-        shipControl ? "ship_control" : null
+        shipControl ? "ship_control" : null,
+        shipControl && this.isOverworld ? "overworld_ship" : null
       ].filter(Boolean),
       transform,
       footprint,

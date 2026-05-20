@@ -32,7 +32,7 @@ import Dredless, {
 - `AnonSession` extends `Session` with `anon_key`.
 - `Connection` stores the result of `/join`: session, `game_token`, net port, and server id.
 - `DredlessClient` is the live WebSocket client that sends commands and processes packets.
-- `WorldStore` / `WorldState` keep decoded world metadata, tiles, the world tileset, model packets, and best-effort ECS model tables, plus derived ship entity and block occupancy summaries.
+- `WorldStore` / `WorldState` keep decoded world metadata, normalized tiles, material counts, the world tileset, model packets, and best-effort ECS model tables, plus derived entity and block occupancy summaries for ship and overworld worlds.
 - `Dredless` is the default and named namespace for factories and unauthenticated fetch helpers.
 
 ## Sessions

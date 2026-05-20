@@ -40,6 +40,12 @@ export class WorldStore {
     return this.currentWorldId != null ? this.worlds.get(Number(this.currentWorldId)) || null : [...this.worlds.values()].find((world) => world.isOverworld === false) || null;
   }
 
+  currentShipEntity() {
+    const shipWorld = this.shipWorld();
+    if (!shipWorld || shipWorld.parentWorld == null || shipWorld.parentEntity == null) return null;
+    return this.worlds.get(Number(shipWorld.parentWorld))?.entity(shipWorld.parentEntity) || null;
+  }
+
   #applyMeta(packet) {
     if (packet.removed) {
       const world = this.worlds.get(Number(packet.world));
@@ -96,13 +102,18 @@ export class WorldStore {
         relayTime: packet.relay_time ?? null
       }
     };
-    if (packet.full) world.model = new ModelState();
     if (packet.model_data && world.seed != null) {
+      const previousModel = world.model;
       try {
+        if (packet.full) world.model = new ModelState({ isOverworld: world.isOverworld });
         result.decoded = decryptPayload(packet.model_data, packet.world, world.seed);
         result.model = world.model.apply(result.decoded);
+        if (result.model?.error && packet.full && previousModel) world.model = previousModel;
       }
-      catch (error) { result.error = error; }
+      catch (error) {
+        if (packet.full && previousModel) world.model = previousModel;
+        result.error = error;
+      }
     }
     world.modelPackets.push(result);
     world.events.push({ type: "model", packet, result });
@@ -125,7 +136,7 @@ export class WorldState {
     this.chunks = [];
     this.events = [];
     this.modelPackets = [];
-    this.model = new ModelState();
+    this.model = new ModelState({ isOverworld: this.isOverworld });
     this.lastChunkPatch = null;
     this.lastPacket = null;
     this.meta = null;
@@ -137,6 +148,7 @@ export class WorldState {
     const isOverworld = packet.is_overworld ?? this.isOverworld;
     this.isOverworld = isOverworld == null ? null : Boolean(isOverworld);
     this.tileset = this.isOverworld == null ? null : getTilesetForWorld(this.isOverworld);
+    this.model.setWorldKind(this.isOverworld);
     this.blockWidth = packet.block_w ?? this.blockWidth;
     this.blockHeight = packet.block_h ?? this.blockHeight;
     this.parentWorld = packet.parent_world ?? this.parentWorld;
@@ -184,8 +196,45 @@ export class WorldState {
   }
 
   setTile(tile) {
-    this.tiles.set(`${tile.x},${tile.y}`, tile);
-    return tile;
+    const normalized = this.normalizeTile(tile);
+    this.tiles.set(`${normalized.x},${normalized.y}`, normalized);
+    return normalized;
+  }
+
+  normalizeTile(tile) {
+    const def = this.tileDefinition(tile.material);
+    const hp = tile.hp ?? tile.integrity ?? null;
+    const maxHp = def?.hp ?? null;
+    return {
+      ...tile,
+      hp,
+      integrity: hp,
+      materialName: def?.name ?? null,
+      solid: def?.solid ?? null,
+      maxHp,
+      hpRatio: typeof hp === "number" ? hp / 255 : null,
+      hpValue: typeof hp === "number" && typeof maxHp === "number" ? Math.round((hp / 255) * maxHp) : null
+    };
+  }
+
+  materials() {
+    const counts = new Map();
+    for (const tile of this.tiles.values()) {
+      const material = Number(tile.material);
+      counts.set(material, (counts.get(material) || 0) + 1);
+    }
+    return [...counts.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([material, count]) => {
+        const def = this.tileDefinition(material);
+        return {
+          material,
+          name: def?.name ?? null,
+          count,
+          solid: def?.solid ?? null,
+          hp: def?.hp ?? null
+        };
+      });
   }
 
   snapshot({ includeTiles = false, includeModel = false } = {}) {
@@ -204,6 +253,7 @@ export class WorldState {
       lastChunkPatch: this.lastChunkPatch,
       lastPacket: this.lastPacket,
       meta: this.meta,
+      materials: this.materials(),
       model,
       entities: model.entities,
       blocks: model.blocks,

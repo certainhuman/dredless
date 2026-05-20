@@ -51,6 +51,23 @@ export const OFFICIAL_CLIENT_SUBWORLD_MATERIAL_NAMES = new Map([
   [16, "Logistics Rail"]
 ]);
 
+export const OFFICIAL_CLIENT_OVERWORLD_MATERIAL_NAMES = new Map([
+  [0, "Air"],
+  [1, "Wall"],
+  [2, "Unbreakable"],
+  [3, "Treasure"],
+  [4, "Blank"],
+  [5, "Flux"],
+  [6, "Sleeping Bot"],
+  [7, "Bot Red"],
+  [8, "Strong Wall"],
+  [9, "Rock"],
+  [10, "Rock Metal"],
+  [11, "Rock Flux"],
+  [12, "Vault"],
+  [13, "Vault Locked"]
+]);
+
 const I = OFFICIAL_CLIENT_ITEM_ID;
 const F = OFFICIAL_CLIENT_FILTERS;
 
@@ -74,7 +91,8 @@ export const OFFICIAL_CLIENT_TILESETS = {
       { solid: true, hp: 199 },
       { solid: true, hp: 199 },
       { solid: true, hp: 199 },
-      { solid: true, hp: 999 }
+      { solid: true, hp: 999 },
+      { solid: true }
     ]
   },
   subworld: {

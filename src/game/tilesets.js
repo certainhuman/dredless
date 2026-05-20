@@ -1,4 +1,8 @@
-import { OFFICIAL_CLIENT_SUBWORLD_MATERIAL_NAMES, OFFICIAL_CLIENT_TILESETS } from "./official-client-data.js";
+import {
+  OFFICIAL_CLIENT_OVERWORLD_MATERIAL_NAMES,
+  OFFICIAL_CLIENT_SUBWORLD_MATERIAL_NAMES,
+  OFFICIAL_CLIENT_TILESETS
+} from "./official-client-data.js";
 
 function cloneFilter(filter) {
   if (!filter) return null;
@@ -28,7 +32,11 @@ function cloneTile(tile) {
 }
 
 export function cloneTileset(tileset) {
-  const materialNames = tileset.atlas === "tiles_subworld" ? OFFICIAL_CLIENT_SUBWORLD_MATERIAL_NAMES : null;
+  const materialNames = tileset.atlas === "tiles_subworld"
+    ? OFFICIAL_CLIENT_SUBWORLD_MATERIAL_NAMES
+    : tileset.atlas === "tiles_overworld"
+      ? OFFICIAL_CLIENT_OVERWORLD_MATERIAL_NAMES
+      : null;
   return {
     scale: tileset.scale,
     atlas: tileset.atlas,

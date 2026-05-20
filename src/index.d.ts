@@ -323,6 +323,7 @@ export class WorldStore {
   ids(): number[];
   overworld(): WorldState | null;
   shipWorld(): WorldState | null;
+  currentShipEntity(): EntitySummary | null;
 }
 
 export class WorldState {
@@ -350,6 +351,8 @@ export class WorldState {
   applyTile(value: unknown): Tile | null;
   applyChunk(value: unknown): Tile[] | null;
   setTile(tile: Tile): Tile;
+  normalizeTile(tile: Tile): Tile;
+  materials(): MaterialSummary[];
   snapshot(options?: { includeTiles?: boolean; includeModel?: boolean }): WorldSnapshot;
   table(id: number): Map<number, ModelRecord>;
   record(tableId: number, entityId: number): ModelRecord | null;
@@ -363,11 +366,24 @@ export interface Tile {
   x: number;
   y: number;
   material: number;
+  materialName?: string | null;
   shape: number;
   hp: number;
   /** @deprecated Use hp. This is the raw 0-255 HP fraction byte, not absolute integrity. */
   integrity: number;
   color: number | null;
+  solid?: boolean | null;
+  maxHp?: number | null;
+  hpRatio?: number | null;
+  hpValue?: number | null;
+}
+
+export interface MaterialSummary {
+  material: number;
+  name: string | null;
+  count: number;
+  solid: boolean | null;
+  hp: number | null;
 }
 
 export interface TilePhysics {
@@ -413,6 +429,7 @@ export interface WorldSnapshot {
   lastChunkPatch: unknown;
   lastPacket: unknown;
   meta: unknown;
+  materials: MaterialSummary[];
   model: ModelSnapshot;
   entities: EntitySummary[];
   blocks: BlockSummary[];
@@ -521,8 +538,16 @@ export interface PlayerSummary {
 
 export interface ShipControlSummary {
   entity: number;
+  name: string | null;
+  hexCode: string | null;
+  shipWorldId: number | null;
+  color: number | null;
+  colorCss: string | null;
   thrustX: number | null;
   thrustY: number | null;
+  value52: number | null;
+  value84: number | null;
+  value96: number | null;
   state: ModelRecord;
 }
 
