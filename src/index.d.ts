@@ -533,6 +533,8 @@ export interface PlayerSummary {
   name: string | null;
   heldItemId: number | null;
   heldItemName: string | null;
+  repairTargetDistance: number | null;
+  repairTargetAngle: number | null;
   teamRank: number | null;
   teamRankName: string | null;
   gameRank: number | null;

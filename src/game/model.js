@@ -494,6 +494,8 @@ function summarizePlayer(entity, record) {
     name: decodeText(record.blob92),
     heldItemId,
     heldItemName: entityNameFromType(heldItemId),
+    repairTargetDistance: record.q56 == null ? null : record.q56 / 10,
+    repairTargetAngle: record.q80 == null ? null : record.q80 / 100,
     teamRank,
     teamRankName: TEAM_RANK_NAMES.get(teamRank) || null,
     gameRank,
