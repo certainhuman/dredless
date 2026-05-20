@@ -248,6 +248,9 @@ solid/open flags, and HP fractions when the official tileset defines them.
 `parent_world`/`parent_ent` link back to the corresponding overworld ship
 entity. Overworld ship-control summaries include ship `name`, `hexCode`,
 linked `shipWorldId`, and RGB `color` when table `20` carries those fields.
+Player summaries include display `name`, held item, ship `teamRank`, account
+`gameRank`, patron tier when present, and the muted flag when the server sends
+it.
 The model decoder is best-effort and currently covers the component
 tables documented in
 `spec/game-state-transmission-spec.md`, including transforms, item holders,

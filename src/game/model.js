@@ -343,6 +343,24 @@ const MARKER_TYPE_IDS = new Map([
   [73, 240]
 ]);
 
+const TEAM_RANK_NAMES = new Map([
+  [0, "Guest"],
+  [1, "Crew"],
+  [2, "CrewInvitePending_DEPRECATED"],
+  [3, "Captain"],
+  [4, "Banned"]
+]);
+
+const GAME_RANK_NAMES = new Map([
+  [0, "Guest"],
+  [1, "GameMaster"],
+  [2, "PatronBronze"],
+  [3, "PatronSilver"],
+  [4, "PatronGold"],
+  [5, "PatronPlat"],
+  [6, "PatronFlux"]
+]);
+
 function numberOrNull(value, divisor = 1) {
   return typeof value === "number" ? value / divisor : null;
 }
@@ -469,13 +487,32 @@ function summarizePlayer(entity, record) {
   if (!record) return null;
   const rawHeldItemId = record.q28 == null ? null : Number(record.q28);
   const heldItemId = Number.isFinite(rawHeldItemId) && rawHeldItemId !== 0 ? rawHeldItemId : null;
+  const teamRank = Number.isFinite(Number(record.q72)) ? Number(record.q72) : 0;
+  const gameRank = Number.isFinite(Number(record.q76)) ? Number(record.q76) : 0;
   return {
     entity,
     name: decodeText(record.blob92),
     heldItemId,
     heldItemName: entityNameFromType(heldItemId),
+    teamRank,
+    teamRankName: TEAM_RANK_NAMES.get(teamRank) || null,
+    gameRank,
+    gameRankName: GAME_RANK_NAMES.get(gameRank) || null,
+    patronTier: patronTierName(gameRank),
+    muted: Boolean(record.q112),
     state: cloneRecord(record)
   };
+}
+
+function patronTierName(gameRank) {
+  switch (gameRank) {
+    case 2: return "bronze";
+    case 3: return "silver";
+    case 4: return "gold";
+    case 5: return "plat";
+    case 6: return "flux";
+    default: return null;
+  }
 }
 
 function mergeContents(...parts) {

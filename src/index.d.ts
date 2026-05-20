@@ -533,6 +533,12 @@ export interface PlayerSummary {
   name: string | null;
   heldItemId: number | null;
   heldItemName: string | null;
+  teamRank: number | null;
+  teamRankName: string | null;
+  gameRank: number | null;
+  gameRankName: string | null;
+  patronTier: "bronze" | "silver" | "gold" | "plat" | "flux" | null;
+  muted: boolean;
   state: ModelRecord;
 }
 
