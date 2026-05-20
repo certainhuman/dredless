@@ -101,7 +101,7 @@ const MODEL_TABLE_SPECS = new Map([
   [9, { name: "numeric_snapshot", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40, 64: 44 }) }],
   [11, { name: "numeric_sparse", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36 }) }],
   [14, { name: "size_state", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40, 64: 44 }) }],
-  [16, { name: "named_state", fields: numericFields({ 1: 20, 2: 24, 8: 28 }), blobs: [{ bit: 16, offset: 32 }] }],
+  [16, { name: "numeric_state", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36 }) }],
   [19, { name: "motion_state", packedBits: [{ bit: 4, offset: 29 }], ...TWO_FIELD_SPEC }],
   [20, {
     name: "ship_control",
@@ -1028,8 +1028,12 @@ export class ModelState {
       const record = this.#getRecord(tableId, entity);
       record.lastMask = mask;
 
-      if (spec) this.#applyRecordSpec(reader, record, mask, spec);
-      else if (!MASK_ONLY_TABLES.has(tableId)) throw new Error(`missing model table spec ${tableId}`);
+      try {
+        if (spec) this.#applyRecordSpec(reader, record, mask, spec);
+        else if (!MASK_ONLY_TABLES.has(tableId)) throw new Error(`missing model table spec ${tableId}`);
+      } catch (error) {
+        throw new Error(`model table ${tableId} tag ${tag} entity ${entity} mask ${mask} offset ${reader.offset}: ${error.message}`);
+      }
 
       section.records.push({ entity, mask });
     }
