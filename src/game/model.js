@@ -1,5 +1,8 @@
 import { decoder } from "../constants.js";
 import { toUint8Array } from "../protocol/binary.js";
+import fs from "node:fs";
+
+const itemSchema = JSON.parse(fs.readFileSync(new URL("../../spec/item_schema.json", import.meta.url), "utf8"));
 
 class ModelReader {
   constructor(bytes) {
@@ -66,6 +69,34 @@ const TWO_FIELD_SPEC = {
   fields: numericFields({ 1: 20, 2: 24 })
 };
 
+const LABEL_STATE_SPEC = {
+  name: "label_state",
+  read(reader, record, mask) {
+    if (mask & 1) record.blob20 = reader.readBlob();
+    if (mask & 2) {
+      if (mask & 1) record.blob24 = reader.readBlob();
+      else record.q20 = (record.q20 || 0) + reader.readFieldDelta();
+    }
+    if (mask & 4) record.q28 = (record.q28 || 0) + reader.readFieldDelta();
+    if (mask & 8) {
+      if (mask & 1) record.q32 = (record.q32 || 0) + reader.readFieldDelta();
+      else record.blob28 = reader.readBlob();
+    }
+    if (mask & 16) record.q36 = (record.q36 || 0) + reader.readFieldDelta();
+  }
+};
+
+const SIMPLE_LABEL_STATE_SPEC = {
+  name: "label_state",
+  read(reader, record, mask) {
+    if (mask & 1) record.blob20 = reader.readBlob();
+    if (mask & 2) record.q24 = (record.q24 || 0) + reader.readFieldDelta();
+    if (mask & 4) record.q28 = (record.q28 || 0) + reader.readFieldDelta();
+    if (mask & 8) record.q32 = (record.q32 || 0) + reader.readFieldDelta();
+    if (mask & 16) record.q36 = (record.q36 || 0) + reader.readFieldDelta();
+  }
+};
+
 const MODEL_TABLE_SPECS = new Map([
   [0, {
     name: "transform",
@@ -98,10 +129,24 @@ const MODEL_TABLE_SPECS = new Map([
     fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40, 64: 44, 128: 48, 256: 52 })
   }],
   [8, { name: "numeric_sparse", fields: numericFields({ 2: 20, 4: 24, 8: 28, 16: 32, 32: 36 }) }],
-  [9, { name: "numeric_snapshot", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40, 64: 44 }) }],
+  [9, LABEL_STATE_SPEC],
+  [10, SIMPLE_LABEL_STATE_SPEC],
   [11, { name: "numeric_sparse", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36 }) }],
   [14, { name: "size_state", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40, 64: 44 }) }],
-  [16, { name: "numeric_state", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36 }) }],
+  [16, {
+    name: "label_numeric_state",
+    read(reader, record, mask) {
+      if (mask & 1) record.q20 = (record.q20 || 0) + reader.readFieldDelta();
+      if (mask & 2) {
+        if (mask & 1) record.blob24 = reader.readBlob();
+        else record.q24 = (record.q24 || 0) + reader.readFieldDelta();
+      }
+      if (mask & 4) record.q28 = (record.q28 || 0) + reader.readFieldDelta();
+      if (mask & 8) record.q32 = (record.q32 || 0) + reader.readFieldDelta();
+      if (mask & 16) record.q36 = (record.q36 || 0) + reader.readFieldDelta();
+    }
+  }],
+  [18, { name: "mob_combat_state", fields: numericFields({ 2: 20, 4: 24, 8: 28, 16: 32, 32: 36, 64: 40, 128: 44, 256: 48, 512: 52, 1024: 56, 2048: 60, 4096: 64, 8192: 68, 16384: 72, 32768: 76, 65536: 80, 131072: 84, 524288: 88, 4194304: 92 }) }],
   [19, { name: "motion_state", packedBits: [{ bit: 4, offset: 29 }], ...TWO_FIELD_SPEC }],
   [20, {
     name: "ship_control",
@@ -127,7 +172,15 @@ const MODEL_TABLE_SPECS = new Map([
       };
     }
   }],
+  [24, { name: "projectile_state", packedBits: [{ bit: 8, offset: 33 }], fields: numericFields({ 1: 20, 2: 24, 4: 28 }) }],
+  [25, {
+    name: "zone_label",
+    orderedValues: true,
+    fields: numericFields({ 1: 20, 2: 24 }),
+    blobs: [{ bit: 4, offset: 28 }, { bit: 8, offset: 40 }]
+  }],
   [26, { name: "numeric_single", fields: numericFields({ 1: 20 }) }],
+  [31, { name: "numeric_single", fields: numericFields({ 1: 20 }) }],
   [37, { name: "loose_item_marker", packedBits: [{ bit: 2, offset: 29 }], fields: numericFields({ 1: 20, 4: 24 }) }],
   [38, { name: "flag_state", packedBits: [{ bit: 1, offset: 21 }], fields: [] }],
   [39, { name: "comms_transmit", ...TWO_FIELD_SPEC }],
@@ -189,17 +242,22 @@ const WIRE_TAG_TABLES = new Map([
   [43, 7],
   [44, 8],
   [45, 9],
+  [46, 10],
   [47, 11],
   [50, 14],
   [52, 16],
+  [81, 18],
   [82, 19],
   [83, 20],
   [84, 21],
   [85, 22],
   [86, 23],
+  [87, 24],
+  [88, 25],
   [89, 26],
   [90, 27],
   [93, 30],
+  [94, 31],
   [99, 36],
   [120, 37],
   [121, 38],
@@ -239,85 +297,7 @@ const WIRE_TAG_TABLES = new Map([
 
 const MASK_ONLY_TABLES = new Set([13, 21, 22, 23, 27, 30, 36, 40, 46, 52, 58, 65, 66, 68, 73, 74, 76, 77, 78]);
 
-const ENTITY_TYPE_NAMES = new Map([
-  [1, "Iron"],
-  [2, "Explosives"],
-  [4, "Hyper Rubber"],
-  [5, "Flux Crystals"],
-  [6, "Thruster Fuel"],
-  [100, "Wrench"],
-  [101, "Item Shredder"],
-  [103, "Repair Tool"],
-  [115, "Manifest Scanner"],
-  [116, "BoM Scanner"],
-  [117, "Starter Wrench"],
-  [118, "Starter Shredder"],
-  [119, "Hand Cannon"],
-  [120, "Blueprint Scanner"],
-  [121, "Sandbox RCD"],
-  [122, "Flux RCD"],
-  [123, "Shield Core"],
-  [150, "Standard Ammo"],
-  [151, "ScatterShot Ammo"],
-  [152, "Flak Ammo"],
-  [153, "Sniper Ammo"],
-  [154, "Punch Ammo"],
-  [155, "Yank Ammo"],
-  [156, "Slug Ammo"],
-  [157, "Trash Box"],
-  [159, "Booster Fuel (Low Grade)"],
-  [160, "Booster Fuel (High Grade)"],
-  [166, "Cooling Cell"],
-  [168, "Burst Charge"],
-  [215, "Helm"],
-  [216, "Helm (Starter)"],
-  [217, "Comms Station"],
-  [218, "Sign"],
-  [219, "Spawn Point"],
-  [220, "Door"],
-  [221, "Cargo Hatch"],
-  [222, "Cargo Hatch (Starter)"],
-  [223, "Cargo Ejector"],
-  [224, "Turret Controller"],
-  [226, "Cannon"],
-  [227, "Starter Cannon"],
-  [228, "Burst Cannon"],
-  [229, "Machine Cannon"],
-  [230, "Thruster"],
-  [231, "Starter Thruster"],
-  [232, "Iron Block"],
-  [233, "Hyper Rubber Block"],
-  [234, "Hyper Ice Block"],
-  [235, "Ladder"],
-  [236, "Walkway"],
-  [237, "Item Net"],
-  [239, "Paint"],
-  [240, "Expando Box"],
-  [241, "Safety Anchor"],
-  [242, "Pusher"],
-  [243, "Item Launcher"],
-  [245, "Recycler"],
-  [246, "Fabricator (Legacy)"],
-  [247, "Fabricator (Starter)"],
-  [248, "Fabricator (Munitions)"],
-  [249, "Fabricator (Engineering)"],
-  [250, "Fabricator (Deprecated)"],
-  [251, "Fabricator (Equipment)"],
-  [252, "Loader"],
-  [253, "Lockdown Override Unit"],
-  [254, "Annihilator Tile"],
-  [255, "Fluid Tank"],
-  [256, "Shield Generator"],
-  [257, "Shield Projector"],
-  [258, "Enhanced Turret Controller"],
-  [259, "Bulk Ejector"],
-  [260, "Bulk Loading Bay Designator"],
-  [261, "Navigation Unit"],
-  [262, "Logistics Rail"],
-  [263, "Acute Cannon"],
-  [264, "Munitions Supply Unit"],
-  [265, "Obtuse Cannon"]
-]);
+const ENTITY_TYPE_NAMES = new Map(itemSchema.map((item) => [Number(item.id), item.name]));
 
 const ENTITY_FOOTPRINTS = new Map([
   [240, { width: 2, height: 2 }],
@@ -479,6 +459,30 @@ function summarizeShipControl(entity, record) {
   };
 }
 
+function summarizeShipSize(entity, record) {
+  if (!record) return null;
+  return {
+    entity,
+    width: record.q20 == null ? null : Math.round(record.q20 / 10),
+    height: record.q24 == null ? null : Math.round(record.q24 / 10),
+    rawWidth: record.q20 ?? null,
+    rawHeight: record.q24 ?? null,
+    state: cloneRecord(record)
+  };
+}
+
+function summarizeItemCrate(entity, itemRecord, sizeRecord) {
+  if (!itemRecord || !sizeRecord) return null;
+  return {
+    entity,
+    ...itemSummary(itemRecord.q20, itemRecord.q24 ?? null),
+    width: sizeRecord.q20 ?? null,
+    height: sizeRecord.q24 ?? null,
+    itemState: cloneRecord(itemRecord),
+    sizeState: cloneRecord(sizeRecord)
+  };
+}
+
 function colorToCss(color) {
   return `rgb(${(color >> 16) & 0xff},${(color >> 8) & 0xff},${color & 0xff})`;
 }
@@ -550,6 +554,7 @@ function entityLabel(entity) {
   if (entity?.markerTypeName) return entity.markerTypeName;
   if (entity?.typeName) return entity.typeName;
   if (entity?.fabricator) return "Fabricator";
+  if (entity?.itemCrate) return "Item Crate";
   if (entity?.shieldGenerator) return "Shield Generator";
   if (entity?.fluidTank) return "Fluid Tank";
   if (entity?.cannon) return "Cannon";
@@ -645,7 +650,12 @@ export class ModelState {
 
       while (reader.remaining > 0) {
         if (reader.trailingZeroOnly()) break;
-        const tag = reader.readStreamInt();
+        let tag;
+        try {
+          tag = reader.readStreamInt();
+        } catch (error) {
+          throw new Error(`model section tag offset ${reader.offset}: ${error.message}`);
+        }
         if (tag === 0) break;
         if (tag === 57005) {
           update.removals.push(...this.#readRemovals(reader));
@@ -911,6 +921,8 @@ export class ModelState {
     const shipControlRecord = this.record(20, entityId);
     const bodyStateRecord = this.record(1, entityId);
     const typeRecord = this.record(7, entityId);
+    const crateSizeRecord = this.record(3, entityId);
+    const crateItemRecord = this.record(19, entityId);
     const markerTableIds = [73].filter((tableId) => this.record(tableId, entityId));
     const markerTypeId = markerTypeIdForTables(markerTableIds);
     const markerTypeName = entityNameFromType(markerTypeId);
@@ -926,6 +938,10 @@ export class ModelState {
     const shieldGenerator = shieldRecord ? { entity: entityId, charge: shieldRecord.q20 ?? null, state: cloneRecord(shieldRecord) } : null;
     const player = summarizePlayer(entityId, playerRecord);
     const shipControl = summarizeShipControl(entityId, shipControlRecord);
+    const shipSize = shipControl && this.isOverworld ? summarizeShipSize(entityId, this.record(3, entityId)) : null;
+    const itemCrate = this.isOverworld && !this.record(2, entityId) && health && crateSizeRecord && crateItemRecord
+      ? summarizeItemCrate(entityId, crateItemRecord, crateSizeRecord)
+      : null;
     const transform = transformRecord ? {
       entity: entityId,
       x: numberOrNull(transformRecord.q20, 40),
@@ -933,7 +949,7 @@ export class ModelState {
       rot: numberOrNull(transformRecord.q28, 127.324),
       flags: [transformRecord.q33, transformRecord.q34, transformRecord.q35].filter((value) => value != null)
     } : null;
-    const contents = mergeContents({ itemHolder }, { health }, { fabricator }, { processor }, { cannon }, { fluidTank }, { shieldGenerator }, { player }, { shipControl });
+    const contents = mergeContents({ itemHolder }, { itemCrate }, { health }, { fabricator }, { processor }, { cannon }, { fluidTank }, { shieldGenerator }, { player }, { shipControl }, { shipSize });
     const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, fabricator, processor, cannon, fluidTank, shieldGenerator, player, shipControl });
     const typeName = entityNameFromType(typeId);
     const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, fabricator, processor, cannon, fluidTank, shieldGenerator, player, shipControl });
@@ -950,6 +966,7 @@ export class ModelState {
         typeName,
         markerTypeName,
         itemHolder,
+        itemCrate,
         fabricator,
         processor,
         cannon,
@@ -964,6 +981,7 @@ export class ModelState {
         dynamicBody ? "dynamic_body" : null,
         itemHolder ? "item_holder" : null,
         health ? "health" : null,
+        itemCrate ? "item_crate" : null,
         markerTableIds.length ? "marker" : null,
         looseItemMarker ? "loose_item_marker" : null,
         fabricator ? "fabricator" : null,
@@ -1023,10 +1041,21 @@ export class ModelState {
     const section = { tag, table: tableId, name: spec?.name || null, records: [] };
     let entity = 0;
     while (reader.remaining > 0) {
-      const delta = reader.readStreamInt();
+      const recordOffset = reader.offset;
+      let delta;
+      try {
+        delta = reader.readStreamInt();
+      } catch (error) {
+        throw new Error(`model table ${tableId} tag ${tag} record offset ${recordOffset}: ${error.message}`);
+      }
       if (delta === 0) break;
       entity += delta;
-      const mask = reader.readUnsigned();
+      let mask;
+      try {
+        mask = reader.readUnsigned();
+      } catch (error) {
+        throw new Error(`model table ${tableId} tag ${tag} entity ${entity} mask offset ${reader.offset}: ${error.message}`);
+      }
       const record = this.#getRecord(tableId, entity);
       record.lastMask = mask;
 
@@ -1050,6 +1079,12 @@ export class ModelState {
   }
 
   #applyRecordSpec(reader, record, mask, spec) {
+    if (typeof spec.read === "function") {
+      spec.read(reader, record, mask);
+      if (spec.scale) record.scaled = spec.scale(record);
+      return;
+    }
+
     const hasPacked = Boolean(
       (spec.packedMask && (mask & spec.packedMask)) ||
       spec.packedBits?.some((item) => mask & item.bit)

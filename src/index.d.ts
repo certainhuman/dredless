@@ -281,6 +281,7 @@ export interface PuiEvent {
 
 export interface EntityContentsSummary {
   itemHolder?: ItemHolderSummary;
+  itemCrate?: ItemCrateSummary;
   health?: HealthSummary;
   fabricator?: FabricatorSummary;
   processor?: { entity: number; state: ModelRecord };
@@ -499,6 +500,17 @@ export interface ItemHolderSummary {
   itemId: number | null;
   itemName: string | null;
   count: number | null;
+}
+
+export interface ItemCrateSummary {
+  entity: number;
+  itemId: number | null;
+  itemName: string | null;
+  count: number | null;
+  width: number | null;
+  height: number | null;
+  itemState: ModelRecord;
+  sizeState: ModelRecord;
 }
 
 export interface HealthSummary {

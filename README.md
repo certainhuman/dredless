@@ -146,6 +146,16 @@ offline with:
 npm run benchmark -- captures/near-ship.jsonl
 ```
 
+Inspect overworld mob/projectile behavior from a capture with:
+
+```sh
+npm run analyze:entities -- captures/owned-overworld-mobs.jsonl --world 1
+```
+
+The analyzer groups health-bearing movers as likely mobs, table-3 health
+entities as likely overworld item crates, and fast, short-lived projectile
+movers as likely bullets.
+
 Benchmark another implementation by pointing at a module that exports
 `WorldStore`:
 
