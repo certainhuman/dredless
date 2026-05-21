@@ -245,6 +245,7 @@ const WIRE_TAG_TABLES = new Map([
   [46, 10],
   [47, 11],
   [50, 14],
+  [51, 51],
   [52, 16],
   [81, 18],
   [82, 19],
@@ -471,14 +472,16 @@ function summarizeShipSize(entity, record) {
   };
 }
 
-function summarizeItemCrate(entity, itemRecord, sizeRecord) {
-  if (!itemRecord || !sizeRecord) return null;
+function summarizeItemCrate(entity, sizeRecord, itemRecord = null, healthRecord = null) {
+  if (!sizeRecord) return null;
+  const itemId = itemRecord?.q20 ?? null;
+  const count = itemRecord?.q24 ?? healthRecord?.q28 ?? healthRecord?.q32 ?? null;
   return {
     entity,
-    ...itemSummary(itemRecord.q20, itemRecord.q24 ?? null),
+    ...itemSummary(itemId, count),
     width: sizeRecord.q20 ?? null,
     height: sizeRecord.q24 ?? null,
-    itemState: cloneRecord(itemRecord),
+    itemState: cloneRecord(itemRecord || healthRecord || {}),
     sizeState: cloneRecord(sizeRecord)
   };
 }
@@ -538,6 +541,13 @@ function entityFootprint(entity) {
     const footprint = ENTITY_FOOTPRINTS.get(entity.markerTypeId);
     return { ...footprint, source: "marker" };
   }
+  if (entity?.itemCrate && Number.isFinite(Number(entity.itemCrate.width)) && Number.isFinite(Number(entity.itemCrate.height))) {
+    return {
+      width: Number(entity.itemCrate.width),
+      height: Number(entity.itemCrate.height),
+      source: "crate"
+    };
+  }
   if (entity?.typeId != null && ENTITY_FOOTPRINTS.has(entity.typeId)) {
     const footprint = ENTITY_FOOTPRINTS.get(entity.typeId);
     return { ...footprint, source: "type" };
@@ -570,6 +580,7 @@ function entityLabel(entity) {
 function entityCategory(entity) {
   if (entity?.player) return "player";
   if (entity?.shipControl) return "ship_control";
+  if (entity?.itemCrate) return "item_crate";
   const hasMachineComponent = Boolean(entity?.fabricator || entity?.processor || entity?.cannon || entity?.fluidTank || entity?.shieldGenerator);
   const hasValidTransform = Boolean(
     entity?.transform &&
@@ -939,8 +950,8 @@ export class ModelState {
     const player = summarizePlayer(entityId, playerRecord);
     const shipControl = summarizeShipControl(entityId, shipControlRecord);
     const shipSize = shipControl && this.isOverworld ? summarizeShipSize(entityId, this.record(3, entityId)) : null;
-    const itemCrate = this.isOverworld && !this.record(2, entityId) && health && crateSizeRecord && crateItemRecord
-      ? summarizeItemCrate(entityId, crateItemRecord, crateSizeRecord)
+    const itemCrate = this.isOverworld && !this.record(2, entityId) && !this.record(18, entityId) && health && crateSizeRecord
+      ? summarizeItemCrate(entityId, crateSizeRecord, crateItemRecord, healthRecord)
       : null;
     const transform = transformRecord ? {
       entity: entityId,
@@ -950,9 +961,9 @@ export class ModelState {
       flags: [transformRecord.q33, transformRecord.q34, transformRecord.q35].filter((value) => value != null)
     } : null;
     const contents = mergeContents({ itemHolder }, { itemCrate }, { health }, { fabricator }, { processor }, { cannon }, { fluidTank }, { shieldGenerator }, { player }, { shipControl }, { shipSize });
-    const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, fabricator, processor, cannon, fluidTank, shieldGenerator, player, shipControl });
+    const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, itemCrate, fabricator, processor, cannon, fluidTank, shieldGenerator, player, shipControl });
     const typeName = entityNameFromType(typeId);
-    const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, fabricator, processor, cannon, fluidTank, shieldGenerator, player, shipControl });
+    const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, fabricator, processor, cannon, fluidTank, shieldGenerator, player, shipControl });
     const summary = {
       entity: entityId,
       category,
