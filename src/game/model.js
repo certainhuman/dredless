@@ -97,6 +97,39 @@ const SIMPLE_LABEL_STATE_SPEC = {
   }
 };
 
+function peekStreamInt(reader) {
+  let result = 0;
+  let shift = 0;
+  let offset = reader.offset;
+  while (offset < reader.bytes.length) {
+    const byte = reader.bytes[offset++];
+    result += (byte & 0x7f) * (2 ** shift);
+    if ((byte & 0x80) === 0) {
+      return {
+        value: (result & 1) === 0 ? result / 2 : -((result + 1) / 2),
+        offset
+      };
+    }
+    shift += 7;
+    if (shift > 53) return null;
+  }
+  return null;
+}
+
+function nextValueLooksLikeTextBlob(reader) {
+  const peek = peekStreamInt(reader);
+  if (!peek || peek.value <= 0) return false;
+  const end = peek.offset + peek.value;
+  if (end > reader.bytes.length) return false;
+  const blob = reader.bytes.slice(peek.offset, end);
+  try {
+    const text = decoder.decode(blob);
+    return text.length > 0 && !/[\u0000-\u0008\u000e-\u001f]/.test(text);
+  } catch (_) {
+    return false;
+  }
+}
+
 const MODEL_TABLE_SPECS = new Map([
   [0, {
     name: "transform",
@@ -132,10 +165,15 @@ const MODEL_TABLE_SPECS = new Map([
   [9, LABEL_STATE_SPEC],
   [10, SIMPLE_LABEL_STATE_SPEC],
   [11, { name: "numeric_sparse", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36 }) }],
+  [12, { name: "numeric_single", fields: numericFields({ 1: 20 }) }],
   [14, { name: "size_state", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40, 64: 44 }) }],
   [16, {
     name: "label_numeric_state",
     read(reader, record, mask) {
+      if ((mask & 1) && nextValueLooksLikeTextBlob(reader)) {
+        SIMPLE_LABEL_STATE_SPEC.read(reader, record, mask);
+        return;
+      }
       if (mask & 1) record.q20 = (record.q20 || 0) + reader.readFieldDelta();
       if (mask & 2) {
         if (mask & 1) record.blob24 = reader.readBlob();
@@ -146,6 +184,7 @@ const MODEL_TABLE_SPECS = new Map([
       if (mask & 16) record.q36 = (record.q36 || 0) + reader.readFieldDelta();
     }
   }],
+  [17, { name: "numeric_sparse", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36 }) }],
   [18, { name: "mob_combat_state", fields: numericFields({ 2: 20, 4: 24, 8: 28, 16: 32, 32: 36, 64: 40, 128: 44, 256: 48, 512: 52, 1024: 56, 2048: 60, 4096: 64, 8192: 68, 16384: 72, 32768: 76, 65536: 80, 131072: 84, 524288: 88, 4194304: 92 }) }],
   [19, { name: "motion_state", packedBits: [{ bit: 4, offset: 29 }], ...TWO_FIELD_SPEC }],
   [20, {
@@ -172,6 +211,12 @@ const MODEL_TABLE_SPECS = new Map([
       };
     }
   }],
+  [21, {
+    name: "gate_portal",
+    orderedValues: true,
+    fields: numericFields({ 1: 20, 2: 24 }),
+    blobs: [{ bit: 4, offset: 28 }, { bit: 8, offset: 40 }]
+  }],
   [24, { name: "projectile_state", packedBits: [{ bit: 8, offset: 33 }], fields: numericFields({ 1: 20, 2: 24, 4: 28 }) }],
   [25, {
     name: "zone_label",
@@ -187,11 +232,15 @@ const MODEL_TABLE_SPECS = new Map([
   [41, { name: "blob_state", fields: numericFields({ 2: 20 }), blobs: [{ bit: 1, offset: 24 }] }],
   [42, { name: "numeric_pair", ...TWO_FIELD_SPEC }],
   [43, { name: "numeric_single", fields: numericFields({ 1: 20 }) }],
+  [44, { name: "numeric_sparse", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32 }) }],
   [45, { name: "numeric_flag", packedBits: [{ bit: 1, offset: 25 }], fields: numericFields({ 2: 20 }) }],
   [47, { name: "flag_state", packedBits: [{ bit: 1, offset: 21 }], fields: [] }],
   [49, { name: "processor_cycle", packedBits: [{ bit: 2, offset: 33 }], fields: numericFields({ 1: 20, 4: 24, 8: 28 }) }],
   [50, { name: "rare_snapshot", packedBits: [{ bit: 2, offset: 33 }, { bit: 8, offset: 34 }, { bit: 32, offset: 35 }], fields: numericFields({ 1: 20, 4: 24, 16: 28 }) }],
-  [51, { name: "numeric_pair", ...TWO_FIELD_SPEC }],
+  [51, {
+    name: "numeric_sparse",
+    fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40, 64: 44, 128: 48, 256: 52 })
+  }],
   [53, {
     name: "fabricator",
     packedBits: [{ bit: 2, offset: 61 }],
@@ -220,15 +269,19 @@ const MODEL_TABLE_SPECS = new Map([
     ]
   }],
   [56, { name: "numeric_snapshot", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 64: 40, 256: 44, 1024: 48 }) }],
+  [59, { name: "numeric_sparse", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36 }) }],
   [60, { name: "fluid_tank", packedBits: [{ bit: 4, offset: 29 }], ...TWO_FIELD_SPEC }],
   [61, { name: "shield_charge", ...TWO_FIELD_SPEC }],
   [62, { name: "flag_state", packedBits: [{ bit: 1, offset: 21 }], fields: [] }],
   [67, { name: "numeric_single", fields: numericFields({ 1: 20 }) }],
   [69, { name: "rare_snapshot", packedBits: [{ bit: 32, offset: 41 }, { bit: 64, offset: 42 }], fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36 }) }],
   [70, { name: "rare_snapshot", packedBits: [{ bit: 16, offset: 40 }], fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 32: 36 }) }],
+  [72, { name: "numeric_sparse", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40 }) }],
   [73, { name: "expando_box_marker", fields: [] }],
   [74, { name: "processor_marker", fields: [] }],
-  [75, { name: "rare_snapshot", fields: numericFields({ 1: 20, 8: 24, 16: 28 }) }]
+  [75, { name: "rare_snapshot", fields: numericFields({ 1: 20, 8: 24, 16: 28 }) }],
+  [76, { name: "numeric_single", fields: numericFields({ 1: 20 }) }],
+  [78, { name: "local_session_marker", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40 }) }]
 ]);
 
 const WIRE_TAG_TABLES = new Map([
@@ -237,6 +290,7 @@ const WIRE_TAG_TABLES = new Map([
   [3, 2],
   [4, 3],
   [5, 4],
+  [26, 9],
   [40, 5],
   [42, 6],
   [43, 7],
@@ -244,9 +298,13 @@ const WIRE_TAG_TABLES = new Map([
   [45, 9],
   [46, 10],
   [47, 11],
+  [48, 12],
+  [49, 13],
   [50, 14],
   [51, 51],
   [52, 16],
+  [74, 17],
+  [80, 17],
   [81, 18],
   [82, 19],
   [83, 20],
@@ -259,6 +317,7 @@ const WIRE_TAG_TABLES = new Map([
   [90, 27],
   [93, 30],
   [94, 31],
+  [95, 32],
   [99, 36],
   [120, 37],
   [121, 38],
@@ -267,6 +326,7 @@ const WIRE_TAG_TABLES = new Map([
   [124, 41],
   [125, 42],
   [126, 43],
+  [127, 44],
   [128, 45],
   [129, 46],
   [130, 47],
@@ -278,6 +338,8 @@ const WIRE_TAG_TABLES = new Map([
   [137, 54],
   [138, 55],
   [139, 56],
+  [141, 58],
+  [142, 59],
   [143, 60],
   [144, 61],
   [145, 62],
@@ -291,12 +353,13 @@ const WIRE_TAG_TABLES = new Map([
   [160, 76],
   [161, 77],
   [162, 78],
+  [163, 72],
   [164, 73],
   [165, 74],
   [168, 78]
 ]);
 
-const MASK_ONLY_TABLES = new Set([13, 21, 22, 23, 27, 30, 36, 40, 46, 52, 58, 65, 66, 68, 73, 74, 76, 77, 78]);
+const MASK_ONLY_TABLES = new Set([13, 22, 23, 27, 30, 32, 36, 40, 46, 52, 58, 65, 66, 68, 73, 74, 77]);
 
 const ENTITY_TYPE_NAMES = new Map(itemSchema.map((item) => [Number(item.id), item.name]));
 
@@ -475,7 +538,7 @@ function summarizeShipSize(entity, record) {
 function summarizeItemCrate(entity, sizeRecord, itemRecord = null, healthRecord = null) {
   if (!sizeRecord) return null;
   const itemId = itemRecord?.q20 ?? null;
-  const count = itemRecord?.q24 ?? healthRecord?.q28 ?? healthRecord?.q32 ?? null;
+  const count = itemRecord?.q24 ?? null;
   return {
     entity,
     ...itemSummary(itemId, count),
@@ -483,6 +546,52 @@ function summarizeItemCrate(entity, sizeRecord, itemRecord = null, healthRecord 
     height: sizeRecord.q24 ?? null,
     itemState: cloneRecord(itemRecord || healthRecord || {}),
     sizeState: cloneRecord(sizeRecord)
+  };
+}
+
+function summarizeMapMarker(entity, labelRecord, zoneRecord = null, sizeRecord = null) {
+  if (!labelRecord && !zoneRecord) return null;
+  const title = decodeText(zoneRecord?.blob28) ?? decodeText(labelRecord?.blob20);
+  const key = decodeText(labelRecord?.blob24) ?? decodeText(labelRecord?.blob28);
+  const description = decodeText(zoneRecord?.blob40);
+  const color = zoneRecord?.q20 ?? labelRecord?.q28 ?? null;
+  const accentColor = zoneRecord?.q24 ?? labelRecord?.q32 ?? null;
+  const kind = key === "mine" ? "mining_zone" : key === "dock" ? "dock" : zoneRecord ? "portal" : "marker";
+  return {
+    entity,
+    kind,
+    title,
+    key,
+    description,
+    color,
+    colorCss: color != null && Number.isFinite(Number(color)) ? colorToCss(Number(color)) : null,
+    accentColor,
+    accentColorCss: accentColor != null && Number.isFinite(Number(accentColor)) ? colorToCss(Number(accentColor)) : null,
+    width: sizeRecord?.q20 ?? null,
+    height: sizeRecord?.q24 ?? null,
+    labelState: cloneRecord(labelRecord || {}),
+    zoneState: cloneRecord(zoneRecord || {})
+  };
+}
+
+function summarizeDockingSpring(entity, springRecord, bodyRecord = null, sizeRecord = null) {
+  if (!springRecord || bodyRecord?.q32 !== -1 || sizeRecord?.q20 !== 160 || sizeRecord?.q24 !== 160) return null;
+  return {
+    entity,
+    id: springRecord.q20 ?? null,
+    width: sizeRecord.q20,
+    height: sizeRecord.q24,
+    state: cloneRecord(springRecord)
+  };
+}
+
+function summarizeHugeThruster(entity, markerRecord, sizeRecord = null) {
+  if (!markerRecord || sizeRecord?.q20 !== 320 || sizeRecord?.q24 !== 160) return null;
+  return {
+    entity,
+    width: sizeRecord.q20,
+    height: sizeRecord.q24,
+    state: cloneRecord(markerRecord)
   };
 }
 
@@ -541,6 +650,13 @@ function entityFootprint(entity) {
     const footprint = ENTITY_FOOTPRINTS.get(entity.markerTypeId);
     return { ...footprint, source: "marker" };
   }
+  if (entity?.hugeThruster) {
+    return {
+      width: entity.hugeThruster.width,
+      height: entity.hugeThruster.height,
+      source: "huge_thruster"
+    };
+  }
   if (entity?.itemCrate && Number.isFinite(Number(entity.itemCrate.width)) && Number.isFinite(Number(entity.itemCrate.height))) {
     return {
       width: Number(entity.itemCrate.width),
@@ -560,6 +676,9 @@ function entityLabel(entity) {
   if (entity?.category === "metadata" && entity?.typeName) return `Metadata ${entity.typeName}`;
   if (entity?.category === "loose_item" && entity?.itemHolder?.itemName) return `Loose ${entity.itemHolder.itemName}`;
   if (entity?.category === "untyped_holder" && entity?.itemHolder?.itemName) return `Untyped Holder (${entity.itemHolder.itemName})`;
+  if (entity?.mapMarker) return `Map Marker (${entity.mapMarker.title ?? entity.mapMarker.key ?? entity.mapMarker.kind ?? "marker"})`;
+  if (entity?.dockingSpring) return "Docking Spring";
+  if (entity?.hugeThruster) return "Huge Thruster";
   if (entity?.shipControl && entity?.isOverworld) return "Overworld Ship";
   if (entity?.markerTypeName) return entity.markerTypeName;
   if (entity?.typeName) return entity.typeName;
@@ -581,6 +700,9 @@ function entityCategory(entity) {
   if (entity?.player) return "player";
   if (entity?.shipControl) return "ship_control";
   if (entity?.itemCrate) return "item_crate";
+  if (entity?.mapMarker) return "map_marker";
+  if (entity?.dockingSpring) return "docking_spring";
+  if (entity?.hugeThruster) return "huge_thruster";
   const hasMachineComponent = Boolean(entity?.fabricator || entity?.processor || entity?.cannon || entity?.fluidTank || entity?.shieldGenerator);
   const hasValidTransform = Boolean(
     entity?.transform &&
@@ -676,6 +798,11 @@ export class ModelState {
         const tableId = WIRE_TAG_TABLES.get(tag);
         if (tableId == null) {
           update.unknownTags.push({ tag, offset: reader.offset });
+          // Some live captures end with a terminal, empty section tag we do not
+          // yet have a table mapping for. If the rest of the packet is just
+          // zero terminators, keep the decoded sections and stop cleanly rather
+          // than turning the whole frame into a decode error.
+          if (reader.trailingZeroOnly()) break;
           throw new Error(`unsupported model_data section tag ${tag}`);
         }
 
@@ -930,6 +1057,10 @@ export class ModelState {
     const shieldRecord = this.record(61, entityId);
     const playerRecord = this.record(55, entityId);
     const shipControlRecord = this.record(20, entityId);
+    const labelRecord = this.record(9, entityId);
+    const zoneLabelRecord = this.record(25, entityId);
+    const dockingSpringRecord = this.record(26, entityId);
+    const hugeThrusterRecord = this.record(23, entityId);
     const bodyStateRecord = this.record(1, entityId);
     const typeRecord = this.record(7, entityId);
     const crateSizeRecord = this.record(3, entityId);
@@ -950,6 +1081,13 @@ export class ModelState {
     const player = summarizePlayer(entityId, playerRecord);
     const shipControl = summarizeShipControl(entityId, shipControlRecord);
     const shipSize = shipControl && this.isOverworld ? summarizeShipSize(entityId, this.record(3, entityId)) : null;
+    const mapMarker = this.isOverworld ? summarizeMapMarker(entityId, labelRecord, zoneLabelRecord, crateSizeRecord) : null;
+    const dockingSpring = this.isOverworld
+      ? summarizeDockingSpring(entityId, dockingSpringRecord, bodyStateRecord, crateSizeRecord)
+      : null;
+    const hugeThruster = this.isOverworld
+      ? summarizeHugeThruster(entityId, hugeThrusterRecord, crateSizeRecord)
+      : null;
     const itemCrate = this.isOverworld && !this.record(2, entityId) && !this.record(18, entityId) && health && crateSizeRecord
       ? summarizeItemCrate(entityId, crateSizeRecord, crateItemRecord, healthRecord)
       : null;
@@ -960,10 +1098,10 @@ export class ModelState {
       rot: numberOrNull(transformRecord.q28, 127.324),
       flags: [transformRecord.q33, transformRecord.q34, transformRecord.q35].filter((value) => value != null)
     } : null;
-    const contents = mergeContents({ itemHolder }, { itemCrate }, { health }, { fabricator }, { processor }, { cannon }, { fluidTank }, { shieldGenerator }, { player }, { shipControl }, { shipSize });
-    const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, itemCrate, fabricator, processor, cannon, fluidTank, shieldGenerator, player, shipControl });
+    const contents = mergeContents({ itemHolder }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { health }, { fabricator }, { processor }, { cannon }, { fluidTank }, { shieldGenerator }, { player }, { shipControl }, { shipSize });
+    const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, itemCrate, hugeThruster, fabricator, processor, cannon, fluidTank, shieldGenerator, player, shipControl });
     const typeName = entityNameFromType(typeId);
-    const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, fabricator, processor, cannon, fluidTank, shieldGenerator, player, shipControl });
+    const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, mapMarker, dockingSpring, hugeThruster, fabricator, processor, cannon, fluidTank, shieldGenerator, player, shipControl });
     const summary = {
       entity: entityId,
       category,
@@ -976,6 +1114,9 @@ export class ModelState {
         typeId,
         typeName,
         markerTypeName,
+        mapMarker,
+        dockingSpring,
+        hugeThruster,
         itemHolder,
         itemCrate,
         fabricator,
@@ -993,6 +1134,9 @@ export class ModelState {
         itemHolder ? "item_holder" : null,
         health ? "health" : null,
         itemCrate ? "item_crate" : null,
+        mapMarker ? "map_marker" : null,
+        dockingSpring ? "docking_spring" : null,
+        hugeThruster ? "huge_thruster" : null,
         markerTableIds.length ? "marker" : null,
         looseItemMarker ? "loose_item_marker" : null,
         fabricator ? "fabricator" : null,
