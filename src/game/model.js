@@ -273,6 +273,7 @@ const MODEL_TABLE_SPECS = new Map([
   [60, { name: "fluid_tank", packedBits: [{ bit: 4, offset: 29 }], ...TWO_FIELD_SPEC }],
   [61, { name: "shield_charge", ...TWO_FIELD_SPEC }],
   [62, { name: "flag_state", packedBits: [{ bit: 1, offset: 21 }], fields: [] }],
+  [63, { name: "numeric_pair", ...TWO_FIELD_SPEC }],
   [67, { name: "numeric_single", fields: numericFields({ 1: 20 }) }],
   [69, { name: "rare_snapshot", packedBits: [{ bit: 32, offset: 41 }, { bit: 64, offset: 42 }], fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36 }) }],
   [70, { name: "rare_snapshot", packedBits: [{ bit: 16, offset: 40 }], fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 32: 36 }) }],
@@ -331,6 +332,7 @@ const WIRE_TAG_TABLES = new Map([
   [128, 45],
   [129, 46],
   [130, 47],
+  [131, 48],
   [132, 49],
   [133, 50],
   [134, 51],
@@ -344,6 +346,8 @@ const WIRE_TAG_TABLES = new Map([
   [143, 60],
   [144, 61],
   [145, 62],
+  [146, 63],
+  [147, 64],
   [148, 65],
   [149, 66],
   [150, 67],
@@ -358,10 +362,12 @@ const WIRE_TAG_TABLES = new Map([
   [164, 73],
   [165, 74],
   [166, 75],
-  [168, 78]
+  [167, 76],
+  [168, 78],
+  [169, 77]
 ]);
 
-const MASK_ONLY_TABLES = new Set([13, 22, 23, 27, 30, 32, 36, 40, 46, 52, 58, 65, 66, 68, 73, 74]);
+const MASK_ONLY_TABLES = new Set([13, 22, 23, 27, 30, 32, 36, 40, 46, 48, 52, 58, 64, 65, 66, 68, 73, 74]);
 
 const ENTITY_TYPE_NAMES = new Map(itemSchema.map((item) => [Number(item.id), item.name]));
 
@@ -512,6 +518,12 @@ function summarizeHealth(entity, record) {
 function summarizeShipControl(entity, record) {
   if (!record) return null;
   const color = record.q32 == null ? null : Number(record.q32);
+  const shieldMaxHpOffset = typeof record.q68 === "number" ? record.q68 : null;
+  const shieldMaxHp = shieldMaxHpOffset == null ? null : shieldMaxHpOffset + 2000;
+  const shieldBaseHp = typeof record.q72 === "number" ? record.q72 : null;
+  const activeTankHp = typeof record.q76 === "number" ? record.q76 : null;
+  const inactiveTankHp = typeof record.q80 === "number" ? record.q80 : null;
+  const tankValues = [activeTankHp, inactiveTankHp].filter((value) => typeof value === "number");
   const warpTicks = typeof record.q84 === "number" ? record.q84 : null;
   const warpElapsedSeconds = warpTicks == null ? null : warpTicks / OVERWORLD_WARP_TICKS_PER_SECOND;
   const warpDurationSeconds = warpTicks == null ? null : record.q88 ?? DEFAULT_OVERWORLD_WARP_DURATION_SECONDS;
@@ -528,6 +540,13 @@ function summarizeShipControl(entity, record) {
     value52: numberOrNull(record.q52, 20),
     value84: numberOrNull(record.q84, 20),
     value96: numberOrNull(record.q96, 1000),
+    shield: shieldMaxHp == null && shieldBaseHp == null && !tankValues.length ? null : {
+      maxHp: shieldMaxHp,
+      baseHp: shieldBaseHp,
+      activeTankHp,
+      inactiveTankHp,
+      tankValues
+    },
     warp: warpTicks == null ? null : {
       active: record.q28 === 3,
       ticks: warpTicks,

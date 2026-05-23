@@ -247,8 +247,8 @@ solid/open flags, and HP fractions when the official tileset defines them.
 `WorldStore.currentShipEntity()` resolves the loaded ship world's
 `parent_world`/`parent_ent` link back to the corresponding overworld ship
 entity. Overworld ship-control summaries include ship `name`, `hexCode`,
-linked `shipWorldId`, RGB `color`, and `warp` timer state when table `20`
-carries those fields.
+linked `shipWorldId`, RGB `color`, shield max/current base HP, active/inactive
+tank HP, and `warp` timer state when table `20` carries those fields.
 Player summaries include display `name`, held item, ship `teamRank`, account
 `gameRank`, patron tier when present, the muted flag when the server sends it,
 and repair-tool aim as `repairTargetAngle` plus `repairTargetDistance` when

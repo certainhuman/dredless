@@ -568,8 +568,17 @@ export interface ShipControlSummary {
   value52: number | null;
   value84: number | null;
   value96: number | null;
+  shield: ShipShieldSummary | null;
   warp: ShipWarpSummary | null;
   state: ModelRecord;
+}
+
+export interface ShipShieldSummary {
+  maxHp: number | null;
+  baseHp: number | null;
+  activeTankHp: number | null;
+  inactiveTankHp: number | null;
+  tankValues: number[];
 }
 
 export interface ShipWarpSummary {

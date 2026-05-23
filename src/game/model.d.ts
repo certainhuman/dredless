@@ -11,6 +11,7 @@ export {
   type CannonSummary,
   type PlayerSummary,
   type ShipControlSummary,
+  type ShipShieldSummary,
   type ShipWarpSummary,
   type MachineSummary
 } from "../index.js";
