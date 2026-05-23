@@ -27,7 +27,7 @@ class ModelReader {
       result += (byte & 0x7f) * (2 ** shift);
       if ((byte & 0x80) === 0) return result;
       shift += 7;
-      if (shift > 53) throw new Error("model_data varint too large");
+      if (shift > 70) throw new Error("model_data varint too large");
     }
   }
 
@@ -161,11 +161,11 @@ const MODEL_TABLE_SPECS = new Map([
     name: "entity_type",
     fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40, 64: 44, 128: 48, 256: 52 })
   }],
-  [8, { name: "numeric_sparse", fields: numericFields({ 2: 20, 4: 24, 8: 28, 16: 32, 32: 36 }) }],
+  [8, { name: "numeric_sparse", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40 }) }],
   [9, LABEL_STATE_SPEC],
   [10, SIMPLE_LABEL_STATE_SPEC],
   [11, { name: "numeric_sparse", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36 }) }],
-  [12, { name: "numeric_single", fields: numericFields({ 1: 20 }) }],
+  [12, { name: "numeric_sparse", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32 }) }],
   [14, { name: "size_state", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40, 64: 44 }) }],
   [16, {
     name: "label_numeric_state",
@@ -281,6 +281,7 @@ const MODEL_TABLE_SPECS = new Map([
   [74, { name: "processor_marker", fields: [] }],
   [75, { name: "rare_snapshot", fields: numericFields({ 1: 20, 8: 24, 16: 28 }) }],
   [76, { name: "numeric_single", fields: numericFields({ 1: 20 }) }],
+  [77, { name: "numeric_sparse", fields: numericFields({ 1: 20, 2: 24, 4: 28 }) }],
   [78, { name: "local_session_marker", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40 }) }]
 ]);
 
@@ -356,10 +357,11 @@ const WIRE_TAG_TABLES = new Map([
   [163, 72],
   [164, 73],
   [165, 74],
+  [166, 75],
   [168, 78]
 ]);
 
-const MASK_ONLY_TABLES = new Set([13, 22, 23, 27, 30, 32, 36, 40, 46, 52, 58, 65, 66, 68, 73, 74, 77]);
+const MASK_ONLY_TABLES = new Set([13, 22, 23, 27, 30, 32, 36, 40, 46, 52, 58, 65, 66, 68, 73, 74]);
 
 const ENTITY_TYPE_NAMES = new Map(itemSchema.map((item) => [Number(item.id), item.name]));
 
