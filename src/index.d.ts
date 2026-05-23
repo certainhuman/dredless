@@ -568,7 +568,16 @@ export interface ShipControlSummary {
   value52: number | null;
   value84: number | null;
   value96: number | null;
+  warp: ShipWarpSummary | null;
   state: ModelRecord;
+}
+
+export interface ShipWarpSummary {
+  active: boolean;
+  ticks: number;
+  elapsedSeconds: number;
+  durationSeconds: number;
+  remainingSeconds: number;
 }
 
 export interface MachineSummary {

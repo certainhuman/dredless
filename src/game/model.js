@@ -385,6 +385,9 @@ const CANNON_AMMO_COLOR_ITEM_IDS = new Map([
   [0xff9600, 150]
 ]);
 
+const DEFAULT_OVERWORLD_WARP_DURATION_SECONDS = 120;
+const OVERWORLD_WARP_TICKS_PER_SECOND = 20;
+
 const MARKER_TYPE_IDS = new Map([
   [73, 240]
 ]);
@@ -509,6 +512,10 @@ function summarizeHealth(entity, record) {
 function summarizeShipControl(entity, record) {
   if (!record) return null;
   const color = record.q32 == null ? null : Number(record.q32);
+  const warpTicks = typeof record.q84 === "number" ? record.q84 : null;
+  const warpElapsedSeconds = warpTicks == null ? null : warpTicks / OVERWORLD_WARP_TICKS_PER_SECOND;
+  const warpDurationSeconds = warpTicks == null ? null : record.q88 ?? DEFAULT_OVERWORLD_WARP_DURATION_SECONDS;
+  const warpRemainingSeconds = warpElapsedSeconds == null ? null : Math.max(0, warpDurationSeconds - warpElapsedSeconds);
   return {
     entity,
     name: decodeText(record.blob116),
@@ -521,6 +528,13 @@ function summarizeShipControl(entity, record) {
     value52: numberOrNull(record.q52, 20),
     value84: numberOrNull(record.q84, 20),
     value96: numberOrNull(record.q96, 1000),
+    warp: warpTicks == null ? null : {
+      active: record.q28 === 3,
+      ticks: warpTicks,
+      elapsedSeconds: warpElapsedSeconds,
+      durationSeconds: warpDurationSeconds,
+      remainingSeconds: warpRemainingSeconds
+    },
     state: cloneRecord(record)
   };
 }
