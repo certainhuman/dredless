@@ -127,8 +127,8 @@ alternate screen. Pass `--test` or run `npm run watch:test` to use
 `watch.log` by default; set `DRED_LOG_FILE=0` to disable logging or pass
 `--log-packets` to include full packet bodies. The dashboard includes initial
 model state decoded from the websocket full snapshot, including entity package
-ids, fabricator rows, storage holders, loose items, fluid tanks, and starter
-cannon ammo/charge state.
+ids, fabricator rows, storage holders, loose items, fluid tanks, starter
+cannon ammo/charge state, and normalized loader configuration.
 
 ## Replay Benchmarks
 

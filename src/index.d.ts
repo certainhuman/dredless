@@ -286,6 +286,7 @@ export interface EntityContentsSummary {
   fabricator?: FabricatorSummary;
   processor?: { entity: number; state: ModelRecord };
   cannon?: CannonSummary;
+  loader?: LoaderSummary;
   fluidTank?: { entity: number; amount: number | null; state: ModelRecord };
   shieldGenerator?: { entity: number; charge: number | null; state: ModelRecord };
   player?: PlayerSummary;
@@ -540,6 +541,26 @@ export interface CannonSummary {
   state: ModelRecord;
 }
 
+export interface LoaderSummary {
+  entity: number;
+  pick: number | null;
+  pickName: string | null;
+  place: number | null;
+  placeName: string | null;
+  priority: number | null;
+  priorityName: string | null;
+  requireOutput: boolean | null;
+  waitForStack: boolean | null;
+  stack: number | null;
+  cycle: number | null;
+  filterMode: number | null;
+  filterModeName: string | null;
+  filterSlots: (number | null)[] | null;
+  state: ModelRecord;
+  filterState: ModelRecord;
+  filterSlotsState: ModelRecord;
+}
+
 export interface PlayerSummary {
   entity: number;
   name: string | null;
@@ -595,6 +616,7 @@ export interface MachineSummary {
   fabricators: FabricatorSummary[];
   processors: { entity: number; state: ModelRecord }[];
   cannons: CannonSummary[];
+  loaders: LoaderSummary[];
   fluidTanks: { entity: number; amount: number | null; state: ModelRecord }[];
   shieldGenerators: { entity: number; charge: number | null; state: ModelRecord }[];
 }

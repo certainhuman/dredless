@@ -81,6 +81,7 @@
     "analyze:entities": "node analyze-entities.js",
     "capture": "node capture.js",
     "watch": "node watch.js",
-    "watch:test": "node watch.js --test"
+    "watch:test": "node watch.js --test",
+    "test:loader": "node --test test/loader-config.test.js"
   }
 }

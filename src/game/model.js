@@ -1,5 +1,11 @@
 import { decoder } from "../constants.js";
 import { toUint8Array } from "../protocol/binary.js";
+import {
+  LOADER_FILTER_MODE_NAMES,
+  LOADER_POSITION_NAMES,
+  LOADER_PRIORITY_NAMES,
+  LoaderConfigTracker
+} from "./loader-config.js";
 import fs from "node:fs";
 
 const itemSchema = JSON.parse(fs.readFileSync(new URL("../../spec/item_schema.json", import.meta.url), "utf8"));
@@ -283,7 +289,7 @@ const MODEL_TABLE_SPECS = new Map([
   [75, { name: "rare_snapshot", fields: numericFields({ 1: 20, 8: 24, 16: 28 }) }],
   [76, { name: "numeric_single", fields: numericFields({ 1: 20 }) }],
   [77, { name: "numeric_sparse", fields: numericFields({ 1: 20, 2: 24, 4: 28 }) }],
-  [78, { name: "local_session_marker", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40 }) }]
+  [78, { name: "local_session_marker", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40, 64: 44 }) }]
 ]);
 
 const WIRE_TAG_TABLES = new Map([
@@ -630,6 +636,40 @@ function summarizeHugeThruster(entity, markerRecord, sizeRecord = null) {
   };
 }
 
+function summarizeLoader(entity, loaderRecord, loaderFilterRecord = null, filterSlotsRecord = null, tracker = null) {
+  if (!loaderRecord && !loaderFilterRecord && !filterSlotsRecord) return null;
+  const config = tracker?.getConfig(null, entity, loaderRecord, loaderFilterRecord, filterSlotsRecord) ?? {};
+  const hasLoaderState = Boolean(loaderRecord);
+  const hasPositionConfig = Boolean(tracker?.hasPositionConfig(null, entity));
+  const pick = hasLoaderState && hasPositionConfig ? config.pick ?? null : null;
+  const place = hasLoaderState && hasPositionConfig ? config.place ?? null : null;
+  const priority = hasLoaderState ? config.priority ?? null : null;
+  const filterMode = config.filterMode ?? null;
+  return {
+    entity,
+    pick,
+    pickName: enumValueName(LOADER_POSITION_NAMES, pick),
+    place,
+    placeName: enumValueName(LOADER_POSITION_NAMES, place),
+    priority,
+    priorityName: enumValueName(LOADER_PRIORITY_NAMES, priority),
+    requireOutput: hasLoaderState ? config.requireOutput ?? null : null,
+    waitForStack: hasLoaderState ? config.waitForStack ?? null : null,
+    stack: hasLoaderState ? config.stack ?? null : null,
+    cycle: hasLoaderState ? config.cycle ?? null : null,
+    filterMode,
+    filterModeName: enumValueName(LOADER_FILTER_MODE_NAMES, filterMode),
+    filterSlots: config.filterSlots ?? null,
+    state: cloneRecord(loaderRecord || {}),
+    filterState: cloneRecord(loaderFilterRecord || {}),
+    filterSlotsState: cloneRecord(filterSlotsRecord || {})
+  };
+}
+
+function enumValueName(map, value) {
+  return value == null ? null : map.get(value) ?? null;
+}
+
 function colorToCss(color) {
   return `rgb(${(color >> 16) & 0xff},${(color >> 8) & 0xff},${color & 0xff})`;
 }
@@ -722,8 +762,9 @@ function entityLabel(entity) {
   if (entity?.shieldGenerator) return "Shield Generator";
   if (entity?.fluidTank) return "Fluid Tank";
   if (entity?.cannon) return "Cannon";
+  if (entity?.loader) return "Loader";
   if (entity?.processor) return "Processor";
-  if (entity?.itemHolder && !entity?.processor && !entity?.cannon && !entity?.fluidTank && !entity?.shieldGenerator) {
+  if (entity?.itemHolder && !entity?.processor && !entity?.cannon && !entity?.loader && !entity?.fluidTank && !entity?.shieldGenerator) {
     return entity.itemHolder.itemName || "Item Holder";
   }
   if (entity?.player) return "Player";
@@ -738,7 +779,7 @@ function entityCategory(entity) {
   if (entity?.mapMarker) return "map_marker";
   if (entity?.dockingSpring) return "docking_spring";
   if (entity?.hugeThruster) return "huge_thruster";
-  const hasMachineComponent = Boolean(entity?.fabricator || entity?.processor || entity?.cannon || entity?.fluidTank || entity?.shieldGenerator);
+  const hasMachineComponent = Boolean(entity?.fabricator || entity?.processor || entity?.cannon || entity?.loader || entity?.fluidTank || entity?.shieldGenerator);
   const hasValidTransform = Boolean(
     entity?.transform &&
     Number.isFinite(entity.transform.x) &&
@@ -750,18 +791,20 @@ function entityCategory(entity) {
   if (entity?.typeId != null && !hasPhysicalComponent) return "metadata";
   if (entity?.markerTypeId != null) return "placed_entity";
   if (entity?.looseItemMarker && entity?.itemHolder?.itemId != null) return "loose_item";
-  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.fluidTank && !entity?.shieldGenerator) {
+  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.loader && !entity?.fluidTank && !entity?.shieldGenerator) {
     if (entity.typeId != null && (!PLACED_ENTITY_TYPE_IDS.has(Number(entity.typeId)) || entity.typeId === entity.itemHolder.itemId)) return "loose_item";
     if (entity.typeId == null) return "untyped_holder";
   }
-  if (entity?.fabricator || entity?.cannon || entity?.fluidTank || entity?.shieldGenerator) return "placed_entity";
+  if (entity?.fabricator || entity?.cannon || entity?.loader || entity?.fluidTank || entity?.shieldGenerator) return "placed_entity";
   if (entity?.typeId != null && PLACED_ENTITY_TYPE_IDS.has(Number(entity.typeId))) return "placed_entity";
   if (entity?.typeId != null && !hasPhysicalComponent) return "metadata";
-  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.fluidTank && !entity?.shieldGenerator) return "untyped_holder";
+  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.loader && !entity?.fluidTank && !entity?.shieldGenerator) return "untyped_holder";
   return "entity";
 }
 
 export class ModelState {
+  #loaderConfig = new LoaderConfigTracker();
+
   constructor({ isOverworld = null } = {}) {
     this.isOverworld = isOverworld == null ? null : Boolean(isOverworld);
     this.generation = null;
@@ -850,6 +893,7 @@ export class ModelState {
       this.errors.push({ message: error.message, generation: update.generation });
     }
 
+    this.#updateLoaderConfig(update);
     this.lastUpdate = update;
     this.#updateDerived(update);
     return update;
@@ -906,6 +950,7 @@ export class ModelState {
       processors: machines.processors.slice(),
       cannons: machines.cannons.slice(),
       health: machines.health.slice(),
+      loaders: machines.loaders.slice(),
       fluidTanks: machines.fluidTanks.slice(),
       shieldGenerators: machines.shieldGenerators.slice()
     };
@@ -923,6 +968,15 @@ export class ModelState {
     for (const entityId of update.changedEntities) this.#refreshDerivedEntity(entityId);
     this._derived.tableSummaries = this.#tableSummaries();
     this.#refreshDerivedSummaries();
+  }
+
+  #updateLoaderConfig(update) {
+    for (const section of update.sections || []) {
+      if (section.table !== 78) continue;
+      for (const changed of section.records || []) {
+        this.#loaderConfig.updateRecord(null, changed.entity, this.record(78, changed.entity), changed.mask);
+      }
+    }
   }
 
   #derivedState() {
@@ -1051,6 +1105,7 @@ export class ModelState {
       processors: [],
       cannons: [],
       health: [],
+      loaders: [],
       fluidTanks: [],
       shieldGenerators: []
     };
@@ -1067,6 +1122,7 @@ export class ModelState {
       if (contents.processor) machines.processors.push(contents.processor);
       if (contents.cannon) machines.cannons.push(contents.cannon);
       if (contents.health) machines.health.push(contents.health);
+      if (contents.loader) machines.loaders.push(contents.loader);
       if (contents.fluidTank) machines.fluidTanks.push(contents.fluidTank);
       if (contents.shieldGenerator) machines.shieldGenerators.push(contents.shieldGenerator);
       if (contents.player) players.push(contents.player);
@@ -1088,6 +1144,9 @@ export class ModelState {
     const fabricatorRecord = this.record(53, entityId);
     const processorRecord = this.record(49, entityId);
     const cannonRecord = this.record(54, entityId);
+    const loaderRecord = this.record(78, entityId);
+    const loaderFilterRecord = this.record(76, entityId);
+    const loaderFilterSlotsRecord = this.record(77, entityId);
     const fluidTankRecord = this.record(60, entityId);
     const shieldRecord = this.record(61, entityId);
     const playerRecord = this.record(55, entityId);
@@ -1111,6 +1170,7 @@ export class ModelState {
     const fabricator = summarizeFabricator(entityId, fabricatorRecord);
     const processor = processorRecord ? { entity: entityId, state: cloneRecord(processorRecord) } : null;
     const cannon = summarizeCannon(entityId, cannonRecord);
+    const loader = summarizeLoader(entityId, loaderRecord, loaderFilterRecord, loaderFilterSlotsRecord, this.#loaderConfig);
     const fluidTank = fluidTankRecord ? { entity: entityId, amount: fluidTankRecord.q24 ?? null, state: cloneRecord(fluidTankRecord) } : null;
     const shieldGenerator = shieldRecord ? { entity: entityId, charge: shieldRecord.q20 ?? null, state: cloneRecord(shieldRecord) } : null;
     const player = summarizePlayer(entityId, playerRecord);
@@ -1133,10 +1193,10 @@ export class ModelState {
       rot: numberOrNull(transformRecord.q28, 127.324),
       flags: [transformRecord.q33, transformRecord.q34, transformRecord.q35].filter((value) => value != null)
     } : null;
-    const contents = mergeContents({ itemHolder }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { health }, { fabricator }, { processor }, { cannon }, { fluidTank }, { shieldGenerator }, { player }, { shipControl }, { shipSize });
-    const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, itemCrate, hugeThruster, fabricator, processor, cannon, fluidTank, shieldGenerator, player, shipControl });
+    const contents = mergeContents({ itemHolder }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { health }, { fabricator }, { processor }, { cannon }, { loader }, { fluidTank }, { shieldGenerator }, { player }, { shipControl }, { shipSize });
+    const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, itemCrate, hugeThruster, fabricator, processor, cannon, loader, fluidTank, shieldGenerator, player, shipControl });
     const typeName = entityNameFromType(typeId);
-    const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, mapMarker, dockingSpring, hugeThruster, fabricator, processor, cannon, fluidTank, shieldGenerator, player, shipControl });
+    const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, mapMarker, dockingSpring, hugeThruster, fabricator, processor, cannon, loader, fluidTank, shieldGenerator, player, shipControl });
     const summary = {
       entity: entityId,
       category,
@@ -1157,6 +1217,7 @@ export class ModelState {
         fabricator,
         processor,
         cannon,
+        loader,
         fluidTank,
         shieldGenerator,
         player,
@@ -1177,6 +1238,7 @@ export class ModelState {
         fabricator ? "fabricator" : null,
         processor ? "processor" : null,
         cannon ? "cannon" : null,
+        loader ? "loader" : null,
         fluidTank ? "fluid_tank" : null,
         shieldGenerator ? "shield_generator" : null,
         player ? "player" : null,
@@ -1221,6 +1283,7 @@ export class ModelState {
       entity += delta;
       removals.push(entity);
       for (const records of this.tables.values()) records.delete(entity);
+      this.#loaderConfig.delete(null, entity);
     }
     this.removedEntities.push(...removals);
     return removals;

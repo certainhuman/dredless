@@ -9,6 +9,7 @@ export {
   type ItemHolderSummary,
   type FabricatorSummary,
   type CannonSummary,
+  type LoaderSummary,
   type PlayerSummary,
   type ShipControlSummary,
   type ShipShieldSummary,
