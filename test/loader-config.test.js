@@ -103,6 +103,11 @@ function fieldDelta(value) {
   return unsigned(value >= 0 ? value * 2 : (-value * 2) + 1);
 }
 
+function textBlob(value) {
+  const bytes = new TextEncoder().encode(value);
+  return [...streamInt(bytes.length), ...bytes];
+}
+
 function table78Section(tag, entity, mask, deltas) {
   return [
     ...streamInt(tag),
@@ -472,4 +477,48 @@ test("ModelState exposes normalized pusher configuration", () => {
   assert.equal(pusher.length, 1005);
   assert.equal(pusher.filterInventory, true);
   assert.deepEqual(pusher.filterSlots, [100, 101, 103]);
+});
+
+test("ModelState exposes normalized sign text and display mode", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 9, [
+      ...fieldDelta(0),
+      ...fieldDelta(218)
+    ]),
+    tableSection(124, ENTITY, 1, textBlob("a sign 1"))
+  ));
+
+  assert.equal(model.entity(ENTITY).typeId, 218);
+  let sign = model.entity(ENTITY).contents.sign;
+  assert.equal(sign.text, "a sign 1");
+  assert.equal(sign.displayMode, 0);
+  assert.equal(sign.displayModeName, "always");
+
+  model.apply(modelData(
+    2,
+    tableSection(124, ENTITY, 3, [
+      ...textBlob("a sign 2"),
+      ...fieldDelta(1)
+    ])
+  ));
+
+  sign = model.entity(ENTITY).contents.sign;
+  assert.equal(sign.text, "a sign 2");
+  assert.equal(sign.displayMode, 1);
+  assert.equal(sign.displayModeName, "when-near");
+
+  model.apply(modelData(
+    3,
+    tableSection(124, ENTITY, 3, [
+      ...textBlob("a sign 3"),
+      ...fieldDelta(1)
+    ])
+  ));
+
+  sign = model.entity(ENTITY).contents.sign;
+  assert.equal(sign.text, "a sign 3");
+  assert.equal(sign.displayMode, 2);
+  assert.equal(sign.displayModeName, "on-hover");
 });

@@ -11,6 +11,7 @@ export {
   type CannonSummary,
   type PusherSummary,
   type LoaderSummary,
+  type SignSummary,
   type PlayerSummary,
   type ShipControlSummary,
   type ShipShieldSummary,

@@ -14,5 +14,6 @@ export {
   type BlockSummary,
   type PusherSummary,
   type LoaderSummary,
+  type SignSummary,
   type MachineSummary
 } from "../index.js";

@@ -292,6 +292,7 @@ export interface EntityContentsSummary {
   shieldGenerator?: { entity: number; charge: number | null; state: ModelRecord };
   player?: PlayerSummary;
   shipControl?: ShipControlSummary;
+  sign?: SignSummary;
 }
 
 export interface EntitySummary {
@@ -575,6 +576,14 @@ export interface PusherSummary {
   filterSlots: (number | null)[] | null;
   state: ModelRecord;
   filterSlotsState: ModelRecord;
+}
+
+export interface SignSummary {
+  entity: number;
+  text: string;
+  displayMode: number;
+  displayModeName: string | null;
+  state: ModelRecord;
 }
 
 export interface PlayerSummary {

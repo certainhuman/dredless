@@ -393,6 +393,22 @@ const PLACED_ENTITY_TYPE_IDS = new Set([
   253, 255, 256, 257, 258, 259, 260, 261, 263, 264, 265
 ]);
 
+function entityTypeIdFromRecord(record) {
+  if (!record) return null;
+  const candidates = [
+    record.q20,
+    record.q24,
+    record.q28,
+    record.q32,
+    record.q36,
+    record.q40,
+    record.q44,
+    record.q48,
+    record.q52
+  ].filter((value) => Number.isFinite(Number(value)) && Number(value) !== 0).map(Number);
+  return candidates.find((value) => PLACED_ENTITY_TYPE_IDS.has(value)) ?? candidates[0] ?? null;
+}
+
 const CANNON_AMMO_COLOR_ITEM_IDS = new Map([
   [0xff9600, 150]
 ]);
@@ -426,6 +442,12 @@ const PUSHER_MODE_NAMES = new Map([
   [0, "Push"],
   [1, "Pull"],
   [2, "Do Nothing"]
+]);
+
+const SIGN_DISPLAY_MODE_NAMES = new Map([
+  [0, "always"],
+  [1, "when-near"],
+  [2, "on-hover"]
 ]);
 
 function numberOrNull(value, divisor = 1) {
@@ -689,6 +711,18 @@ function summarizePusher(entity, pusherRecord, filterSlotsRecord = null) {
     filterSlots: filterSlotsRecord ? [filterSlotsRecord.q20 ?? null, filterSlotsRecord.q24 ?? null, filterSlotsRecord.q28 ?? null] : null,
     state: cloneRecord(pusherRecord),
     filterSlotsState: cloneRecord(filterSlotsRecord || {})
+  };
+}
+
+function summarizeSign(entity, signRecord) {
+  if (!signRecord) return null;
+  const displayMode = signRecord.q20 ?? 0;
+  return {
+    entity,
+    text: decodeText(signRecord.blob24) ?? "",
+    displayMode,
+    displayModeName: enumValueName(SIGN_DISPLAY_MODE_NAMES, displayMode),
+    state: cloneRecord(signRecord)
   };
 }
 
@@ -1182,6 +1216,7 @@ export class ModelState {
     const shieldRecord = this.record(61, entityId);
     const playerRecord = this.record(55, entityId);
     const shipControlRecord = this.record(20, entityId);
+    const signRecord = this.record(41, entityId);
     const labelRecord = this.record(9, entityId);
     const zoneLabelRecord = this.record(25, entityId);
     const dockingSpringRecord = this.record(26, entityId);
@@ -1195,7 +1230,7 @@ export class ModelState {
     const markerTypeName = entityNameFromType(markerTypeId);
     const looseItemMarker = Boolean(this.record(37, entityId));
     const dynamicBody = bodyStateRecord?.q20 === -4;
-    const typeId = typeRecord?.q20 ?? null;
+    const typeId = entityTypeIdFromRecord(typeRecord);
     const itemHolder = summarizeItemHolder(entityId, itemHolderRecord);
     const health = summarizeHealth(entityId, healthRecord);
     const fabricator = summarizeFabricator(entityId, fabricatorRecord);
@@ -1207,6 +1242,7 @@ export class ModelState {
     const shieldGenerator = shieldRecord ? { entity: entityId, charge: shieldRecord.q20 ?? null, state: cloneRecord(shieldRecord) } : null;
     const player = summarizePlayer(entityId, playerRecord);
     const shipControl = summarizeShipControl(entityId, shipControlRecord);
+    const sign = typeId === 218 ? summarizeSign(entityId, signRecord) : null;
     const shipSize = shipControl && this.isOverworld ? summarizeShipSize(entityId, this.record(3, entityId)) : null;
     const mapMarker = this.isOverworld ? summarizeMapMarker(entityId, labelRecord, zoneLabelRecord, crateSizeRecord) : null;
     const dockingSpring = this.isOverworld
@@ -1225,7 +1261,7 @@ export class ModelState {
       rot: numberOrNull(transformRecord.q28, 127.324),
       flags: [transformRecord.q33, transformRecord.q34, transformRecord.q35].filter((value) => value != null)
     } : null;
-    const contents = mergeContents({ itemHolder }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { health }, { fabricator }, { processor }, { cannon }, { pusher }, { loader }, { fluidTank }, { shieldGenerator }, { player }, { shipControl }, { shipSize });
+    const contents = mergeContents({ itemHolder }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { health }, { fabricator }, { processor }, { cannon }, { pusher }, { loader }, { fluidTank }, { shieldGenerator }, { player }, { shipControl }, { sign }, { shipSize });
     const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, itemCrate, hugeThruster, fabricator, processor, cannon, pusher, loader, fluidTank, shieldGenerator, player, shipControl });
     const typeName = entityNameFromType(typeId);
     const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, mapMarker, dockingSpring, hugeThruster, fabricator, processor, cannon, pusher, loader, fluidTank, shieldGenerator, player, shipControl });
@@ -1255,6 +1291,7 @@ export class ModelState {
         shieldGenerator,
         player,
         shipControl,
+        sign,
         isOverworld: this.isOverworld
       }),
       kind: [
@@ -1277,6 +1314,7 @@ export class ModelState {
         shieldGenerator ? "shield_generator" : null,
         player ? "player" : null,
         shipControl ? "ship_control" : null,
+        sign ? "sign" : null,
         shipControl && this.isOverworld ? "overworld_ship" : null
       ].filter(Boolean),
       transform,
