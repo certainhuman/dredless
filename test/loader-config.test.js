@@ -551,3 +551,31 @@ test("ModelState exposes normalized spawn point rank", () => {
   assert.equal(spawnPoint.rank, 0);
   assert.equal(spawnPoint.rankName, "Guest");
 });
+
+test("ModelState exposes normalized shield projector state", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 1, fieldDelta(257)),
+    tableSection(145, ENTITY, 0, [])
+  ));
+
+  let projector = model.entity(ENTITY).contents.shieldProjector;
+  assert.equal(projector.active, true);
+
+  model.apply(modelData(
+    2,
+    tableSection(145, ENTITY, 1, unsigned(0))
+  ));
+
+  projector = model.entity(ENTITY).contents.shieldProjector;
+  assert.equal(projector.active, false);
+
+  model.apply(modelData(
+    3,
+    tableSection(145, ENTITY, 1, unsigned(1))
+  ));
+
+  projector = model.entity(ENTITY).contents.shieldProjector;
+  assert.equal(projector.active, true);
+});

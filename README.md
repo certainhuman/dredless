@@ -128,8 +128,8 @@ alternate screen. Pass `--test` or run `npm run watch:test` to use
 `--log-packets` to include full packet bodies. The dashboard includes initial
 model state decoded from the websocket full snapshot, including entity package
 ids, fabricator rows, storage holders, loose items, fluid tanks, starter
-cannon ammo/charge state, signs, spawn points, and normalized pusher/loader
-configuration.
+cannon ammo/charge state, shield projectors, signs, spawn points, and
+normalized pusher/loader configuration.
 
 ## Replay Benchmarks
 

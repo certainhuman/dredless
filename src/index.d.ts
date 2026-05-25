@@ -290,6 +290,7 @@ export interface EntityContentsSummary {
   loader?: LoaderSummary;
   fluidTank?: { entity: number; amount: number | null; state: ModelRecord };
   shieldGenerator?: { entity: number; charge: number | null; state: ModelRecord };
+  shieldProjector?: ShieldProjectorSummary;
   player?: PlayerSummary;
   shipControl?: ShipControlSummary;
   sign?: SignSummary;
@@ -594,6 +595,12 @@ export interface SpawnPointSummary {
   state: ModelRecord;
 }
 
+export interface ShieldProjectorSummary {
+  entity: number;
+  active: boolean;
+  state: ModelRecord;
+}
+
 export interface PlayerSummary {
   entity: number;
   name: string | null;
@@ -653,6 +660,7 @@ export interface MachineSummary {
   loaders: LoaderSummary[];
   fluidTanks: { entity: number; amount: number | null; state: ModelRecord }[];
   shieldGenerators: { entity: number; charge: number | null; state: ModelRecord }[];
+  shieldProjectors: ShieldProjectorSummary[];
 }
 
 export function decodeMsgpack(bytes: Uint8Array | ArrayBuffer | number[]): unknown;

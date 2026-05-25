@@ -257,8 +257,8 @@ The model decoder is best-effort and currently covers the component
 tables documented in
 `spec/game-state-transmission-spec.md`, including transforms, item holders,
 entity/package item ids, fabricators, players, ship controls, fluid tanks,
-shield charge, starter cannon ammo/charge state, sign text/display modes,
-spawn-point rank, normalized pusher
+shield charge, shield projector state, starter cannon ammo/charge state, sign
+text/display modes, spawn-point rank, normalized pusher
 configuration, and normalized loader configuration (`pick`, `place`,
 `priority`, `requireOutput`, `stack`, `cycle`, `waitForStack`, filter mode,
 filter slots, and enum display names).
