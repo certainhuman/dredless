@@ -113,6 +113,16 @@ function table78Section(tag, entity, mask, deltas) {
   ];
 }
 
+function tableSection(tag, entity, mask, payload) {
+  return [
+    ...streamInt(tag),
+    ...streamInt(entity),
+    ...unsigned(mask),
+    ...payload,
+    ...streamInt(0)
+  ];
+}
+
 function modelData(generation, ...sections) {
   return Uint8Array.from([
     ...streamInt(generation),
@@ -423,4 +433,43 @@ test("require output toggle capture", () => {
 
   tracker.updateRecord(WORLD, ENTITY, loader, 32);
   assert.equal(tracker.getConfig(WORLD, ENTITY, loader).requireOutput, false, "third toggle off");
+});
+
+test("ModelState exposes normalized pusher configuration", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    table78Section(163, ENTITY, 4, [450])
+  ));
+
+  let pusher = model.entity(ENTITY).contents.pusher;
+  assert.equal(pusher.mode, 2);
+  assert.equal(pusher.modeName, "Do Nothing");
+  assert.equal(pusher.filteredMode, 0);
+  assert.equal(pusher.filteredModeName, "Push");
+  assert.equal(pusher.angle, 45);
+  assert.equal(pusher.speed, 20);
+  assert.equal(pusher.length, 1000);
+  assert.equal(pusher.filterInventory, false);
+
+  model.apply(modelData(
+    2,
+    tableSection(163, ENTITY, 63, [
+      ...unsigned(1),
+      ...[-1, 2, 1350, 500, 50].flatMap(fieldDelta)
+    ]),
+    table78Section(161, ENTITY, 7, [100, 101, 103])
+  ));
+
+  pusher = model.entity(ENTITY).contents.pusher;
+  assert.equal(model.entity(ENTITY).contents.loader, undefined);
+  assert.equal(pusher.mode, 1);
+  assert.equal(pusher.modeName, "Pull");
+  assert.equal(pusher.filteredMode, 2);
+  assert.equal(pusher.filteredModeName, "Do Nothing");
+  assert.equal(pusher.angle, 180);
+  assert.equal(pusher.speed, 25);
+  assert.equal(pusher.length, 1005);
+  assert.equal(pusher.filterInventory, true);
+  assert.deepEqual(pusher.filterSlots, [100, 101, 103]);
 });

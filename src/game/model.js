@@ -283,7 +283,7 @@ const MODEL_TABLE_SPECS = new Map([
   [67, { name: "numeric_single", fields: numericFields({ 1: 20 }) }],
   [69, { name: "rare_snapshot", packedBits: [{ bit: 32, offset: 41 }, { bit: 64, offset: 42 }], fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36 }) }],
   [70, { name: "rare_snapshot", packedBits: [{ bit: 16, offset: 40 }], fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 32: 36 }) }],
-  [72, { name: "numeric_sparse", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40 }) }],
+  [72, { name: "pusher_config", packedBits: [{ bit: 16, offset: 36 }], fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 32: 40 }) }],
   [73, { name: "expando_box_marker", fields: [] }],
   [74, { name: "processor_marker", fields: [] }],
   [75, { name: "rare_snapshot", fields: numericFields({ 1: 20, 8: 24, 16: 28 }) }],
@@ -420,6 +420,12 @@ const GAME_RANK_NAMES = new Map([
   [4, "PatronGold"],
   [5, "PatronPlat"],
   [6, "PatronFlux"]
+]);
+
+const PUSHER_MODE_NAMES = new Map([
+  [0, "Push"],
+  [1, "Pull"],
+  [2, "Do Nothing"]
 ]);
 
 function numberOrNull(value, divisor = 1) {
@@ -637,7 +643,7 @@ function summarizeHugeThruster(entity, markerRecord, sizeRecord = null) {
 }
 
 function summarizeLoader(entity, loaderRecord, loaderFilterRecord = null, filterSlotsRecord = null, tracker = null) {
-  if (!loaderRecord && !loaderFilterRecord && !filterSlotsRecord) return null;
+  if (!loaderRecord && !loaderFilterRecord) return null;
   const config = tracker?.getConfig(null, entity, loaderRecord, loaderFilterRecord, filterSlotsRecord) ?? {};
   const hasLoaderState = Boolean(loaderRecord);
   const hasPositionConfig = Boolean(tracker?.hasPositionConfig(null, entity));
@@ -662,6 +668,26 @@ function summarizeLoader(entity, loaderRecord, loaderFilterRecord = null, filter
     filterSlots: config.filterSlots ?? null,
     state: cloneRecord(loaderRecord || {}),
     filterState: cloneRecord(loaderFilterRecord || {}),
+    filterSlotsState: cloneRecord(filterSlotsRecord || {})
+  };
+}
+
+function summarizePusher(entity, pusherRecord, filterSlotsRecord = null) {
+  if (!pusherRecord) return null;
+  const mode = pusherRecord.q20 == null ? 2 : pusherRecord.q20 + 2;
+  const filteredMode = pusherRecord.q24 ?? 0;
+  return {
+    entity,
+    mode,
+    modeName: enumValueName(PUSHER_MODE_NAMES, mode),
+    filteredMode,
+    filteredModeName: enumValueName(PUSHER_MODE_NAMES, filteredMode),
+    angle: numberOrNull(pusherRecord.q28, 10),
+    speed: pusherRecord.q32 == null ? 20 : (pusherRecord.q32 / 100) + 20,
+    length: pusherRecord.q40 == null ? 1000 : ((pusherRecord.q40 + 50) / 10) + 995,
+    filterInventory: pusherRecord.q36 === 1,
+    filterSlots: filterSlotsRecord ? [filterSlotsRecord.q20 ?? null, filterSlotsRecord.q24 ?? null, filterSlotsRecord.q28 ?? null] : null,
+    state: cloneRecord(pusherRecord),
     filterSlotsState: cloneRecord(filterSlotsRecord || {})
   };
 }
@@ -762,9 +788,10 @@ function entityLabel(entity) {
   if (entity?.shieldGenerator) return "Shield Generator";
   if (entity?.fluidTank) return "Fluid Tank";
   if (entity?.cannon) return "Cannon";
+  if (entity?.pusher) return "Pusher";
   if (entity?.loader) return "Loader";
   if (entity?.processor) return "Processor";
-  if (entity?.itemHolder && !entity?.processor && !entity?.cannon && !entity?.loader && !entity?.fluidTank && !entity?.shieldGenerator) {
+  if (entity?.itemHolder && !entity?.processor && !entity?.cannon && !entity?.pusher && !entity?.loader && !entity?.fluidTank && !entity?.shieldGenerator) {
     return entity.itemHolder.itemName || "Item Holder";
   }
   if (entity?.player) return "Player";
@@ -779,7 +806,7 @@ function entityCategory(entity) {
   if (entity?.mapMarker) return "map_marker";
   if (entity?.dockingSpring) return "docking_spring";
   if (entity?.hugeThruster) return "huge_thruster";
-  const hasMachineComponent = Boolean(entity?.fabricator || entity?.processor || entity?.cannon || entity?.loader || entity?.fluidTank || entity?.shieldGenerator);
+  const hasMachineComponent = Boolean(entity?.fabricator || entity?.processor || entity?.cannon || entity?.pusher || entity?.loader || entity?.fluidTank || entity?.shieldGenerator);
   const hasValidTransform = Boolean(
     entity?.transform &&
     Number.isFinite(entity.transform.x) &&
@@ -791,14 +818,14 @@ function entityCategory(entity) {
   if (entity?.typeId != null && !hasPhysicalComponent) return "metadata";
   if (entity?.markerTypeId != null) return "placed_entity";
   if (entity?.looseItemMarker && entity?.itemHolder?.itemId != null) return "loose_item";
-  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.loader && !entity?.fluidTank && !entity?.shieldGenerator) {
+  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.pusher && !entity?.loader && !entity?.fluidTank && !entity?.shieldGenerator) {
     if (entity.typeId != null && (!PLACED_ENTITY_TYPE_IDS.has(Number(entity.typeId)) || entity.typeId === entity.itemHolder.itemId)) return "loose_item";
     if (entity.typeId == null) return "untyped_holder";
   }
-  if (entity?.fabricator || entity?.cannon || entity?.loader || entity?.fluidTank || entity?.shieldGenerator) return "placed_entity";
+  if (entity?.fabricator || entity?.cannon || entity?.pusher || entity?.loader || entity?.fluidTank || entity?.shieldGenerator) return "placed_entity";
   if (entity?.typeId != null && PLACED_ENTITY_TYPE_IDS.has(Number(entity.typeId))) return "placed_entity";
   if (entity?.typeId != null && !hasPhysicalComponent) return "metadata";
-  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.loader && !entity?.fluidTank && !entity?.shieldGenerator) return "untyped_holder";
+  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.pusher && !entity?.loader && !entity?.fluidTank && !entity?.shieldGenerator) return "untyped_holder";
   return "entity";
 }
 
@@ -949,6 +976,7 @@ export class ModelState {
       fabricators: machines.fabricators.slice(),
       processors: machines.processors.slice(),
       cannons: machines.cannons.slice(),
+      pushers: machines.pushers.slice(),
       health: machines.health.slice(),
       loaders: machines.loaders.slice(),
       fluidTanks: machines.fluidTanks.slice(),
@@ -1104,6 +1132,7 @@ export class ModelState {
       fabricators: [],
       processors: [],
       cannons: [],
+      pushers: [],
       health: [],
       loaders: [],
       fluidTanks: [],
@@ -1121,6 +1150,7 @@ export class ModelState {
       if (contents.fabricator) machines.fabricators.push(contents.fabricator);
       if (contents.processor) machines.processors.push(contents.processor);
       if (contents.cannon) machines.cannons.push(contents.cannon);
+      if (contents.pusher) machines.pushers.push(contents.pusher);
       if (contents.health) machines.health.push(contents.health);
       if (contents.loader) machines.loaders.push(contents.loader);
       if (contents.fluidTank) machines.fluidTanks.push(contents.fluidTank);
@@ -1144,6 +1174,7 @@ export class ModelState {
     const fabricatorRecord = this.record(53, entityId);
     const processorRecord = this.record(49, entityId);
     const cannonRecord = this.record(54, entityId);
+    const pusherRecord = this.record(72, entityId);
     const loaderRecord = this.record(78, entityId);
     const loaderFilterRecord = this.record(76, entityId);
     const loaderFilterSlotsRecord = this.record(77, entityId);
@@ -1170,6 +1201,7 @@ export class ModelState {
     const fabricator = summarizeFabricator(entityId, fabricatorRecord);
     const processor = processorRecord ? { entity: entityId, state: cloneRecord(processorRecord) } : null;
     const cannon = summarizeCannon(entityId, cannonRecord);
+    const pusher = summarizePusher(entityId, pusherRecord, loaderFilterSlotsRecord);
     const loader = summarizeLoader(entityId, loaderRecord, loaderFilterRecord, loaderFilterSlotsRecord, this.#loaderConfig);
     const fluidTank = fluidTankRecord ? { entity: entityId, amount: fluidTankRecord.q24 ?? null, state: cloneRecord(fluidTankRecord) } : null;
     const shieldGenerator = shieldRecord ? { entity: entityId, charge: shieldRecord.q20 ?? null, state: cloneRecord(shieldRecord) } : null;
@@ -1193,10 +1225,10 @@ export class ModelState {
       rot: numberOrNull(transformRecord.q28, 127.324),
       flags: [transformRecord.q33, transformRecord.q34, transformRecord.q35].filter((value) => value != null)
     } : null;
-    const contents = mergeContents({ itemHolder }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { health }, { fabricator }, { processor }, { cannon }, { loader }, { fluidTank }, { shieldGenerator }, { player }, { shipControl }, { shipSize });
-    const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, itemCrate, hugeThruster, fabricator, processor, cannon, loader, fluidTank, shieldGenerator, player, shipControl });
+    const contents = mergeContents({ itemHolder }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { health }, { fabricator }, { processor }, { cannon }, { pusher }, { loader }, { fluidTank }, { shieldGenerator }, { player }, { shipControl }, { shipSize });
+    const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, itemCrate, hugeThruster, fabricator, processor, cannon, pusher, loader, fluidTank, shieldGenerator, player, shipControl });
     const typeName = entityNameFromType(typeId);
-    const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, mapMarker, dockingSpring, hugeThruster, fabricator, processor, cannon, loader, fluidTank, shieldGenerator, player, shipControl });
+    const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, mapMarker, dockingSpring, hugeThruster, fabricator, processor, cannon, pusher, loader, fluidTank, shieldGenerator, player, shipControl });
     const summary = {
       entity: entityId,
       category,
@@ -1217,6 +1249,7 @@ export class ModelState {
         fabricator,
         processor,
         cannon,
+        pusher,
         loader,
         fluidTank,
         shieldGenerator,
@@ -1238,6 +1271,7 @@ export class ModelState {
         fabricator ? "fabricator" : null,
         processor ? "processor" : null,
         cannon ? "cannon" : null,
+        pusher ? "pusher" : null,
         loader ? "loader" : null,
         fluidTank ? "fluid_tank" : null,
         shieldGenerator ? "shield_generator" : null,

@@ -257,9 +257,10 @@ The model decoder is best-effort and currently covers the component
 tables documented in
 `spec/game-state-transmission-spec.md`, including transforms, item holders,
 entity/package item ids, fabricators, players, ship controls, fluid tanks,
-shield charge, starter cannon ammo/charge state, and normalized loader
-configuration (`pick`, `place`, `priority`, `requireOutput`, `stack`, `cycle`,
-`waitForStack`, filter mode, filter slots, and enum display names).
+shield charge, starter cannon ammo/charge state, normalized pusher
+configuration, and normalized loader configuration (`pick`, `place`,
+`priority`, `requireOutput`, `stack`, `cycle`, `waitForStack`, filter mode,
+filter slots, and enum display names).
 Packets that cannot be fully decoded are recorded in `client.decodeErrors` and
 emit `decode-error`; they do not close the websocket.
 

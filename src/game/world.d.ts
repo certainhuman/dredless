@@ -12,6 +12,7 @@ export {
   type TransformSummary,
   type EntitySummary,
   type BlockSummary,
+  type PusherSummary,
   type LoaderSummary,
   type MachineSummary
 } from "../index.js";
