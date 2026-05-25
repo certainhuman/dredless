@@ -522,3 +522,32 @@ test("ModelState exposes normalized sign text and display mode", () => {
   assert.equal(sign.displayMode, 2);
   assert.equal(sign.displayModeName, "on-hover");
 });
+
+test("ModelState exposes normalized spawn point rank", () => {
+  const model = new ModelState();
+  const captain = ENTITY;
+  const crew = ENTITY + 1;
+  const guest = ENTITY + 2;
+
+  model.apply(modelData(
+    1,
+    tableSection(43, captain, 1, fieldDelta(219)),
+    tableSection(44, captain, 1, fieldDelta(3)),
+    tableSection(43, crew, 1, fieldDelta(219)),
+    tableSection(44, crew, 1, fieldDelta(1)),
+    tableSection(43, guest, 1, fieldDelta(219)),
+    tableSection(44, guest, 0, [])
+  ));
+
+  let spawnPoint = model.entity(captain).contents.spawnPoint;
+  assert.equal(spawnPoint.rank, 3);
+  assert.equal(spawnPoint.rankName, "Captain");
+
+  spawnPoint = model.entity(crew).contents.spawnPoint;
+  assert.equal(spawnPoint.rank, 1);
+  assert.equal(spawnPoint.rankName, "Crew");
+
+  spawnPoint = model.entity(guest).contents.spawnPoint;
+  assert.equal(spawnPoint.rank, 0);
+  assert.equal(spawnPoint.rankName, "Guest");
+});

@@ -293,6 +293,7 @@ export interface EntityContentsSummary {
   player?: PlayerSummary;
   shipControl?: ShipControlSummary;
   sign?: SignSummary;
+  spawnPoint?: SpawnPointSummary;
 }
 
 export interface EntitySummary {
@@ -583,6 +584,13 @@ export interface SignSummary {
   text: string;
   displayMode: number;
   displayModeName: string | null;
+  state: ModelRecord;
+}
+
+export interface SpawnPointSummary {
+  entity: number;
+  rank: number;
+  rankName: string | null;
   state: ModelRecord;
 }
 
