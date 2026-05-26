@@ -744,6 +744,18 @@ function summarizeSpawnPoint(entity, spawnRecord) {
   };
 }
 
+function summarizeDoor(entity, rankRecord, doorRecord) {
+  const rank = Number.isFinite(Number(rankRecord?.q20)) ? Number(rankRecord.q20) : 0;
+  return {
+    entity,
+    rank,
+    rankName: enumValueName(TEAM_RANK_NAMES, rank),
+    open: doorRecord?.q21 === 1,
+    rankState: cloneRecord(rankRecord || {}),
+    state: cloneRecord(doorRecord || {})
+  };
+}
+
 function enumValueName(map, value) {
   return value == null ? null : map.get(value) ?? null;
 }
@@ -1240,6 +1252,7 @@ export class ModelState {
     const shipControlRecord = this.record(20, entityId);
     const signRecord = this.record(41, entityId);
     const spawnPointRecord = this.record(8, entityId);
+    const doorRecord = this.record(47, entityId);
     const labelRecord = this.record(9, entityId);
     const zoneLabelRecord = this.record(25, entityId);
     const dockingSpringRecord = this.record(26, entityId);
@@ -1268,6 +1281,7 @@ export class ModelState {
     const shipControl = summarizeShipControl(entityId, shipControlRecord);
     const sign = typeId === 218 ? summarizeSign(entityId, signRecord) : null;
     const spawnPoint = typeId === 219 ? summarizeSpawnPoint(entityId, spawnPointRecord) : null;
+    const door = typeId === 220 ? summarizeDoor(entityId, spawnPointRecord, doorRecord) : null;
     const shipSize = shipControl && this.isOverworld ? summarizeShipSize(entityId, this.record(3, entityId)) : null;
     const mapMarker = this.isOverworld ? summarizeMapMarker(entityId, labelRecord, zoneLabelRecord, crateSizeRecord) : null;
     const dockingSpring = this.isOverworld
@@ -1286,7 +1300,7 @@ export class ModelState {
       rot: numberOrNull(transformRecord.q28, 127.324),
       flags: [transformRecord.q33, transformRecord.q34, transformRecord.q35].filter((value) => value != null)
     } : null;
-    const contents = mergeContents({ itemHolder }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { health }, { fabricator }, { processor }, { cannon }, { pusher }, { loader }, { fluidTank }, { shieldGenerator }, { shieldProjector }, { player }, { shipControl }, { sign }, { spawnPoint }, { shipSize });
+    const contents = mergeContents({ itemHolder }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { health }, { fabricator }, { processor }, { cannon }, { pusher }, { loader }, { fluidTank }, { shieldGenerator }, { shieldProjector }, { player }, { shipControl }, { sign }, { spawnPoint }, { door }, { shipSize });
     const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, itemCrate, hugeThruster, fabricator, processor, cannon, pusher, loader, fluidTank, shieldGenerator, shieldProjector, player, shipControl });
     const typeName = entityNameFromType(typeId);
     const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, mapMarker, dockingSpring, hugeThruster, fabricator, processor, cannon, pusher, loader, fluidTank, shieldGenerator, shieldProjector, player, shipControl });
@@ -1319,6 +1333,7 @@ export class ModelState {
         shipControl,
         sign,
         spawnPoint,
+        door,
         isOverworld: this.isOverworld
       }),
       kind: [
@@ -1344,6 +1359,7 @@ export class ModelState {
         shipControl ? "ship_control" : null,
         sign ? "sign" : null,
         spawnPoint ? "spawn_point" : null,
+        door ? "door" : null,
         shipControl && this.isOverworld ? "overworld_ship" : null
       ].filter(Boolean),
       transform,

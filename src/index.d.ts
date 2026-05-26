@@ -295,6 +295,7 @@ export interface EntityContentsSummary {
   shipControl?: ShipControlSummary;
   sign?: SignSummary;
   spawnPoint?: SpawnPointSummary;
+  door?: DoorSummary;
 }
 
 export interface EntitySummary {
@@ -592,6 +593,15 @@ export interface SpawnPointSummary {
   entity: number;
   rank: number;
   rankName: string | null;
+  state: ModelRecord;
+}
+
+export interface DoorSummary {
+  entity: number;
+  rank: number;
+  rankName: string | null;
+  open: boolean;
+  rankState: ModelRecord;
   state: ModelRecord;
 }
 

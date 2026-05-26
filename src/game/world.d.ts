@@ -16,6 +16,7 @@ export {
   type LoaderSummary,
   type SignSummary,
   type SpawnPointSummary,
+  type DoorSummary,
   type ShieldProjectorSummary,
   type MachineSummary
 } from "../index.js";

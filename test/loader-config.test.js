@@ -552,6 +552,51 @@ test("ModelState exposes normalized spawn point rank", () => {
   assert.equal(spawnPoint.rankName, "Guest");
 });
 
+test("ModelState exposes normalized door rank and open state", () => {
+  const model = new ModelState();
+  const captain = ENTITY;
+  const crew = ENTITY + 1;
+  const guest = ENTITY + 2;
+
+  model.apply(modelData(
+    1,
+    tableSection(43, captain, 1, fieldDelta(220)),
+    tableSection(44, captain, 1, fieldDelta(3)),
+    tableSection(130, captain, 0, []),
+    tableSection(43, crew, 1, fieldDelta(220)),
+    tableSection(44, crew, 1, fieldDelta(1)),
+    tableSection(130, crew, 0, []),
+    tableSection(43, guest, 1, fieldDelta(220)),
+    tableSection(44, guest, 0, []),
+    tableSection(130, guest, 0, [])
+  ));
+
+  let door = model.entity(captain).contents.door;
+  assert.equal(door.rank, 3);
+  assert.equal(door.rankName, "Captain");
+  assert.equal(door.open, false);
+
+  door = model.entity(crew).contents.door;
+  assert.equal(door.rank, 1);
+  assert.equal(door.rankName, "Crew");
+
+  door = model.entity(guest).contents.door;
+  assert.equal(door.rank, 0);
+  assert.equal(door.rankName, "Guest");
+
+  model.apply(modelData(
+    2,
+    tableSection(130, captain, 1, unsigned(1))
+  ));
+  assert.equal(model.entity(captain).contents.door.open, true);
+
+  model.apply(modelData(
+    3,
+    tableSection(130, captain, 1, unsigned(0))
+  ));
+  assert.equal(model.entity(captain).contents.door.open, false);
+});
+
 test("ModelState exposes normalized shield projector state", () => {
   const model = new ModelState();
   model.apply(modelData(
