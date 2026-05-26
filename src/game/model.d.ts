@@ -15,6 +15,7 @@ export {
   type SpawnPointSummary,
   type DoorSummary,
   type ShieldProjectorSummary,
+  type ShieldGeneratorSummary,
   type PlayerSummary,
   type ShipControlSummary,
   type ShipShieldSummary,

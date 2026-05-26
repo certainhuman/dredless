@@ -118,6 +118,10 @@ function table78Section(tag, entity, mask, deltas) {
   ];
 }
 
+function table54Section(entity, mask, deltas) {
+  return tableSection(137, entity, mask, deltas.flatMap(fieldDelta));
+}
+
 function tableSection(tag, entity, mask, payload) {
   return [
     ...streamInt(tag),
@@ -479,6 +483,89 @@ test("ModelState exposes normalized pusher configuration", () => {
   assert.deepEqual(pusher.filterSlots, [100, 101, 103]);
 });
 
+test("ModelState exposes normalized shield generator charge, efficiency, and stored core", () => {
+  const model = new ModelState();
+  const empty = ENTITY;
+  const charged = ENTITY + 1;
+  const chargedWithCore = ENTITY + 2;
+
+  model.apply(modelData(
+    1,
+    tableSection(43, empty, 1, fieldDelta(256)),
+    tableSection(144, empty, 0, []),
+    tableSection(43, charged, 1, fieldDelta(256)),
+    tableSection(144, charged, 3, [
+      ...fieldDelta(4737),
+      ...fieldDelta(166)
+    ]),
+    tableSection(43, chargedWithCore, 1, fieldDelta(256)),
+    tableSection(42, chargedWithCore, 1, fieldDelta(123)),
+    tableSection(144, chargedWithCore, 3, [
+      ...fieldDelta(4682),
+      ...fieldDelta(166)
+    ])
+  ));
+
+  let generator = model.entity(empty).contents.shieldGenerator;
+  assert.equal(generator.charge, 0);
+  assert.equal(generator.maxCharge, 5000);
+  assert.equal(generator.chargeRatio, 0);
+  assert.equal(generator.efficiencyPercent, null);
+  assert.equal(generator.hasShieldCore, false);
+  assert.equal(generator.boostState, 0);
+  assert.equal(generator.boostStateName, "inactive");
+  assert.equal(generator.boostTimer, 0);
+  assert.equal(generator.boostActive, false);
+
+  generator = model.entity(charged).contents.shieldGenerator;
+  assert.equal(generator.charge, 4737);
+  assert.equal(generator.efficiencyPercent, 166);
+  assert.equal(generator.efficiency, 1.66);
+  assert.equal(generator.hasShieldCore, false);
+
+  generator = model.entity(chargedWithCore).contents.shieldGenerator;
+  assert.equal(generator.charge, 4682);
+  assert.equal(generator.storedItemId, 123);
+  assert.equal(generator.storedItemName, "Shield Core");
+  assert.equal(generator.hasShieldCore, true);
+
+  model.apply(modelData(
+    2,
+    tableSection(158, chargedWithCore, 24, [
+      ...fieldDelta(1),
+      ...fieldDelta(30)
+    ])
+  ));
+
+  generator = model.entity(chargedWithCore).contents.shieldGenerator;
+  assert.equal(generator.boostState, 1);
+  assert.equal(generator.boostStateName, "boosted");
+  assert.equal(generator.boostTimer, 30);
+  assert.equal(generator.boostActive, true);
+
+  model.apply(modelData(
+    3,
+    tableSection(158, chargedWithCore, 8, fieldDelta(1))
+  ));
+
+  generator = model.entity(chargedWithCore).contents.shieldGenerator;
+  assert.equal(generator.boostState, 2);
+  assert.equal(generator.boostStateName, "failed");
+
+  model.apply(modelData(
+    4,
+    tableSection(158, chargedWithCore, 24, [
+      ...fieldDelta(-2),
+      ...fieldDelta(-30)
+    ])
+  ));
+
+  generator = model.entity(chargedWithCore).contents.shieldGenerator;
+  assert.equal(generator.boostState, 0);
+  assert.equal(generator.boostTimer, 0);
+  assert.equal(generator.boostActive, false);
+});
+
 test("ModelState exposes normalized sign text and display mode", () => {
   const model = new ModelState();
   model.apply(modelData(
@@ -623,4 +710,106 @@ test("ModelState exposes normalized shield projector state", () => {
 
   projector = model.entity(ENTITY).contents.shieldProjector;
   assert.equal(projector.active, true);
+});
+
+test("ModelState decodes starter cannon aim-only and firing updates", () => {
+  const model = new ModelState();
+  const entity = 50;
+
+  model.apply(modelData(
+    1,
+    tableSection(1, entity, 3, [fieldDelta(0), fieldDelta(0)]),
+    tableSection(43, entity, 1, fieldDelta(227)),
+    table54Section(entity, 15, [1, 2, 16750080, 16])
+  ));
+
+  let cannon = model.entity(entity).contents.cannon;
+  assert.equal(cannon.ammoItemId, 150);
+  assert.equal(cannon.ammoName, "Standard Ammo");
+  assert.equal(cannon.ammoCount, 16);
+  assert.equal(cannon.aim, 2);
+  assert.equal(cannon.recoil, null);
+  assert.deepEqual(cannon.recoils, [null, null]);
+
+  model.apply(modelData(
+    2,
+    table54Section(entity, 2, [203])
+  ));
+
+  cannon = model.entity(entity).contents.cannon;
+  assert.equal(cannon.aim, 205);
+  assert.equal(cannon.ammoCount, 16);
+
+  model.apply(modelData(
+    3,
+    table54Section(entity, 40, [-1, -24])
+  ));
+
+  cannon = model.entity(entity).contents.cannon;
+  assert.equal(cannon.ammoCount, 15);
+  assert.equal(cannon.aim, 205);
+  assert.equal(cannon.recoil, -24);
+  assert.deepEqual(cannon.recoils, [-24, null]);
+
+  model.apply(modelData(
+    4,
+    table54Section(entity, 32, [24])
+  ));
+
+  cannon = model.entity(entity).contents.cannon;
+  assert.equal(cannon.ammoCount, 15);
+  assert.equal(cannon.recoil, 0);
+});
+
+test("ModelState decodes machine cannon high-bit state without metadata spillover", () => {
+  const model = new ModelState();
+  const entity = 87;
+
+  model.apply(modelData(
+    1,
+    tableSection(1, entity, 3, [fieldDelta(20), fieldDelta(100)]),
+    tableSection(43, entity, 1, fieldDelta(229)),
+    table54Section(entity, 143, [4, -40, 16750080, 15, 129])
+  ));
+
+  let cannon = model.entity(entity).contents.cannon;
+  assert.equal(cannon.typeId, 229);
+  assert.equal(cannon.typeName, "Machine Cannon (Packaged)");
+  assert.equal(cannon.ammoItemId, 150);
+  assert.equal(cannon.ammoCount, 15);
+  assert.equal(cannon.aim, -40);
+  assert.equal(cannon.spin, 129);
+  assert.equal(model.snapshot().entities.length, 1);
+
+  model.apply(modelData(
+    2,
+    table54Section(entity, 54, [257, -16750080, 3, 0])
+  ));
+
+  cannon = model.entity(entity).contents.cannon;
+  assert.equal(cannon.aim, 217);
+  assert.equal(cannon.ammoItemId, null);
+  assert.equal(cannon.state.q44, 3);
+  assert.equal(cannon.recoil, 0);
+  assert.equal(cannon.recoil2, null);
+  assert.equal(model.snapshot().entities.length, 1);
+
+  model.apply(modelData(
+    3,
+    table54Section(entity, 64, [-25])
+  ));
+
+  cannon = model.entity(entity).contents.cannon;
+  assert.equal(cannon.recoil, 0);
+  assert.equal(cannon.recoil2, -25);
+  assert.deepEqual(cannon.recoils, [0, -25]);
+
+  model.apply(modelData(
+    4,
+    table54Section(entity, 128, [5])
+  ));
+
+  cannon = model.entity(entity).contents.cannon;
+  assert.equal(cannon.spin, 134);
+  assert.equal(model.snapshot().entities.length, 1);
 });

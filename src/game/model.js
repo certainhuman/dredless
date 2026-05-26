@@ -252,7 +252,7 @@ const MODEL_TABLE_SPECS = new Map([
     packedBits: [{ bit: 2, offset: 61 }],
     fields: numericFields({ 1: 20, 4: 24, 8: 28, 16: 32, 32: 36, 64: 40, 128: 44, 256: 48, 512: 52, 1024: 56 })
   }],
-  [54, { name: "starter_cannon", fields: numericFields({ 1: 20, 2: 32, 4: 24, 8: 28, 32: 36, 256: 40 }) }],
+  [54, { name: "starter_cannon", fields: numericFields({ 1: 20, 2: 32, 4: 24, 8: 28, 16: 44, 32: 36, 64: 48, 128: 52, 256: 40, 512: 56, 1024: 60 }) }],
   [55, {
     name: "player",
     packedBeforeValues: true,
@@ -413,6 +413,8 @@ const CANNON_AMMO_COLOR_ITEM_IDS = new Map([
   [0xff9600, 150]
 ]);
 
+const CANNON_TYPE_IDS = new Set([226, 227, 228, 229, 263, 265]);
+
 const DEFAULT_OVERWORLD_WARP_DURATION_SECONDS = 120;
 const OVERWORLD_WARP_TICKS_PER_SECOND = 20;
 
@@ -448,6 +450,12 @@ const SIGN_DISPLAY_MODE_NAMES = new Map([
   [0, "always"],
   [1, "when-near"],
   [2, "on-hover"]
+]);
+
+const SHIELD_GENERATOR_BOOST_STATE_NAMES = new Map([
+  [0, "inactive"],
+  [1, "boosted"],
+  [2, "failed"]
 ]);
 
 function numberOrNull(value, divisor = 1) {
@@ -519,19 +527,26 @@ function summarizeFabricator(entity, record) {
   };
 }
 
-function summarizeCannon(entity, record) {
-  if (!record) return null;
+function summarizeCannon(entity, record, typeId = null) {
+  if (!record || !CANNON_TYPE_IDS.has(typeId)) return null;
   const ammoItemId = record.q24 == null ? null : CANNON_AMMO_COLOR_ITEM_IDS.get(record.q24) ?? null;
   const charge = record.q40 ?? null;
+  const recoil = record.q36 ?? null;
+  const recoil2 = record.q48 ?? null;
   return {
     entity,
+    typeId,
+    typeName: entityNameFromType(typeId),
     ammoItemId,
     ammoName: entityNameFromType(ammoItemId),
     ammoCount: record.q28 ?? 0,
     aim: record.q32 ?? null,
-    recoil: record.q36 ?? null,
+    recoil,
+    recoil2,
+    recoils: [recoil, recoil2],
     charge,
     charged: charge == null ? null : charge >= 50,
+    spin: record.q52 ?? null,
     state: cloneRecord(record)
   };
 }
@@ -546,6 +561,35 @@ function summarizeHealth(entity, record) {
     maxHp,
     ratio: typeof hp === "number" && typeof maxHp === "number" && maxHp !== 0 ? hp / maxHp : null,
     state: cloneRecord(record)
+  };
+}
+
+function summarizeShieldGenerator(entity, shieldRecord = null, itemHolderRecord = null, boostRecord = null) {
+  const charge = shieldRecord?.q20 ?? 0;
+  const maxCharge = 5000;
+  const efficiencyPercent = shieldRecord?.q24 ?? null;
+  const storedItem = itemSummary(itemHolderRecord?.q20 ?? null, itemHolderRecord?.q24 ?? null);
+  const boostState = boostRecord?.q24 ?? 0;
+  const boostTimer = boostRecord?.q28 ?? 0;
+  return {
+    entity,
+    charge,
+    maxCharge,
+    chargeRatio: typeof charge === "number" ? charge / maxCharge : null,
+    efficiencyPercent,
+    efficiency: typeof efficiencyPercent === "number" ? efficiencyPercent / 100 : null,
+    storedItemId: storedItem.itemId,
+    storedItemName: storedItem.itemName,
+    storedItemCount: storedItem.count,
+    hasShieldCore: storedItem.itemId === 123,
+    boostState,
+    boostStateName: enumValueName(SHIELD_GENERATOR_BOOST_STATE_NAMES, boostState),
+    boostTimer,
+    boostActive: boostState !== 0 || boostTimer > 0,
+    puzzleSeed: boostRecord?.q20 ?? null,
+    state: cloneRecord(shieldRecord || {}),
+    itemState: cloneRecord(itemHolderRecord || {}),
+    boostStateRaw: cloneRecord(boostRecord || {})
   };
 }
 
@@ -1247,6 +1291,7 @@ export class ModelState {
     const loaderFilterSlotsRecord = this.record(77, entityId);
     const fluidTankRecord = this.record(60, entityId);
     const shieldRecord = this.record(61, entityId);
+    const shieldGeneratorBoostRecord = this.record(75, entityId);
     const shieldProjectorRecord = this.record(62, entityId);
     const playerRecord = this.record(55, entityId);
     const shipControlRecord = this.record(20, entityId);
@@ -1271,11 +1316,11 @@ export class ModelState {
     const health = summarizeHealth(entityId, healthRecord);
     const fabricator = summarizeFabricator(entityId, fabricatorRecord);
     const processor = processorRecord ? { entity: entityId, state: cloneRecord(processorRecord) } : null;
-    const cannon = summarizeCannon(entityId, cannonRecord);
+    const cannon = summarizeCannon(entityId, cannonRecord, typeId);
     const pusher = summarizePusher(entityId, pusherRecord, loaderFilterSlotsRecord);
     const loader = summarizeLoader(entityId, loaderRecord, loaderFilterRecord, loaderFilterSlotsRecord, this.#loaderConfig);
     const fluidTank = fluidTankRecord ? { entity: entityId, amount: fluidTankRecord.q24 ?? null, state: cloneRecord(fluidTankRecord) } : null;
-    const shieldGenerator = shieldRecord ? { entity: entityId, charge: shieldRecord.q20 ?? null, state: cloneRecord(shieldRecord) } : null;
+    const shieldGenerator = typeId === 256 ? summarizeShieldGenerator(entityId, shieldRecord, itemHolderRecord, shieldGeneratorBoostRecord) : null;
     const shieldProjector = typeId === 257 ? summarizeShieldProjector(entityId, shieldProjectorRecord) : null;
     const player = summarizePlayer(entityId, playerRecord);
     const shipControl = summarizeShipControl(entityId, shipControlRecord);

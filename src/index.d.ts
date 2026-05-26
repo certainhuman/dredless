@@ -289,7 +289,7 @@ export interface EntityContentsSummary {
   pusher?: PusherSummary;
   loader?: LoaderSummary;
   fluidTank?: { entity: number; amount: number | null; state: ModelRecord };
-  shieldGenerator?: { entity: number; charge: number | null; state: ModelRecord };
+  shieldGenerator?: ShieldGeneratorSummary;
   shieldProjector?: ShieldProjectorSummary;
   player?: PlayerSummary;
   shipControl?: ShipControlSummary;
@@ -536,13 +536,18 @@ export interface FabricatorSummary {
 
 export interface CannonSummary {
   entity: number;
+  typeId: number;
+  typeName: string | null;
   ammoItemId: number | null;
   ammoName: string | null;
   ammoCount: number;
   aim: number | null;
   recoil: number | null;
+  recoil2: number | null;
+  recoils: [number | null, number | null];
   charge: number | null;
   charged: boolean | null;
+  spin: number | null;
   state: ModelRecord;
 }
 
@@ -611,6 +616,27 @@ export interface ShieldProjectorSummary {
   state: ModelRecord;
 }
 
+export interface ShieldGeneratorSummary {
+  entity: number;
+  charge: number;
+  maxCharge: number;
+  chargeRatio: number | null;
+  efficiencyPercent: number | null;
+  efficiency: number | null;
+  storedItemId: number | null;
+  storedItemName: string | null;
+  storedItemCount: number | null;
+  hasShieldCore: boolean;
+  boostState: number;
+  boostStateName: string | null;
+  boostTimer: number;
+  boostActive: boolean;
+  puzzleSeed: number | null;
+  state: ModelRecord;
+  itemState: ModelRecord;
+  boostStateRaw: ModelRecord;
+}
+
 export interface PlayerSummary {
   entity: number;
   name: string | null;
@@ -669,7 +695,7 @@ export interface MachineSummary {
   pushers: PusherSummary[];
   loaders: LoaderSummary[];
   fluidTanks: { entity: number; amount: number | null; state: ModelRecord }[];
-  shieldGenerators: { entity: number; charge: number | null; state: ModelRecord }[];
+  shieldGenerators: ShieldGeneratorSummary[];
   shieldProjectors: ShieldProjectorSummary[];
 }
 

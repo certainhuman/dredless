@@ -18,5 +18,6 @@ export {
   type SpawnPointSummary,
   type DoorSummary,
   type ShieldProjectorSummary,
+  type ShieldGeneratorSummary,
   type MachineSummary
 } from "../index.js";
