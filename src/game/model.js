@@ -547,6 +547,7 @@ function summarizeCannon(entity, record, typeId = null) {
     charge,
     charged: charge == null ? null : charge >= 50,
     spin: record.q52 ?? null,
+    coolingCellCount: record.q56 ?? 0,
     state: cloneRecord(record)
   };
 }

@@ -548,6 +548,7 @@ export interface CannonSummary {
   charge: number | null;
   charged: boolean | null;
   spin: number | null;
+  coolingCellCount: number;
   state: ModelRecord;
 }
 

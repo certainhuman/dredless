@@ -779,6 +779,7 @@ test("ModelState decodes machine cannon high-bit state without metadata spillove
   assert.equal(cannon.ammoCount, 15);
   assert.equal(cannon.aim, -40);
   assert.equal(cannon.spin, 129);
+  assert.equal(cannon.coolingCellCount, 0);
   assert.equal(model.snapshot().entities.length, 1);
 
   model.apply(modelData(
@@ -812,4 +813,31 @@ test("ModelState decodes machine cannon high-bit state without metadata spillove
   cannon = model.entity(entity).contents.cannon;
   assert.equal(cannon.spin, 134);
   assert.equal(model.snapshot().entities.length, 1);
+});
+
+test("ModelState decodes machine cannon cooling cell count", () => {
+  const model = new ModelState();
+  const none = 20;
+  const one = 21;
+  const twoLoaded = 23;
+  const twoEmpty = 29;
+
+  model.apply(modelData(
+    1,
+    tableSection(43, none, 1, fieldDelta(229)),
+    table54Section(none, 1, [4]),
+    tableSection(43, one, 1, fieldDelta(229)),
+    table54Section(one, 513, [4, 1]),
+    tableSection(43, twoLoaded, 1, fieldDelta(229)),
+    table54Section(twoLoaded, 525, [4, 16750080, 16, 2]),
+    tableSection(43, twoEmpty, 1, fieldDelta(229)),
+    table54Section(twoEmpty, 513, [4, 2])
+  ));
+
+  assert.equal(model.entity(none).contents.cannon.coolingCellCount, 0);
+  assert.equal(model.entity(one).contents.cannon.coolingCellCount, 1);
+  assert.equal(model.entity(twoLoaded).contents.cannon.coolingCellCount, 2);
+  assert.equal(model.entity(twoLoaded).contents.cannon.ammoCount, 16);
+  assert.equal(model.entity(twoEmpty).contents.cannon.coolingCellCount, 2);
+  assert.equal(model.entity(twoEmpty).contents.cannon.ammoCount, 0);
 });
