@@ -706,10 +706,9 @@ function scaledSizeSummary(record) {
   };
 }
 
-function summarizeExpandoBox(entity, itemHolderRecord, sizeRecord, hoverOutlineRecord) {
-  if (!itemHolderRecord && !sizeRecord && !hoverOutlineRecord) return null;
+function summarizeExpandoBox(entity, itemHolderRecord, sizeRecord) {
+  if (!itemHolderRecord && !sizeRecord) return null;
   const size = scaledSizeSummary(sizeRecord);
-  const hoverOutline = scaledSizeSummary(hoverOutlineRecord);
   return {
     entity,
     ...itemSummary(itemHolderRecord?.q20 ?? null, itemHolderRecord?.q24 ?? null),
@@ -717,11 +716,15 @@ function summarizeExpandoBox(entity, itemHolderRecord, sizeRecord, hoverOutlineR
     height: size?.height ?? null,
     rawWidth: size?.rawWidth ?? null,
     rawHeight: size?.rawHeight ?? null,
-    hoverOutline,
     itemState: cloneRecord(itemHolderRecord || {}),
-    sizeState: cloneRecord(sizeRecord || {}),
-    hoverOutlineState: cloneRecord(hoverOutlineRecord || {})
+    sizeState: cloneRecord(sizeRecord || {})
   };
+}
+
+function summarizeHoverOutline(entity, record) {
+  const size = scaledSizeSummary(record);
+  if (!size) return null;
+  return { entity, ...size };
 }
 
 function summarizeMapMarker(entity, labelRecord, zoneRecord = null, sizeRecord = null) {
@@ -918,15 +921,11 @@ function mergeContents(...parts) {
 }
 
 function entityFootprint(entity) {
-  if (
-    entity?.expandoBox &&
-    Number.isFinite(Number(entity.expandoBox.width)) &&
-    Number.isFinite(Number(entity.expandoBox.height))
-  ) {
+  if (entity?.hoverOutline && Number.isFinite(Number(entity.hoverOutline.width)) && Number.isFinite(Number(entity.hoverOutline.height))) {
     return {
-      width: Math.ceil(Number(entity.expandoBox.width)),
-      height: Math.ceil(Number(entity.expandoBox.height)),
-      source: "expando_box"
+      width: Math.ceil(Number(entity.hoverOutline.width)),
+      height: Math.ceil(Number(entity.hoverOutline.height)),
+      source: "hover_outline"
     };
   }
   if (entity?.markerTypeId != null && ENTITY_FOOTPRINTS.has(entity.markerTypeId)) {
@@ -1471,7 +1470,8 @@ export class ModelState {
     const spawnPoint = typeId === 219 ? summarizeSpawnPoint(entityId, spawnPointRecord) : null;
     const door = typeId === 220 ? summarizeDoor(entityId, spawnPointRecord, doorRecord) : null;
     const shipSize = shipControl && this.isOverworld ? summarizeShipSize(entityId, this.record(3, entityId)) : null;
-    const expandoBox = isExpandoBox ? summarizeExpandoBox(entityId, itemHolderRecord, expandoSizeRecord, crateSizeRecord) : null;
+    const hoverOutline = summarizeHoverOutline(entityId, crateSizeRecord);
+    const expandoBox = isExpandoBox ? summarizeExpandoBox(entityId, itemHolderRecord, expandoSizeRecord) : null;
     const mapMarker = this.isOverworld ? summarizeMapMarker(entityId, labelRecord, zoneLabelRecord, crateSizeRecord) : null;
     const dockingSpring = this.isOverworld
       ? summarizeDockingSpring(entityId, dockingSpringRecord, bodyStateRecord, crateSizeRecord)
@@ -1489,8 +1489,8 @@ export class ModelState {
       rot: numberOrNull(transformRecord.q28, 127.324),
       flags: [transformRecord.q33, transformRecord.q34, transformRecord.q35].filter((value) => value != null)
     } : null;
-    const contents = mergeContents({ itemHolder }, { expandoBox }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { health }, { fabricator }, { processor }, { cannon }, { pusher }, { loader }, { commsStation }, { fluidTank }, { shieldGenerator }, { shieldProjector }, { helm }, { player }, { shipControl }, { sign }, { spawnPoint }, { door }, { shipSize });
-    const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, expandoBox, itemCrate, hugeThruster, fabricator, processor, cannon, pusher, loader, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
+    const contents = mergeContents({ itemHolder }, { expandoBox }, { hoverOutline }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { health }, { fabricator }, { processor }, { cannon }, { pusher }, { loader }, { commsStation }, { fluidTank }, { shieldGenerator }, { shieldProjector }, { helm }, { player }, { shipControl }, { sign }, { spawnPoint }, { door }, { shipSize });
+    const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, expandoBox, hoverOutline, itemCrate, hugeThruster, fabricator, processor, cannon, pusher, loader, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
     const typeName = entityNameFromType(typeId);
     const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, mapMarker, dockingSpring, hugeThruster, fabricator, processor, cannon, pusher, loader, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
     const summary = {
@@ -1509,6 +1509,7 @@ export class ModelState {
         dockingSpring,
         hugeThruster,
         expandoBox,
+        hoverOutline,
         itemHolder,
         itemCrate,
         fabricator,
@@ -1533,6 +1534,7 @@ export class ModelState {
         health ? "health" : null,
         itemCrate ? "item_crate" : null,
         expandoBox ? "expando_box" : null,
+        hoverOutline ? "hover_outline" : null,
         mapMarker ? "map_marker" : null,
         dockingSpring ? "docking_spring" : null,
         hugeThruster ? "huge_thruster" : null,

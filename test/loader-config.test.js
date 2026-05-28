@@ -987,9 +987,9 @@ test("ModelState decodes expando box contents and dynamic footprint", () => {
   assert.equal(entity.contents.expandoBox.count, null);
   assert.equal(entity.contents.expandoBox.width, 2);
   assert.equal(entity.contents.expandoBox.height, 2);
-  assert.equal(entity.contents.expandoBox.hoverOutline.width, 2);
-  assert.equal(entity.contents.expandoBox.hoverOutline.height, 2);
-  assert.deepEqual(entity.footprint, { width: 2, height: 2, source: "expando_box" });
+  assert.equal(entity.contents.hoverOutline.width, 2);
+  assert.equal(entity.contents.hoverOutline.height, 2);
+  assert.deepEqual(entity.footprint, { width: 2, height: 2, source: "hover_outline" });
   assert.deepEqual(entity.occupies, [
     { x: 18, y: 2 },
     { x: 18, y: 3 },
@@ -1012,9 +1012,9 @@ test("ModelState decodes expando box contents and dynamic footprint", () => {
   assert.equal(entity.contents.expandoBox.height, 4);
   assert.equal(entity.contents.expandoBox.rawWidth, 50);
   assert.equal(entity.contents.expandoBox.rawHeight, 40);
-  assert.equal(entity.contents.expandoBox.hoverOutline.width, 3);
-  assert.equal(entity.contents.expandoBox.hoverOutline.height, 2);
-  assert.deepEqual(entity.footprint, { width: 5, height: 4, source: "expando_box" });
+  assert.equal(entity.contents.hoverOutline.width, 3);
+  assert.equal(entity.contents.hoverOutline.height, 2);
+  assert.deepEqual(entity.footprint, { width: 3, height: 2, source: "hover_outline" });
   assert.equal(model.machines().expandoBoxes.length, 1);
 
   model.apply(modelData(
@@ -1026,7 +1026,7 @@ test("ModelState decodes expando box contents and dynamic footprint", () => {
   entity = model.entity(19);
   assert.equal(entity.contents.expandoBox.width, 2.1);
   assert.equal(entity.contents.expandoBox.height, 2.1);
-  assert.equal(entity.contents.expandoBox.hoverOutline.width, 2.1);
-  assert.equal(entity.contents.expandoBox.hoverOutline.height, 2.1);
-  assert.deepEqual(entity.footprint, { width: 3, height: 3, source: "expando_box" });
+  assert.equal(entity.contents.hoverOutline.width, 2.1);
+  assert.equal(entity.contents.hoverOutline.height, 2.1);
+  assert.deepEqual(entity.footprint, { width: 3, height: 3, source: "hover_outline" });
 });
