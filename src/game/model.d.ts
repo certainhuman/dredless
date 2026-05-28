@@ -11,6 +11,8 @@ export {
   type CannonSummary,
   type PusherSummary,
   type LoaderSummary,
+  type CommsStationSummary,
+  type CommsBubbleSummary,
   type SignSummary,
   type SpawnPointSummary,
   type DoorSummary,

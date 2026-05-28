@@ -394,6 +394,8 @@ const PLACED_ENTITY_TYPE_IDS = new Set([
 ]);
 
 const HELM_TYPE_IDS = new Set([215, 216]);
+const COMMS_STATION_TYPE_ID = 217;
+const COMMS_STATION_MAX_CHARGES = 5;
 
 function entityTypeIdFromRecord(record) {
   if (!record) return null;
@@ -561,6 +563,21 @@ function summarizeHelm(entity, typeId, occupied = false) {
     typeId,
     typeName: entityNameFromType(typeId),
     occupied: Boolean(occupied)
+  };
+}
+
+function summarizeCommsStation(entity, typeId, record, occupied = false) {
+  if (typeId !== COMMS_STATION_TYPE_ID) return null;
+  const charges = record?.q20 ?? null;
+  return {
+    entity,
+    typeId,
+    typeName: entityNameFromType(typeId),
+    charges,
+    maxCharges: COMMS_STATION_MAX_CHARGES,
+    chargeRatio: typeof charges === "number" ? charges / COMMS_STATION_MAX_CHARGES : null,
+    occupied: Boolean(occupied),
+    state: record ? cloneRecord(record) : {}
   };
 }
 
@@ -928,7 +945,7 @@ function entityCategory(entity) {
   if (entity?.mapMarker) return "map_marker";
   if (entity?.dockingSpring) return "docking_spring";
   if (entity?.hugeThruster) return "huge_thruster";
-  const hasMachineComponent = Boolean(entity?.fabricator || entity?.processor || entity?.cannon || entity?.pusher || entity?.loader || entity?.fluidTank || entity?.shieldGenerator || entity?.shieldProjector);
+  const hasMachineComponent = Boolean(entity?.fabricator || entity?.processor || entity?.cannon || entity?.pusher || entity?.loader || entity?.commsStation || entity?.fluidTank || entity?.shieldGenerator || entity?.shieldProjector);
   const hasValidTransform = Boolean(
     entity?.transform &&
     Number.isFinite(entity.transform.x) &&
@@ -940,20 +957,21 @@ function entityCategory(entity) {
   if (entity?.typeId != null && !hasPhysicalComponent) return "metadata";
   if (entity?.markerTypeId != null) return "placed_entity";
   if (entity?.looseItemMarker && entity?.itemHolder?.itemId != null) return "loose_item";
-  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.pusher && !entity?.loader && !entity?.fluidTank && !entity?.shieldGenerator && !entity?.shieldProjector) {
+  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.pusher && !entity?.loader && !entity?.commsStation && !entity?.fluidTank && !entity?.shieldGenerator && !entity?.shieldProjector) {
     if (entity.typeId != null && (!PLACED_ENTITY_TYPE_IDS.has(Number(entity.typeId)) || entity.typeId === entity.itemHolder.itemId)) return "loose_item";
     if (entity.typeId == null) return "untyped_holder";
   }
-  if (entity?.fabricator || entity?.cannon || entity?.pusher || entity?.loader || entity?.fluidTank || entity?.shieldGenerator || entity?.shieldProjector) return "placed_entity";
+  if (entity?.fabricator || entity?.cannon || entity?.pusher || entity?.loader || entity?.commsStation || entity?.fluidTank || entity?.shieldGenerator || entity?.shieldProjector) return "placed_entity";
   if (entity?.typeId != null && PLACED_ENTITY_TYPE_IDS.has(Number(entity.typeId))) return "placed_entity";
   if (entity?.typeId != null && !hasPhysicalComponent) return "metadata";
-  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.pusher && !entity?.loader && !entity?.fluidTank && !entity?.shieldGenerator && !entity?.shieldProjector) return "untyped_holder";
+  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.pusher && !entity?.loader && !entity?.commsStation && !entity?.fluidTank && !entity?.shieldGenerator && !entity?.shieldProjector) return "untyped_holder";
   return "entity";
 }
 
 export class ModelState {
   #loaderConfig = new LoaderConfigTracker();
   #helmOccupied = new Map();
+  #commsStationOccupied = new Map();
 
   constructor({ isOverworld = null } = {}) {
     this.isOverworld = isOverworld == null ? null : Boolean(isOverworld);
@@ -1045,6 +1063,7 @@ export class ModelState {
 
     this.#updateLoaderConfig(update);
     this.#updateHelmOccupancy(update);
+    this.#updateCommsStationOccupancy(update);
     this.lastUpdate = update;
     this.#updateDerived(update);
     return update;
@@ -1158,6 +1177,31 @@ export class ModelState {
 
       if (!(changed.mask & 8) || changedPilotState.size === 0) continue;
       this.#helmOccupied.set(changed.entity, [...changedPilotState.values()].some(Boolean));
+    }
+  }
+
+  #updateCommsStationOccupancy(update) {
+    const table7 = update.sections.find((section) => section.table === 7);
+    if (!table7) return;
+
+    for (const changed of table7.records) {
+      const record = this.record(7, changed.entity);
+      const typeId = entityTypeIdFromRecord(record);
+      if (typeId !== COMMS_STATION_TYPE_ID) continue;
+
+      const hasAbsoluteTypeState = update.full || (changed.mask & 1);
+      if (hasAbsoluteTypeState && record?.q20 === 0 && Number(record?.q32) === COMMS_STATION_TYPE_ID) {
+        this.#commsStationOccupied.set(changed.entity, true);
+        continue;
+      }
+
+      if (hasAbsoluteTypeState && Number(record?.q20) === COMMS_STATION_TYPE_ID) {
+        this.#commsStationOccupied.set(changed.entity, false);
+      }
+
+      if (changed.mask & 8) {
+        this.#commsStationOccupied.set(changed.entity, !this.#commsStationOccupied.get(changed.entity));
+      }
     }
   }
 
@@ -1289,6 +1333,7 @@ export class ModelState {
       pushers: [],
       health: [],
       loaders: [],
+      commsStations: [],
       fluidTanks: [],
       shieldGenerators: [],
       shieldProjectors: []
@@ -1308,6 +1353,7 @@ export class ModelState {
       if (contents.pusher) machines.pushers.push(contents.pusher);
       if (contents.health) machines.health.push(contents.health);
       if (contents.loader) machines.loaders.push(contents.loader);
+      if (contents.commsStation) machines.commsStations.push(contents.commsStation);
       if (contents.fluidTank) machines.fluidTanks.push(contents.fluidTank);
       if (contents.shieldGenerator) machines.shieldGenerators.push(contents.shieldGenerator);
       if (contents.shieldProjector) machines.shieldProjectors.push(contents.shieldProjector);
@@ -1334,6 +1380,7 @@ export class ModelState {
     const loaderRecord = this.record(78, entityId);
     const loaderFilterRecord = this.record(76, entityId);
     const loaderFilterSlotsRecord = this.record(77, entityId);
+    const commsStationRecord = this.record(39, entityId);
     const fluidTankRecord = this.record(60, entityId);
     const shieldRecord = this.record(61, entityId);
     const shieldGeneratorBoostRecord = this.record(75, entityId);
@@ -1370,6 +1417,7 @@ export class ModelState {
     const player = summarizePlayer(entityId, playerRecord);
     const shipControl = summarizeShipControl(entityId, shipControlRecord);
     const helm = summarizeHelm(entityId, typeId, this.#helmOccupied.get(entityId));
+    const commsStation = summarizeCommsStation(entityId, typeId, commsStationRecord, this.#commsStationOccupied.get(entityId));
     const sign = typeId === 218 ? summarizeSign(entityId, signRecord) : null;
     const spawnPoint = typeId === 219 ? summarizeSpawnPoint(entityId, spawnPointRecord) : null;
     const door = typeId === 220 ? summarizeDoor(entityId, spawnPointRecord, doorRecord) : null;
@@ -1391,10 +1439,10 @@ export class ModelState {
       rot: numberOrNull(transformRecord.q28, 127.324),
       flags: [transformRecord.q33, transformRecord.q34, transformRecord.q35].filter((value) => value != null)
     } : null;
-    const contents = mergeContents({ itemHolder }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { health }, { fabricator }, { processor }, { cannon }, { pusher }, { loader }, { fluidTank }, { shieldGenerator }, { shieldProjector }, { helm }, { player }, { shipControl }, { sign }, { spawnPoint }, { door }, { shipSize });
-    const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, itemCrate, hugeThruster, fabricator, processor, cannon, pusher, loader, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
+    const contents = mergeContents({ itemHolder }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { health }, { fabricator }, { processor }, { cannon }, { pusher }, { loader }, { commsStation }, { fluidTank }, { shieldGenerator }, { shieldProjector }, { helm }, { player }, { shipControl }, { sign }, { spawnPoint }, { door }, { shipSize });
+    const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, itemCrate, hugeThruster, fabricator, processor, cannon, pusher, loader, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
     const typeName = entityNameFromType(typeId);
-    const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, mapMarker, dockingSpring, hugeThruster, fabricator, processor, cannon, pusher, loader, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
+    const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, mapMarker, dockingSpring, hugeThruster, fabricator, processor, cannon, pusher, loader, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
     const summary = {
       entity: entityId,
       category,
@@ -1443,6 +1491,7 @@ export class ModelState {
         cannon ? "cannon" : null,
         pusher ? "pusher" : null,
         loader ? "loader" : null,
+        commsStation ? "comms_station" : null,
         fluidTank ? "fluid_tank" : null,
         shieldGenerator ? "shield_generator" : null,
         shieldProjector ? "shield_projector" : null,
@@ -1494,6 +1543,7 @@ export class ModelState {
       for (const records of this.tables.values()) records.delete(entity);
       this.#loaderConfig.delete(null, entity);
       this.#helmOccupied.delete(entity);
+      this.#commsStationOccupied.delete(entity);
     }
     this.removedEntities.push(...removals);
     return removals;

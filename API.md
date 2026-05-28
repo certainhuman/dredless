@@ -251,6 +251,10 @@ linked `shipWorldId`, RGB `color`, shield max/current base HP, active/inactive
 tank HP, and `warp` timer state when table `20` carries those fields.
 Helm entity summaries include `occupied` when the model stream identifies the
 specific helm currently being used.
+Comms station summaries include current `charges`, `maxCharges`, `chargeRatio`,
+and `occupied` when a player is using the station.
+Comms bubble packets are stored on each world as recent `commsBubbles`, with
+source entity, message text, color, and display duration.
 Player summaries include display `name`, held item, ship `teamRank`, account
 `gameRank`, patron tier when present, `piloting` while the player is occupying a
 helm, the muted flag when the server sends it, and repair-tool aim as

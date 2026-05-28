@@ -288,6 +288,7 @@ export interface EntityContentsSummary {
   cannon?: CannonSummary;
   pusher?: PusherSummary;
   loader?: LoaderSummary;
+  commsStation?: CommsStationSummary;
   fluidTank?: { entity: number; amount: number | null; state: ModelRecord };
   shieldGenerator?: ShieldGeneratorSummary;
   shieldProjector?: ShieldProjectorSummary;
@@ -349,12 +350,14 @@ export class WorldState {
   chunks: unknown[];
   events: unknown[];
   modelPackets: unknown[];
+  commsBubbles: CommsBubbleSummary[];
   model: ModelState;
   lastChunkPatch: unknown;
   lastPacket: unknown;
   meta: unknown;
 
   readMeta(packet: unknown): void;
+  addCommsBubble(packet: unknown): CommsBubbleSummary;
   decodeEncrypted(data: Uint8Array | ArrayBuffer | number[]): unknown;
   applyTile(value: unknown): Tile | null;
   applyChunk(value: unknown): Tile[] | null;
@@ -445,6 +448,7 @@ export interface WorldSnapshot {
   machines: MachineSummary;
   players: PlayerSummary[];
   shipControls: ShipControlSummary[];
+  commsBubbles: CommsBubbleSummary[];
   tiles?: Tile[];
 }
 
@@ -452,9 +456,22 @@ export interface WorldUpdate {
   type: string;
   world: WorldState | null;
   packet?: unknown;
+  bubble?: CommsBubbleSummary;
   decoded?: unknown;
   updates?: unknown[];
   result?: unknown;
+}
+
+export interface CommsBubbleSummary {
+  sequence: number;
+  worldId: number;
+  entity: number | null;
+  modelId: number | null;
+  message: string;
+  color: number | null;
+  colorCss: string | null;
+  durationSeconds: number | null;
+  raw: unknown;
 }
 
 export class ModelState {
@@ -588,6 +605,17 @@ export interface PusherSummary {
   filterSlotsState: ModelRecord;
 }
 
+export interface CommsStationSummary {
+  entity: number;
+  typeId: number;
+  typeName: string | null;
+  charges: number | null;
+  maxCharges: number;
+  chargeRatio: number | null;
+  occupied: boolean;
+  state: ModelRecord;
+}
+
 export interface SignSummary {
   entity: number;
   text: string;
@@ -704,6 +732,7 @@ export interface MachineSummary {
   cannons: CannonSummary[];
   pushers: PusherSummary[];
   loaders: LoaderSummary[];
+  commsStations: CommsStationSummary[];
   fluidTanks: { entity: number; amount: number | null; state: ModelRecord }[];
   shieldGenerators: ShieldGeneratorSummary[];
   shieldProjectors: ShieldProjectorSummary[];

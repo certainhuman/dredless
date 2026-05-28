@@ -21,6 +21,7 @@ export class WorldStore {
     if (packet.type === 22) return this.#applyMeta(packet);
     if (packet.type === 23) return this.#applyTiles(packet);
     if (packet.type === 20) return this.#applyModel(packet);
+    if (packet.type === 13) return this.#applyCommsBubble(packet);
     return null;
   }
 
@@ -120,6 +121,12 @@ export class WorldStore {
     world.lastPacket = packet;
     return { type: "model", world, result };
   }
+
+  #applyCommsBubble(packet) {
+    const world = this.get(packet.world);
+    const bubble = world.addCommsBubble(packet);
+    return { type: "comms-bubble", world, packet, bubble };
+  }
 }
 
 export class WorldState {
@@ -136,6 +143,8 @@ export class WorldState {
     this.chunks = [];
     this.events = [];
     this.modelPackets = [];
+    this.commsBubbles = [];
+    this._bubbleSequence = 0;
     this.model = new ModelState({ isOverworld: this.isOverworld });
     this.lastChunkPatch = null;
     this.lastPacket = null;
@@ -154,6 +163,27 @@ export class WorldState {
     this.parentWorld = packet.parent_world ?? this.parentWorld;
     this.parentEntity = packet.parent_ent ?? this.parentEntity;
     this.lastPacket = packet;
+  }
+
+  addCommsBubble(packet) {
+    const raw = packet?.bubble && typeof packet.bubble === "object" ? packet.bubble : {};
+    const color = Number.isFinite(Number(raw.color)) ? Number(raw.color) : null;
+    const bubble = {
+      sequence: ++this._bubbleSequence,
+      worldId: this.id,
+      entity: Number.isFinite(Number(raw.model_id)) ? Number(raw.model_id) : null,
+      modelId: Number.isFinite(Number(raw.model_id)) ? Number(raw.model_id) : null,
+      message: typeof raw.msg === "string" ? raw.msg : "",
+      color,
+      colorCss: color == null ? null : `rgb(${(color >> 16) & 0xff},${(color >> 8) & 0xff},${color & 0xff})`,
+      durationSeconds: Number.isFinite(Number(raw.time)) ? Number(raw.time) : null,
+      raw: { ...raw }
+    };
+    this.commsBubbles.push(bubble);
+    if (this.commsBubbles.length > 50) this.commsBubbles.splice(0, this.commsBubbles.length - 50);
+    this.events.push({ type: "comms-bubble", packet, bubble });
+    this.lastPacket = packet;
+    return bubble;
   }
 
   decodeEncrypted(data) {
@@ -261,6 +291,7 @@ export class WorldState {
       machines: this.model.machines(),
       players: this.model.players(),
       shipControls: this.model.shipControls(),
+      commsBubbles: this.commsBubbles.slice(),
       tiles: includeTiles ? [...this.tiles.values()] : undefined
     };
   }

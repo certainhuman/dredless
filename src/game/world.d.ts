@@ -7,6 +7,7 @@ export {
   type Tileset,
   type WorldSnapshot,
   type WorldUpdate,
+  type CommsBubbleSummary,
   type ModelRecord,
   type ModelSnapshot,
   type TransformSummary,

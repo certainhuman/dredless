@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ModelState } from "../src/game/model.js";
+import { WorldStore } from "../src/game/world.js";
 import { LoaderConfigTracker } from "../src/game/loader-config.js";
 
 const WORLD = 11479;
@@ -893,4 +894,78 @@ test("ModelState keeps helm type through sparse grab-state type updates", () => 
 
   assert.equal(model.entity(grabbedAndReleased).contents.helm.occupied, false);
   assert.equal(model.entity(pilot).contents.player.piloting, false);
+});
+
+test("ModelState decodes comms station charges and occupied state", () => {
+  const model = new ModelState();
+  const comms = 18;
+
+  model.apply(modelData(
+    1,
+    tableSection(1, comms, 3, [
+      ...fieldDelta(0),
+      ...fieldDelta(0)
+    ]),
+    tableSection(43, comms, 1, fieldDelta(217)),
+    tableSection(122, comms, 1, fieldDelta(5))
+  ));
+
+  assert.equal(model.entity(comms).contents.commsStation.charges, 5);
+  assert.equal(model.entity(comms).contents.commsStation.maxCharges, 5);
+  assert.equal(model.entity(comms).contents.commsStation.chargeRatio, 1);
+  assert.equal(model.entity(comms).contents.commsStation.occupied, false);
+
+  model.apply(modelData(
+    2,
+    tableSection(43, comms, 8, fieldDelta(0))
+  ));
+
+  assert.equal(model.entity(comms).contents.commsStation.occupied, true);
+
+  model.apply(modelData(
+    3,
+    tableSection(122, comms, 1, fieldDelta(-1))
+  ));
+
+  assert.equal(model.entity(comms).contents.commsStation.charges, 4);
+  assert.equal(model.entity(comms).contents.commsStation.chargeRatio, 0.8);
+
+  model.apply(modelData(
+    4,
+    tableSection(43, comms, 8, fieldDelta(0))
+  ));
+
+  assert.equal(model.entity(comms).contents.commsStation.occupied, false);
+
+  model.apply(modelData(
+    5,
+    tableSection(122, comms, 1, fieldDelta(1))
+  ));
+
+  assert.equal(model.entity(comms).contents.commsStation.charges, 5);
+  assert.equal(model.entity(comms).contents.commsStation.chargeRatio, 1);
+});
+
+test("WorldStore decodes comms bubble packets", () => {
+  const store = new WorldStore();
+  const update = store.apply({
+    type: 13,
+    world: 14352,
+    bubble: {
+      model_id: 5,
+      color: 11860793,
+      msg: "the content of the message",
+      time: 15
+    }
+  });
+
+  assert.equal(update.type, "comms-bubble");
+  assert.equal(update.bubble.entity, 5);
+  assert.equal(update.bubble.modelId, 5);
+  assert.equal(update.bubble.message, "the content of the message");
+  assert.equal(update.bubble.color, 11860793);
+  assert.equal(update.bubble.colorCss, "rgb(180,251,57)");
+  assert.equal(update.bubble.durationSeconds, 15);
+  assert.deepEqual(store.get(14352).commsBubbles, [update.bubble]);
+  assert.deepEqual(store.get(14352).snapshot().commsBubbles, [update.bubble]);
 });
