@@ -969,3 +969,64 @@ test("WorldStore decodes comms bubble packets", () => {
   assert.deepEqual(store.get(14352).commsBubbles, [update.bubble]);
   assert.deepEqual(store.get(14352).snapshot().commsBubbles, [update.bubble]);
 });
+
+test("ModelState decodes expando box contents and dynamic footprint", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(1, 19, 3, [725, 80].flatMap(fieldDelta)),
+    tableSection(4, 19, 3, [20, 20].flatMap(fieldDelta)),
+    tableSection(134, 19, 3, [20, 20].flatMap(fieldDelta)),
+    tableSection(42, 19, 0, []),
+    tableSection(43, 19, 3, [240, 1].flatMap(fieldDelta)),
+    tableSection(164, 19, 0, [])
+  ));
+
+  let entity = model.entity(19);
+  assert.equal(entity.contents.expandoBox.itemId, null);
+  assert.equal(entity.contents.expandoBox.count, null);
+  assert.equal(entity.contents.expandoBox.width, 2);
+  assert.equal(entity.contents.expandoBox.height, 2);
+  assert.equal(entity.contents.expandoBox.hoverOutline.width, 2);
+  assert.equal(entity.contents.expandoBox.hoverOutline.height, 2);
+  assert.deepEqual(entity.footprint, { width: 2, height: 2, source: "expando_box" });
+  assert.deepEqual(entity.occupies, [
+    { x: 18, y: 2 },
+    { x: 18, y: 3 },
+    { x: 19, y: 2 },
+    { x: 19, y: 3 }
+  ]);
+
+  model.apply(modelData(
+    2,
+    tableSection(4, 19, 3, [10, 0].flatMap(fieldDelta)),
+    tableSection(134, 19, 3, [30, 20].flatMap(fieldDelta)),
+    tableSection(42, 19, 3, [150, 64].flatMap(fieldDelta))
+  ));
+
+  entity = model.entity(19);
+  assert.equal(entity.contents.expandoBox.itemId, 150);
+  assert.equal(entity.contents.expandoBox.itemName, "Standard Ammo");
+  assert.equal(entity.contents.expandoBox.count, 64);
+  assert.equal(entity.contents.expandoBox.width, 5);
+  assert.equal(entity.contents.expandoBox.height, 4);
+  assert.equal(entity.contents.expandoBox.rawWidth, 50);
+  assert.equal(entity.contents.expandoBox.rawHeight, 40);
+  assert.equal(entity.contents.expandoBox.hoverOutline.width, 3);
+  assert.equal(entity.contents.expandoBox.hoverOutline.height, 2);
+  assert.deepEqual(entity.footprint, { width: 5, height: 4, source: "expando_box" });
+  assert.equal(model.machines().expandoBoxes.length, 1);
+
+  model.apply(modelData(
+    3,
+    tableSection(4, 19, 3, [-9, 1].flatMap(fieldDelta)),
+    tableSection(134, 19, 3, [-29, -19].flatMap(fieldDelta))
+  ));
+
+  entity = model.entity(19);
+  assert.equal(entity.contents.expandoBox.width, 2.1);
+  assert.equal(entity.contents.expandoBox.height, 2.1);
+  assert.equal(entity.contents.expandoBox.hoverOutline.width, 2.1);
+  assert.equal(entity.contents.expandoBox.hoverOutline.height, 2.1);
+  assert.deepEqual(entity.footprint, { width: 3, height: 3, source: "expando_box" });
+});

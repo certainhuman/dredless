@@ -281,6 +281,7 @@ export interface PuiEvent {
 
 export interface EntityContentsSummary {
   itemHolder?: ItemHolderSummary;
+  expandoBox?: ExpandoBoxSummary;
   itemCrate?: ItemCrateSummary;
   health?: HealthSummary;
   fabricator?: FabricatorSummary;
@@ -310,7 +311,7 @@ export interface EntitySummary {
   label: string;
   kind: string[];
   transform: TransformSummary | null;
-  footprint: { width: number; height: number; source: "type" | "marker" | "heuristic" | "default" };
+  footprint: { width: number; height: number; source: "type" | "marker" | "heuristic" | "default" | "crate" | "huge_thruster" | "expando_box" };
   contents: EntityContentsSummary | null;
   occupies: { x: number; y: number }[];
   tables: { tableId: number; name: string | null; record: ModelRecord }[];
@@ -537,6 +538,27 @@ export interface ItemCrateSummary {
   sizeState: ModelRecord;
 }
 
+export interface ExpandoBoxSummary {
+  entity: number;
+  itemId: number | null;
+  itemName: string | null;
+  count: number | null;
+  width: number | null;
+  height: number | null;
+  rawWidth: number | null;
+  rawHeight: number | null;
+  hoverOutline: {
+    width: number | null;
+    height: number | null;
+    rawWidth: number | null;
+    rawHeight: number | null;
+    state: ModelRecord;
+  } | null;
+  itemState: ModelRecord;
+  sizeState: ModelRecord;
+  hoverOutlineState: ModelRecord;
+}
+
 export interface HealthSummary {
   entity: number;
   hp: number | null;
@@ -736,6 +758,7 @@ export interface MachineSummary {
   fluidTanks: { entity: number; amount: number | null; state: ModelRecord }[];
   shieldGenerators: ShieldGeneratorSummary[];
   shieldProjectors: ShieldProjectorSummary[];
+  expandoBoxes: ExpandoBoxSummary[];
 }
 
 export function decodeMsgpack(bytes: Uint8Array | ArrayBuffer | number[]): unknown;

@@ -396,6 +396,7 @@ const PLACED_ENTITY_TYPE_IDS = new Set([
 const HELM_TYPE_IDS = new Set([215, 216]);
 const COMMS_STATION_TYPE_ID = 217;
 const COMMS_STATION_MAX_CHARGES = 5;
+const EXPANDO_BOX_TYPE_ID = 240;
 
 function entityTypeIdFromRecord(record) {
   if (!record) return null;
@@ -692,6 +693,37 @@ function summarizeItemCrate(entity, sizeRecord, itemRecord = null, healthRecord 
   };
 }
 
+function scaledSizeSummary(record) {
+  if (!record) return null;
+  const rawWidth = record.q20 ?? null;
+  const rawHeight = record.q24 ?? null;
+  return {
+    width: rawWidth == null ? null : rawWidth / 10,
+    height: rawHeight == null ? null : rawHeight / 10,
+    rawWidth,
+    rawHeight,
+    state: cloneRecord(record)
+  };
+}
+
+function summarizeExpandoBox(entity, itemHolderRecord, sizeRecord, hoverOutlineRecord) {
+  if (!itemHolderRecord && !sizeRecord && !hoverOutlineRecord) return null;
+  const size = scaledSizeSummary(sizeRecord);
+  const hoverOutline = scaledSizeSummary(hoverOutlineRecord);
+  return {
+    entity,
+    ...itemSummary(itemHolderRecord?.q20 ?? null, itemHolderRecord?.q24 ?? null),
+    width: size?.width ?? null,
+    height: size?.height ?? null,
+    rawWidth: size?.rawWidth ?? null,
+    rawHeight: size?.rawHeight ?? null,
+    hoverOutline,
+    itemState: cloneRecord(itemHolderRecord || {}),
+    sizeState: cloneRecord(sizeRecord || {}),
+    hoverOutlineState: cloneRecord(hoverOutlineRecord || {})
+  };
+}
+
 function summarizeMapMarker(entity, labelRecord, zoneRecord = null, sizeRecord = null) {
   if (!labelRecord && !zoneRecord) return null;
   const title = decodeText(zoneRecord?.blob28) ?? decodeText(labelRecord?.blob20);
@@ -886,6 +918,17 @@ function mergeContents(...parts) {
 }
 
 function entityFootprint(entity) {
+  if (
+    entity?.expandoBox &&
+    Number.isFinite(Number(entity.expandoBox.width)) &&
+    Number.isFinite(Number(entity.expandoBox.height))
+  ) {
+    return {
+      width: Math.ceil(Number(entity.expandoBox.width)),
+      height: Math.ceil(Number(entity.expandoBox.height)),
+      source: "expando_box"
+    };
+  }
   if (entity?.markerTypeId != null && ENTITY_FOOTPRINTS.has(entity.markerTypeId)) {
     const footprint = ENTITY_FOOTPRINTS.get(entity.markerTypeId);
     return { ...footprint, source: "marker" };
@@ -920,6 +963,7 @@ function entityLabel(entity) {
   if (entity?.dockingSpring) return "Docking Spring";
   if (entity?.hugeThruster) return "Huge Thruster";
   if (entity?.shipControl && entity?.isOverworld) return "Overworld Ship";
+  if (entity?.expandoBox) return "Expando Box";
   if (entity?.markerTypeName) return entity.markerTypeName;
   if (entity?.typeName) return entity.typeName;
   if (entity?.fabricator) return "Fabricator";
@@ -1124,7 +1168,8 @@ export class ModelState {
       loaders: machines.loaders.slice(),
       fluidTanks: machines.fluidTanks.slice(),
       shieldGenerators: machines.shieldGenerators.slice(),
-      shieldProjectors: machines.shieldProjectors.slice()
+      shieldProjectors: machines.shieldProjectors.slice(),
+      expandoBoxes: machines.expandoBoxes.slice()
     };
   }
 
@@ -1336,7 +1381,8 @@ export class ModelState {
       commsStations: [],
       fluidTanks: [],
       shieldGenerators: [],
-      shieldProjectors: []
+      shieldProjectors: [],
+      expandoBoxes: []
     };
     const players = [];
     const shipControls = [];
@@ -1357,6 +1403,7 @@ export class ModelState {
       if (contents.fluidTank) machines.fluidTanks.push(contents.fluidTank);
       if (contents.shieldGenerator) machines.shieldGenerators.push(contents.shieldGenerator);
       if (contents.shieldProjector) machines.shieldProjectors.push(contents.shieldProjector);
+      if (contents.expandoBox) machines.expandoBoxes.push(contents.expandoBox);
       if (contents.player) players.push(contents.player);
       if (contents.shipControl) shipControls.push(contents.shipControl);
     }
@@ -1397,6 +1444,7 @@ export class ModelState {
     const bodyStateRecord = this.record(1, entityId);
     const typeRecord = this.record(7, entityId);
     const crateSizeRecord = this.record(3, entityId);
+    const expandoSizeRecord = this.record(51, entityId);
     const crateItemRecord = this.record(19, entityId);
     const markerTableIds = [73].filter((tableId) => this.record(tableId, entityId));
     const markerTypeId = markerTypeIdForTables(markerTableIds);
@@ -1405,6 +1453,7 @@ export class ModelState {
     const dynamicBody = bodyStateRecord?.q20 === -4;
     const typeId = entityTypeIdFromRecord(typeRecord);
     const itemHolder = summarizeItemHolder(entityId, itemHolderRecord);
+    const isExpandoBox = typeId === EXPANDO_BOX_TYPE_ID || markerTypeId === EXPANDO_BOX_TYPE_ID;
     const health = summarizeHealth(entityId, healthRecord);
     const fabricator = summarizeFabricator(entityId, fabricatorRecord);
     const processor = processorRecord ? { entity: entityId, state: cloneRecord(processorRecord) } : null;
@@ -1422,6 +1471,7 @@ export class ModelState {
     const spawnPoint = typeId === 219 ? summarizeSpawnPoint(entityId, spawnPointRecord) : null;
     const door = typeId === 220 ? summarizeDoor(entityId, spawnPointRecord, doorRecord) : null;
     const shipSize = shipControl && this.isOverworld ? summarizeShipSize(entityId, this.record(3, entityId)) : null;
+    const expandoBox = isExpandoBox ? summarizeExpandoBox(entityId, itemHolderRecord, expandoSizeRecord, crateSizeRecord) : null;
     const mapMarker = this.isOverworld ? summarizeMapMarker(entityId, labelRecord, zoneLabelRecord, crateSizeRecord) : null;
     const dockingSpring = this.isOverworld
       ? summarizeDockingSpring(entityId, dockingSpringRecord, bodyStateRecord, crateSizeRecord)
@@ -1439,8 +1489,8 @@ export class ModelState {
       rot: numberOrNull(transformRecord.q28, 127.324),
       flags: [transformRecord.q33, transformRecord.q34, transformRecord.q35].filter((value) => value != null)
     } : null;
-    const contents = mergeContents({ itemHolder }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { health }, { fabricator }, { processor }, { cannon }, { pusher }, { loader }, { commsStation }, { fluidTank }, { shieldGenerator }, { shieldProjector }, { helm }, { player }, { shipControl }, { sign }, { spawnPoint }, { door }, { shipSize });
-    const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, itemCrate, hugeThruster, fabricator, processor, cannon, pusher, loader, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
+    const contents = mergeContents({ itemHolder }, { expandoBox }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { health }, { fabricator }, { processor }, { cannon }, { pusher }, { loader }, { commsStation }, { fluidTank }, { shieldGenerator }, { shieldProjector }, { helm }, { player }, { shipControl }, { sign }, { spawnPoint }, { door }, { shipSize });
+    const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, expandoBox, itemCrate, hugeThruster, fabricator, processor, cannon, pusher, loader, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
     const typeName = entityNameFromType(typeId);
     const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, mapMarker, dockingSpring, hugeThruster, fabricator, processor, cannon, pusher, loader, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
     const summary = {
@@ -1458,6 +1508,7 @@ export class ModelState {
         mapMarker,
         dockingSpring,
         hugeThruster,
+        expandoBox,
         itemHolder,
         itemCrate,
         fabricator,
@@ -1481,6 +1532,7 @@ export class ModelState {
         itemHolder ? "item_holder" : null,
         health ? "health" : null,
         itemCrate ? "item_crate" : null,
+        expandoBox ? "expando_box" : null,
         mapMarker ? "map_marker" : null,
         dockingSpring ? "docking_spring" : null,
         hugeThruster ? "huge_thruster" : null,

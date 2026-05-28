@@ -264,7 +264,7 @@ tables documented in
 `spec/game-state-transmission-spec.md`, including transforms, item holders,
 entity/package item ids, fabricators, players, ship controls, fluid tanks,
 shield charge/generator efficiency and boost state, shield projector state,
-door rank/open state, cannon ammo/aim/barrel recoil/spin/cooling state, sign text/display modes, spawn-point rank, normalized pusher
+door rank/open state, cannon ammo/aim/barrel recoil/spin/cooling state, expando box contents, dynamic size, and hover-outline size, sign text/display modes, spawn-point rank, normalized pusher
 configuration, and normalized loader configuration (`pick`, `place`,
 `priority`, `requireOutput`, `stack`, `cycle`, `waitForStack`, filter mode,
 filter slots, and enum display names).
