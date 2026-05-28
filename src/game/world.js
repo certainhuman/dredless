@@ -4,6 +4,17 @@ import { decodeMsgpack } from "../protocol/msgpack.js";
 import { ModelState } from "./model.js";
 import { getTilesetForWorld } from "./tilesets.js";
 
+const TILE_SHAPE_NAMES = new Map([
+  [0, "full"],
+  [5, "bottom-half"],
+  [7, "top-half"]
+]);
+
+function tileShapeName(shape) {
+  const id = Number(shape);
+  return Number.isFinite(id) ? TILE_SHAPE_NAMES.get(id) ?? null : null;
+}
+
 export class WorldStore {
   constructor() {
     this.currentWorldId = null;
@@ -240,6 +251,7 @@ export class WorldState {
       hp,
       integrity: hp,
       materialName: def?.name ?? null,
+      shapeName: tileShapeName(tile.shape),
       solid: def?.solid ?? null,
       maxHp,
       hpRatio: typeof hp === "number" ? hp / 255 : null,

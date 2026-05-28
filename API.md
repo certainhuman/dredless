@@ -243,7 +243,8 @@ machine/player/control lists, and raw per-entity component records.
 `WorldState.entity(id)`, `WorldState.entities()`, `WorldState.blocks()`,
 `WorldState.materials()`, and `WorldState.tileDefinition(material)` expose the
 same normalized world view directly. Tile entries include material names,
-solid/open flags, and HP fractions when the official tileset defines them.
+known shape names, solid/open flags, and HP fractions when the official tileset
+defines them.
 `WorldStore.currentShipEntity()` resolves the loaded ship world's
 `parent_world`/`parent_ent` link back to the corresponding overworld ship
 entity. Overworld ship-control summaries include ship `name`, `hexCode`,
@@ -259,6 +260,9 @@ Player summaries include display `name`, held item, ship `teamRank`, account
 `gameRank`, patron tier when present, `piloting` while the player is occupying a
 helm, the muted flag when the server sends it, and repair-tool aim as
 `repairTargetAngle` plus `repairTargetDistance` when that state is present.
+When a player is placing or breaking blocks/entities, `actionPreview` contains
+the replicated preview center, outline size, progress, color, and best-effort
+`actionName` (`place` for green, `break` for red).
 The model decoder is best-effort and currently covers the component
 tables documented in
 `spec/game-state-transmission-spec.md`, including transforms, item holders,

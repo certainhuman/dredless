@@ -397,6 +397,7 @@ const HELM_TYPE_IDS = new Set([215, 216]);
 const COMMS_STATION_TYPE_ID = 217;
 const COMMS_STATION_MAX_CHARGES = 5;
 const EXPANDO_BOX_TYPE_ID = 240;
+const LOADER_TYPE_ID = 252;
 
 function entityTypeIdFromRecord(record) {
   if (!record) return null;
@@ -873,7 +874,33 @@ function colorToCss(color) {
   return `rgb(${(color >> 16) & 0xff},${(color >> 8) & 0xff},${color & 0xff})`;
 }
 
-function summarizePlayer(entity, record) {
+function previewActionName(color) {
+  if (color === 0x00ff00) return "place";
+  if (color === 0xff0000) return "break";
+  return null;
+}
+
+function summarizePlayerPreview(entity, record) {
+  if (!record) return null;
+  const color = record.q40 == null ? null : Number(record.q40);
+  const active = typeof record.q36 === "number" && record.q36 !== 0;
+  if (!active && record.q36 == null) return null;
+  return {
+    entity,
+    active,
+    x: numberOrNull(record.q20, 10),
+    y: numberOrNull(record.q24, 10),
+    width: numberOrNull(record.q28, 10),
+    height: numberOrNull(record.q32, 10),
+    progress: record.q36 ?? null,
+    color: Number.isFinite(color) ? color : null,
+    colorCss: Number.isFinite(color) ? colorToCss(color) : null,
+    actionName: Number.isFinite(color) ? previewActionName(color) : null,
+    state: cloneRecord(record)
+  };
+}
+
+function summarizePlayer(entity, record, previewRecord = null) {
   if (!record) return null;
   const rawHeldItemId = record.q28 == null ? null : Number(record.q28);
   const heldItemId = Number.isFinite(rawHeldItemId) && rawHeldItemId !== 0 ? rawHeldItemId : null;
@@ -893,6 +920,7 @@ function summarizePlayer(entity, record) {
     patronTier: patronTierName(gameRank),
     piloting: Boolean(record.q107),
     muted: Boolean(record.q112),
+    actionPreview: summarizePlayerPreview(entity, previewRecord),
     state: cloneRecord(record)
   };
 }
@@ -1458,11 +1486,13 @@ export class ModelState {
     const processor = processorRecord ? { entity: entityId, state: cloneRecord(processorRecord) } : null;
     const cannon = summarizeCannon(entityId, cannonRecord, typeId);
     const pusher = summarizePusher(entityId, pusherRecord, loaderFilterSlotsRecord);
-    const loader = summarizeLoader(entityId, loaderRecord, loaderFilterRecord, loaderFilterSlotsRecord, this.#loaderConfig);
+    const loader = (typeId === LOADER_TYPE_ID || loaderRecord)
+      ? summarizeLoader(entityId, loaderRecord, loaderFilterRecord, loaderFilterSlotsRecord, this.#loaderConfig)
+      : null;
     const fluidTank = fluidTankRecord ? { entity: entityId, amount: fluidTankRecord.q24 ?? null, state: cloneRecord(fluidTankRecord) } : null;
     const shieldGenerator = typeId === 256 ? summarizeShieldGenerator(entityId, shieldRecord, itemHolderRecord, shieldGeneratorBoostRecord) : null;
     const shieldProjector = typeId === 257 ? summarizeShieldProjector(entityId, shieldProjectorRecord) : null;
-    const player = summarizePlayer(entityId, playerRecord);
+    const player = summarizePlayer(entityId, playerRecord, this.record(14, entityId));
     const shipControl = summarizeShipControl(entityId, shipControlRecord);
     const helm = summarizeHelm(entityId, typeId, this.#helmOccupied.get(entityId));
     const commsStation = summarizeCommsStation(entityId, typeId, commsStationRecord, this.#commsStationOccupied.get(entityId));

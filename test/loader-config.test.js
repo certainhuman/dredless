@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ModelState } from "../src/game/model.js";
-import { WorldStore } from "../src/game/world.js";
+import { WorldState, WorldStore } from "../src/game/world.js";
 import { LoaderConfigTracker } from "../src/game/loader-config.js";
 
 const WORLD = 11479;
@@ -482,6 +482,32 @@ test("ModelState exposes normalized pusher configuration", () => {
   assert.equal(pusher.length, 1005);
   assert.equal(pusher.filterInventory, true);
   assert.deepEqual(pusher.filterSlots, [100, 101, 103]);
+});
+
+test("ModelState does not classify cargo hatch filter tables as loader config", () => {
+  const model = new ModelState();
+  const hatch = 221;
+  model.apply(modelData(
+    1,
+    tableSection(43, hatch, 1, fieldDelta(221)),
+    tableSection(160, hatch, 0, []),
+    tableSection(161, hatch, 0, [])
+  ));
+
+  const entity = model.entity(hatch);
+  assert.equal(entity.typeId, 221);
+  assert.equal(entity.typeName, "Cargo Hatch (Packaged)");
+  assert.equal(entity.contents?.loader, undefined);
+  assert.equal(entity.kind.includes("loader"), false);
+});
+
+test("WorldState names observed block tile shapes", () => {
+  const world = new WorldState(1);
+  world.readMeta({ world: 1, is_overworld: false });
+
+  assert.equal(world.setTile({ x: 1, y: 1, material: 4, shape: 0, hp: 255, color: 250 }).shapeName, "full");
+  assert.equal(world.setTile({ x: 1, y: 2, material: 4, shape: 7, hp: 255, color: 250 }).shapeName, "top-half");
+  assert.equal(world.setTile({ x: 1, y: 3, material: 4, shape: 5, hp: 255, color: 250 }).shapeName, "bottom-half");
 });
 
 test("ModelState exposes normalized shield generator charge, efficiency, and stored core", () => {
@@ -1029,4 +1055,48 @@ test("ModelState decodes expando box contents and dynamic footprint", () => {
   assert.equal(entity.contents.hoverOutline.width, 2.1);
   assert.equal(entity.contents.hoverOutline.height, 2.1);
   assert.deepEqual(entity.footprint, { width: 3, height: 3, source: "hover_outline" });
+});
+
+test("ModelState decodes replicated player action preview", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(1, 87, 3, [800, 80].flatMap(fieldDelta)),
+    tableSection(50, 87, 63, [175, 45, 5, 5, 40, 65280].flatMap(fieldDelta)),
+    tableSection(138, 87, 1024, fieldDelta(232))
+  ));
+
+  let player = model.entity(87).contents.player;
+  assert.equal(player.heldItemName, "Iron Block");
+  assert.equal(player.actionPreview.active, true);
+  assert.equal(player.actionPreview.actionName, "place");
+  assert.equal(player.actionPreview.x, 17.5);
+  assert.equal(player.actionPreview.y, 4.5);
+  assert.equal(player.actionPreview.width, 0.5);
+  assert.equal(player.actionPreview.height, 0.5);
+  assert.equal(player.actionPreview.progress, 40);
+  assert.equal(player.actionPreview.colorCss, "rgb(0,255,0)");
+
+  model.apply(modelData(
+    2,
+    tableSection(50, 87, 56, [8, 60, 16646400].flatMap(fieldDelta)),
+    tableSection(138, 87, 1024, fieldDelta(-115))
+  ));
+
+  player = model.entity(87).contents.player;
+  assert.equal(player.heldItemName, "Starter Wrench");
+  assert.equal(player.actionPreview.actionName, "break");
+  assert.equal(player.actionPreview.height, 1.3);
+  assert.equal(player.actionPreview.progress, 100);
+  assert.equal(player.actionPreview.colorCss, "rgb(255,0,0)");
+
+  model.apply(modelData(3, tableSection(50, 87, 16, fieldDelta(-100))));
+  player = model.entity(87).contents.player;
+  assert.equal(player.actionPreview.active, false);
+  assert.equal(player.actionPreview.color, 16711680);
+
+  model.apply(modelData(4, tableSection(50, 87, 32, fieldDelta(-16711680))));
+  player = model.entity(87).contents.player;
+  assert.equal(player.actionPreview.active, false);
+  assert.equal(player.actionPreview.color, 0);
 });

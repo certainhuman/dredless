@@ -381,6 +381,7 @@ export interface Tile {
   material: number;
   materialName?: string | null;
   shape: number;
+  shapeName?: string | null;
   hp: number;
   /** @deprecated Use hp. This is the raw 0-255 HP fraction byte, not absolute integrity. */
   integrity: number;
@@ -712,6 +713,21 @@ export interface PlayerSummary {
   patronTier: "bronze" | "silver" | "gold" | "plat" | "flux" | null;
   piloting: boolean;
   muted: boolean;
+  actionPreview: PlayerActionPreviewSummary | null;
+  state: ModelRecord;
+}
+
+export interface PlayerActionPreviewSummary {
+  entity: number;
+  active: boolean;
+  x: number | null;
+  y: number | null;
+  width: number | null;
+  height: number | null;
+  progress: number | null;
+  color: number | null;
+  colorCss: string | null;
+  actionName: "place" | "break" | null;
   state: ModelRecord;
 }
 
