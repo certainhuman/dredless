@@ -393,6 +393,8 @@ const PLACED_ENTITY_TYPE_IDS = new Set([
   253, 255, 256, 257, 258, 259, 260, 261, 263, 264, 265
 ]);
 
+const HELM_TYPE_IDS = new Set([215, 216]);
+
 function entityTypeIdFromRecord(record) {
   if (!record) return null;
   const candidates = [
@@ -549,6 +551,16 @@ function summarizeCannon(entity, record, typeId = null) {
     spin: record.q52 ?? null,
     coolingCellCount: record.q56 ?? 0,
     state: cloneRecord(record)
+  };
+}
+
+function summarizeHelm(entity, typeId, occupied = false) {
+  if (!HELM_TYPE_IDS.has(typeId)) return null;
+  return {
+    entity,
+    typeId,
+    typeName: entityNameFromType(typeId),
+    occupied: Boolean(occupied)
   };
 }
 
@@ -827,6 +839,7 @@ function summarizePlayer(entity, record) {
     gameRank,
     gameRankName: GAME_RANK_NAMES.get(gameRank) || null,
     patronTier: patronTierName(gameRank),
+    piloting: Boolean(record.q107),
     muted: Boolean(record.q112),
     state: cloneRecord(record)
   };
@@ -940,6 +953,7 @@ function entityCategory(entity) {
 
 export class ModelState {
   #loaderConfig = new LoaderConfigTracker();
+  #helmOccupied = new Map();
 
   constructor({ isOverworld = null } = {}) {
     this.isOverworld = isOverworld == null ? null : Boolean(isOverworld);
@@ -1030,6 +1044,7 @@ export class ModelState {
     }
 
     this.#updateLoaderConfig(update);
+    this.#updateHelmOccupancy(update);
     this.lastUpdate = update;
     this.#updateDerived(update);
     return update;
@@ -1114,6 +1129,35 @@ export class ModelState {
       for (const changed of section.records || []) {
         this.#loaderConfig.updateRecord(null, changed.entity, this.record(78, changed.entity), changed.mask);
       }
+    }
+  }
+
+  #updateHelmOccupancy(update) {
+    const table7 = update.sections.find((section) => section.table === 7);
+    if (!table7) return;
+
+    const changedPilotState = new Map();
+    for (const section of update.sections) {
+      if (section.table !== 55) continue;
+      for (const changed of section.records) {
+        if (!(changed.mask & 16)) continue;
+        const player = this.record(55, changed.entity);
+        changedPilotState.set(changed.entity, Boolean(player?.q107));
+      }
+    }
+
+    const activePilotCount = [...this.table(55).values()].filter((record) => record?.q107).length;
+    for (const changed of table7.records) {
+      const record = this.record(7, changed.entity);
+      const typeId = entityTypeIdFromRecord(record);
+      if (!HELM_TYPE_IDS.has(typeId)) continue;
+
+      if (activePilotCount > 0 && record?.q20 === 0 && HELM_TYPE_IDS.has(Number(record?.q32))) {
+        this.#helmOccupied.set(changed.entity, true);
+      }
+
+      if (!(changed.mask & 8) || changedPilotState.size === 0) continue;
+      this.#helmOccupied.set(changed.entity, [...changedPilotState.values()].some(Boolean));
     }
   }
 
@@ -1325,6 +1369,7 @@ export class ModelState {
     const shieldProjector = typeId === 257 ? summarizeShieldProjector(entityId, shieldProjectorRecord) : null;
     const player = summarizePlayer(entityId, playerRecord);
     const shipControl = summarizeShipControl(entityId, shipControlRecord);
+    const helm = summarizeHelm(entityId, typeId, this.#helmOccupied.get(entityId));
     const sign = typeId === 218 ? summarizeSign(entityId, signRecord) : null;
     const spawnPoint = typeId === 219 ? summarizeSpawnPoint(entityId, spawnPointRecord) : null;
     const door = typeId === 220 ? summarizeDoor(entityId, spawnPointRecord, doorRecord) : null;
@@ -1346,10 +1391,10 @@ export class ModelState {
       rot: numberOrNull(transformRecord.q28, 127.324),
       flags: [transformRecord.q33, transformRecord.q34, transformRecord.q35].filter((value) => value != null)
     } : null;
-    const contents = mergeContents({ itemHolder }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { health }, { fabricator }, { processor }, { cannon }, { pusher }, { loader }, { fluidTank }, { shieldGenerator }, { shieldProjector }, { player }, { shipControl }, { sign }, { spawnPoint }, { door }, { shipSize });
-    const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, itemCrate, hugeThruster, fabricator, processor, cannon, pusher, loader, fluidTank, shieldGenerator, shieldProjector, player, shipControl });
+    const contents = mergeContents({ itemHolder }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { health }, { fabricator }, { processor }, { cannon }, { pusher }, { loader }, { fluidTank }, { shieldGenerator }, { shieldProjector }, { helm }, { player }, { shipControl }, { sign }, { spawnPoint }, { door }, { shipSize });
+    const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, itemCrate, hugeThruster, fabricator, processor, cannon, pusher, loader, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
     const typeName = entityNameFromType(typeId);
-    const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, mapMarker, dockingSpring, hugeThruster, fabricator, processor, cannon, pusher, loader, fluidTank, shieldGenerator, shieldProjector, player, shipControl });
+    const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, mapMarker, dockingSpring, hugeThruster, fabricator, processor, cannon, pusher, loader, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
     const summary = {
       entity: entityId,
       category,
@@ -1401,6 +1446,7 @@ export class ModelState {
         fluidTank ? "fluid_tank" : null,
         shieldGenerator ? "shield_generator" : null,
         shieldProjector ? "shield_projector" : null,
+        helm ? "helm" : null,
         player ? "player" : null,
         shipControl ? "ship_control" : null,
         sign ? "sign" : null,
@@ -1447,6 +1493,7 @@ export class ModelState {
       removals.push(entity);
       for (const records of this.tables.values()) records.delete(entity);
       this.#loaderConfig.delete(null, entity);
+      this.#helmOccupied.delete(entity);
     }
     this.removedEntities.push(...removals);
     return removals;

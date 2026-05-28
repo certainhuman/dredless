@@ -249,10 +249,12 @@ solid/open flags, and HP fractions when the official tileset defines them.
 entity. Overworld ship-control summaries include ship `name`, `hexCode`,
 linked `shipWorldId`, RGB `color`, shield max/current base HP, active/inactive
 tank HP, and `warp` timer state when table `20` carries those fields.
+Helm entity summaries include `occupied` when the model stream identifies the
+specific helm currently being used.
 Player summaries include display `name`, held item, ship `teamRank`, account
-`gameRank`, patron tier when present, the muted flag when the server sends it,
-and repair-tool aim as `repairTargetAngle` plus `repairTargetDistance` when
-that state is present.
+`gameRank`, patron tier when present, `piloting` while the player is occupying a
+helm, the muted flag when the server sends it, and repair-tool aim as
+`repairTargetAngle` plus `repairTargetDistance` when that state is present.
 The model decoder is best-effort and currently covers the component
 tables documented in
 `spec/game-state-transmission-spec.md`, including transforms, item holders,

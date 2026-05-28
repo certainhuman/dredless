@@ -16,6 +16,7 @@ export {
   type DoorSummary,
   type ShieldProjectorSummary,
   type ShieldGeneratorSummary,
+  type HelmSummary,
   type PlayerSummary,
   type ShipControlSummary,
   type ShipShieldSummary,

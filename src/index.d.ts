@@ -291,6 +291,7 @@ export interface EntityContentsSummary {
   fluidTank?: { entity: number; amount: number | null; state: ModelRecord };
   shieldGenerator?: ShieldGeneratorSummary;
   shieldProjector?: ShieldProjectorSummary;
+  helm?: HelmSummary;
   player?: PlayerSummary;
   shipControl?: ShipControlSummary;
   sign?: SignSummary;
@@ -638,6 +639,13 @@ export interface ShieldGeneratorSummary {
   boostStateRaw: ModelRecord;
 }
 
+export interface HelmSummary {
+  entity: number;
+  typeId: number;
+  typeName: string | null;
+  occupied: boolean;
+}
+
 export interface PlayerSummary {
   entity: number;
   name: string | null;
@@ -650,6 +658,7 @@ export interface PlayerSummary {
   gameRank: number | null;
   gameRankName: string | null;
   patronTier: "bronze" | "silver" | "gold" | "plat" | "flux" | null;
+  piloting: boolean;
   muted: boolean;
   state: ModelRecord;
 }

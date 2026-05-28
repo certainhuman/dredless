@@ -841,3 +841,56 @@ test("ModelState decodes machine cannon cooling cell count", () => {
   assert.equal(model.entity(twoEmpty).contents.cannon.coolingCellCount, 2);
   assert.equal(model.entity(twoEmpty).contents.cannon.ammoCount, 0);
 });
+
+test("ModelState keeps helm type through sparse grab-state type updates", () => {
+  const model = new ModelState();
+  const heldThroughCapture = 3;
+  const grabbedAndReleased = 4;
+  const pilot = 22;
+
+  model.apply(modelData(
+    1,
+    tableSection(1, heldThroughCapture, 3, [
+      ...fieldDelta(0),
+      ...fieldDelta(0)
+    ]),
+    tableSection(43, heldThroughCapture, 9, [
+      ...fieldDelta(0),
+      ...fieldDelta(215)
+    ]),
+    tableSection(1, grabbedAndReleased, 3, [
+      ...fieldDelta(0),
+      ...fieldDelta(0)
+    ]),
+    tableSection(43, grabbedAndReleased, 1, fieldDelta(215)),
+    tableSection(138, pilot, 16, unsigned(1))
+  ));
+
+  assert.equal(model.entity(heldThroughCapture).typeId, 215);
+  assert.equal(model.entity(heldThroughCapture).label, "Helm (Packaged)");
+  assert.equal(model.entity(grabbedAndReleased).typeId, 215);
+  assert.equal(model.entity(grabbedAndReleased).label, "Helm (Packaged)");
+  assert.equal(model.entity(heldThroughCapture).contents.helm.occupied, true);
+  assert.equal(model.entity(grabbedAndReleased).contents.helm.occupied, false);
+  assert.equal(model.entity(pilot).contents.player.piloting, true);
+
+  model.apply(modelData(
+    2,
+    tableSection(43, grabbedAndReleased, 8, fieldDelta(0)),
+    tableSection(138, pilot, 16, unsigned(1))
+  ));
+
+  assert.equal(model.entity(grabbedAndReleased).typeId, 215);
+  assert.equal(model.entity(grabbedAndReleased).label, "Helm (Packaged)");
+  assert.equal(model.entity(grabbedAndReleased).contents.helm.occupied, true);
+  assert.equal(model.entity(pilot).contents.player.piloting, true);
+
+  model.apply(modelData(
+    3,
+    tableSection(43, grabbedAndReleased, 8, fieldDelta(0)),
+    tableSection(138, pilot, 16, unsigned(0))
+  ));
+
+  assert.equal(model.entity(grabbedAndReleased).contents.helm.occupied, false);
+  assert.equal(model.entity(pilot).contents.player.piloting, false);
+});
