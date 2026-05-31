@@ -501,6 +501,31 @@ test("ModelState does not classify cargo hatch filter tables as loader config", 
   assert.equal(entity.kind.includes("loader"), false);
 });
 
+test("ModelState decodes full initial loader config from loader-ex", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, ENTITY, 127, [-1, -2, 2, 1, -4, 100, 0]),
+    tableSection(161, ENTITY, 2, fieldDelta(109))
+  ));
+
+  const loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.pick, 1);
+  assert.equal(loader.pickName, "top-middle");
+  assert.equal(loader.place, 6);
+  assert.equal(loader.placeName, "bottom-middle");
+  assert.equal(loader.requireOutput, true);
+  assert.equal(loader.priority, 1);
+  assert.equal(loader.priorityName, "high");
+  assert.equal(loader.cycle, 6);
+  assert.equal(loader.stack, 12);
+  assert.equal(loader.waitForStack, true);
+  assert.equal(loader.filterMode, 3);
+  assert.equal(loader.filterModeName, "block-all");
+  assert.deepEqual(loader.filterSlots, [null, 109, null]);
+});
+
 test("WorldState names observed block tile shapes", () => {
   const world = new WorldState(1);
   world.readMeta({ world: 1, is_overworld: false });

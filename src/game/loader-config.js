@@ -35,6 +35,7 @@ export function enumName(map, value) {
 export class LoaderConfigTracker {
   constructor() {
     this.pickBases = new Map();
+    this.pickDeltaBases = new Map();
     this.placeBases = new Map();
     this.placeDeltaBases = new Map();
     this.priorities = new Map();
@@ -65,6 +66,7 @@ export class LoaderConfigTracker {
     const key = this.#key(worldId, entityId);
     if (this.#isDirectPositionCycleBaseline(loader, mask)) {
       this.pickBases.set(key, 3);
+      this.pickDeltaBases.set(key, 0);
       this.placeBases.set(key, 4);
       this.placeDeltaBases.set(key, 0);
       this.requireOutputs.set(key, Boolean(mask & 32));
@@ -82,6 +84,14 @@ export class LoaderConfigTracker {
         if (usedQ28AsPositionBase) this.#initializePriorityOffset(key, loader);
         else this.priorities.set(key, loader.q28);
       }
+      if (this.#isFullConfigBaseline(loader, mask)) {
+        const priority = loader.q28 - 1;
+        if (priority >= -1 && priority <= 1) {
+          this.priorityOffsets.set(key, -1);
+          this.priorities.set(key, priority);
+        }
+        if (loader.q36 != null) this.stackBases.set(key, 15 + loader.q36);
+      }
       this.requireOutputs.set(key, Boolean(mask & 32));
       this.waitForStacks.set(key, Boolean(mask & 64));
       this.#initializeStackBaseline(key, loader);
@@ -98,6 +108,7 @@ export class LoaderConfigTracker {
   delete(worldId, entityId) {
     const key = this.#key(worldId, entityId);
     this.pickBases.delete(key);
+    this.pickDeltaBases.delete(key);
     this.placeBases.delete(key);
     this.placeDeltaBases.delete(key);
     this.priorities.delete(key);
@@ -129,7 +140,7 @@ export class LoaderConfigTracker {
       waitForStack: this.waitForStacks.has(key) ? this.waitForStacks.get(key) : null,
       stack,
       cycle,
-      filterMode: loaderFilter?.q20 ?? null,
+      filterMode: loaderFilter?.q20 ?? this.#filterMode(loader),
       filterSlots: filterSlots ? [filterSlots.q20 ?? null, filterSlots.q24 ?? null, filterSlots.q28 ?? null] : null
     };
   }
@@ -143,6 +154,7 @@ export class LoaderConfigTracker {
     const hasQ28PositionBase = loader.q28 != null && (mask & 4);
     if (loader.q24 != null) {
       this.pickBases.set(key, wrapLoaderPosition(loader.q24 + 3));
+      this.pickDeltaBases.set(key, loader.q20 ?? 0);
       this.placeDeltaBases.set(key, loader.q24);
       const initialPlace = hasQ28PositionBase
         ? loader.q28 + 4
@@ -153,6 +165,7 @@ export class LoaderConfigTracker {
 
     if (hasQ28PositionBase) {
       this.pickBases.set(key, wrapLoaderPosition(loader.q28 + 3));
+      this.pickDeltaBases.set(key, 0);
       this.placeBases.set(key, 4);
       this.placeDeltaBases.set(key, 0);
       return true;
@@ -160,6 +173,7 @@ export class LoaderConfigTracker {
 
     if (loader.q20 != null && loader.q36 != null) {
       this.pickBases.set(key, wrapLoaderPosition(loader.q36 + 3));
+      this.pickDeltaBases.set(key, 0);
       this.placeBases.set(key, 4);
       this.placeDeltaBases.set(key, 0);
     }
@@ -180,6 +194,7 @@ export class LoaderConfigTracker {
   }
 
   #initializeStackBaseline(key, loader) {
+    if (this.stackBases.has(key)) return;
     if (loader?.q32 == null) return;
     if (loader.q20 == null && loader.q24 == null && loader.q28 == null && loader.q36 != null) {
       this.stackBases.set(key, 17 + loader.q36);
@@ -223,9 +238,26 @@ export class LoaderConfigTracker {
       loader.q40 == null;
   }
 
+  #isFullConfigBaseline(loader, mask) {
+    return (mask & 127) === 127 &&
+      loader.q20 != null &&
+      loader.q24 != null &&
+      loader.q28 != null &&
+      loader.q32 != null &&
+      loader.q36 != null &&
+      loader.q40 != null &&
+      loader.q44 != null;
+  }
+
+  #filterMode(loader) {
+    if (!loader || !this.#isFullConfigBaseline(loader, loader.lastMask ?? 0)) return null;
+    const mode = loader.q28 + 1;
+    return mode >= 0 && mode <= 3 ? mode : null;
+  }
+
   #pick(key, loader) {
     if (!loader) return null;
-    if (this.pickBases.has(key)) return wrapLoaderPosition(this.pickBases.get(key) + (loader.q20 ?? 0));
+    if (this.pickBases.has(key)) return wrapLoaderPosition(this.pickBases.get(key) + ((loader.q20 ?? 0) - (this.pickDeltaBases.get(key) ?? 0)));
     if (loader.q24 != null) return wrapLoaderPosition(loader.q24 + 3);
     if (loader.q36 != null) return wrapLoaderPosition(loader.q36 + 3);
     if (loader.q20 != null) return wrapLoaderPosition(loader.q20);
