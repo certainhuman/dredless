@@ -292,7 +292,7 @@ test("ModelState decodes wait-for-stack initial state and toggles", () => {
     table78Section(162, ENTITY, 91, [0, -2, 2, -2, 720])
   ));
   assert.equal(initiallyOn.entity(ENTITY).contents.loader.waitForStack, true);
-  assert.equal(initiallyOn.entity(ENTITY).contents.loader.stack, 18);
+  assert.equal(initiallyOn.entity(ENTITY).contents.loader.stack, 14);
   assert.equal(initiallyOn.entity(ENTITY).contents.loader.cycle, 37);
 
   for (const [index, expected] of [false, true, false].entries()) {
@@ -327,15 +327,15 @@ test("ModelState preserves q44 cycle baseline stack behavior", () => {
     1,
     table78Section(162, ENTITY, 91, [0, -2, 2, -2, 720])
   ));
-  assert.equal(model.entity(ENTITY).contents.loader.stack, 18);
+  assert.equal(model.entity(ENTITY).contents.loader.stack, 14);
 
   const rows = [
-    [1, 17],
-    [0, 16],
-    [-1, 15],
-    [-2, 14],
-    [2, 18],
-    [4, 20]
+    [1, 13],
+    [0, 12],
+    [-1, 11],
+    [-2, 10],
+    [2, 14],
+    [4, 16]
   ];
   let previousQ32 = 2;
   for (const [index, [q32, expected]] of rows.entries()) {
@@ -524,6 +524,482 @@ test("ModelState decodes full initial loader config from loader-ex", () => {
   assert.equal(loader.filterMode, 3);
   assert.equal(loader.filterModeName, "block-all");
   assert.deepEqual(loader.filterSlots, [null, 109, null]);
+});
+
+test("ModelState decodes sparse initial loader config from loader-ex-2", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, ENTITY, 57, [0, 3, -5, 780]),
+    tableSection(160, ENTITY, 1, fieldDelta(2)),
+    tableSection(161, ENTITY, 2, fieldDelta(109))
+  ));
+
+  const loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.pick, 6);
+  assert.equal(loader.pickName, "bottom-middle");
+  assert.equal(loader.place, 4);
+  assert.equal(loader.placeName, "middle-right");
+  assert.equal(loader.requireOutput, true);
+  assert.equal(loader.priority, 0);
+  assert.equal(loader.priorityName, "normal");
+  assert.equal(loader.cycle, 40);
+  assert.equal(loader.stack, 11);
+  assert.equal(loader.waitForStack, false);
+  assert.equal(loader.filterMode, 2);
+  assert.equal(loader.filterModeName, "allow-filter");
+  assert.deepEqual(loader.filterSlots, [null, 109, null]);
+});
+
+test("ModelState decodes q24/q28 initial loader config from loader-ex-3", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, ENTITY, 63, [0, 4, -1, -1, -8, 840]),
+    tableSection(160, ENTITY, 1, fieldDelta(1)),
+    tableSection(161, ENTITY, 2, fieldDelta(109))
+  ));
+
+  const loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.pick, 7);
+  assert.equal(loader.pickName, "bottom-right");
+  assert.equal(loader.place, 3);
+  assert.equal(loader.placeName, "middle-left");
+  assert.equal(loader.requireOutput, true);
+  assert.equal(loader.priority, -1);
+  assert.equal(loader.priorityName, "low");
+  assert.equal(loader.cycle, 43);
+  assert.equal(loader.stack, 8);
+  assert.equal(loader.waitForStack, false);
+  assert.equal(loader.filterMode, 1);
+  assert.equal(loader.filterModeName, "block-filter");
+  assert.deepEqual(loader.filterSlots, [null, 109, null]);
+});
+
+test("ModelState decodes direct-cycle initial loader config from loader-ex-4", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, ENTITY, 31, [-3, -2, -1, -12, 940]),
+    tableSection(160, ENTITY, 0, []),
+    tableSection(161, ENTITY, 2, fieldDelta(109))
+  ));
+
+  const loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.pick, 0);
+  assert.equal(loader.pickName, "top-left");
+  assert.equal(loader.place, 2);
+  assert.equal(loader.placeName, "top-right");
+  assert.equal(loader.requireOutput, false);
+  assert.equal(loader.priority, -1);
+  assert.equal(loader.priorityName, "low");
+  assert.equal(loader.cycle, 48);
+  assert.equal(loader.stack, 4);
+  assert.equal(loader.waitForStack, false);
+  assert.equal(loader.filterMode, 0);
+  assert.equal(loader.filterModeName, "allow-all");
+  assert.deepEqual(loader.filterSlots, [null, 109, null]);
+});
+
+test("ModelState decodes q44 direct-cycle initial loader config from loader-ex-5", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, ENTITY, 95, [0, -3, -2, 1, -10, 960]),
+    tableSection(160, ENTITY, 1, fieldDelta(3)),
+    tableSection(161, ENTITY, 2, fieldDelta(109))
+  ));
+
+  const loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.pick, 0);
+  assert.equal(loader.pickName, "top-left");
+  assert.equal(loader.place, 2);
+  assert.equal(loader.placeName, "top-right");
+  assert.equal(loader.requireOutput, false);
+  assert.equal(loader.priority, 1);
+  assert.equal(loader.priorityName, "high");
+  assert.equal(loader.cycle, 49);
+  assert.equal(loader.stack, 6);
+  assert.equal(loader.waitForStack, true);
+  assert.equal(loader.filterMode, 3);
+  assert.equal(loader.filterModeName, "block-all");
+  assert.deepEqual(loader.filterSlots, [null, 109, null]);
+});
+
+test("ModelState decodes q44 priority offset updates from loader-ex-9", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, ENTITY, 95, [0, 4, -3, 1, -5, 700]),
+    tableSection(160, ENTITY, 1, fieldDelta(1)),
+    tableSection(161, ENTITY, 4, fieldDelta(109))
+  ));
+
+  let loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.pick, 7);
+  assert.equal(loader.pickName, "bottom-right");
+  assert.equal(loader.place, 1);
+  assert.equal(loader.placeName, "top-middle");
+  assert.equal(loader.priority, 1);
+  assert.equal(loader.priorityName, "high");
+  assert.equal(loader.cycle, 36);
+  assert.equal(loader.stack, 11);
+  assert.equal(loader.waitForStack, true);
+
+  const rows = [
+    [-4, 0, "normal"],
+    [-5, -1, "low"],
+    [-3, 1, "high"],
+    [-4, 0, "normal"]
+  ];
+  let previousQ28 = -3;
+  for (const [q28, expected, name] of rows) {
+    model.apply(modelData(
+      2,
+      table78Section(162, ENTITY, 4, [q28 - previousQ28])
+    ));
+    previousQ28 = q28;
+
+    loader = model.entity(ENTITY).contents.loader;
+    assert.equal(loader.priority, expected, `q28=${q28}`);
+    assert.equal(loader.priorityName, name, `q28=${q28} name`);
+  }
+});
+
+test("ModelState decodes q44 full-row priority and filter fallback from loader-ex-10", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, ENTITY, 127, [-1, 1, -1, -1, -4, 880, 0]),
+    tableSection(161, ENTITY, 4, fieldDelta(109))
+  ));
+
+  const loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.pick, 4);
+  assert.equal(loader.pickName, "middle-right");
+  assert.equal(loader.place, 3);
+  assert.equal(loader.placeName, "middle-left");
+  assert.equal(loader.requireOutput, true);
+  assert.equal(loader.priority, -1);
+  assert.equal(loader.priorityName, "low");
+  assert.equal(loader.cycle, 45);
+  assert.equal(loader.stack, 12);
+  assert.equal(loader.waitForStack, true);
+  assert.equal(loader.filterMode, 3);
+  assert.equal(loader.filterModeName, "block-all");
+  assert.deepEqual(loader.filterSlots, [null, null, 109]);
+});
+
+test("ModelState decodes q32 filter baseline from loader-ex-11", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, ENTITY, 121, [-1, 3, -1, 1060, 0])
+  ));
+
+  let loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.pick, 6);
+  assert.equal(loader.pickName, "bottom-middle");
+  assert.equal(loader.place, 4);
+  assert.equal(loader.placeName, "middle-right");
+  assert.equal(loader.requireOutput, true);
+  assert.equal(loader.priority, 0);
+  assert.equal(loader.priorityName, "normal");
+  assert.equal(loader.cycle, 54);
+  assert.equal(loader.stack, 15);
+  assert.equal(loader.waitForStack, true);
+  assert.equal(loader.filterMode, 3);
+  assert.equal(loader.filterModeName, "block-all");
+  assert.equal(loader.filterSlots, null);
+
+  model.apply(modelData(
+    2,
+    table78Section(162, ENTITY, 4, [1])
+  ));
+
+  loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.priority, 1);
+  assert.equal(loader.priorityName, "high");
+  assert.equal(loader.filterMode, 3);
+  assert.equal(loader.filterModeName, "block-all");
+  assert.equal(loader.stack, 15);
+
+  model.apply(modelData(
+    3,
+    table78Section(162, ENTITY, 8, [-1])
+  ));
+
+  loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.stack, 15);
+  assert.equal(loader.filterMode, 2);
+  assert.equal(loader.filterModeName, "allow-filter");
+});
+
+test("ModelState decodes q32 priority and table 77 filter slot from loader-ex-12", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, ENTITY, 63, [0, 4, -4, -1, -1, 1060]),
+    tableSection(160, ENTITY, 1, fieldDelta(2)),
+    tableSection(161, ENTITY, 4, fieldDelta(109))
+  ));
+
+  let loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.pick, 7);
+  assert.equal(loader.pickName, "bottom-right");
+  assert.equal(loader.place, 0);
+  assert.equal(loader.placeName, "top-left");
+  assert.equal(loader.requireOutput, true);
+  assert.equal(loader.priority, -1);
+  assert.equal(loader.priorityName, "low");
+  assert.equal(loader.cycle, 54);
+  assert.equal(loader.stack, 15);
+  assert.equal(loader.waitForStack, false);
+  assert.equal(loader.filterMode, 2);
+  assert.equal(loader.filterModeName, "allow-filter");
+  assert.deepEqual(loader.filterSlots, [null, null, 109]);
+
+  model.apply(modelData(
+    2,
+    table78Section(162, ENTITY, 4, [1])
+  ));
+
+  loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.priority, 0);
+  assert.equal(loader.priorityName, "normal");
+  assert.equal(loader.filterMode, 2);
+  assert.deepEqual(loader.filterSlots, [null, null, 109]);
+});
+
+test("ModelState decodes q32 filter fallback from loader-ex-13", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, ENTITY, 127, [-1, 4, -4, 1, -1, 1060, 0])
+  ));
+
+  const loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.pick, 7);
+  assert.equal(loader.pickName, "bottom-right");
+  assert.equal(loader.place, 0);
+  assert.equal(loader.placeName, "top-left");
+  assert.equal(loader.requireOutput, true);
+  assert.equal(loader.priority, 1);
+  assert.equal(loader.priorityName, "high");
+  assert.equal(loader.cycle, 54);
+  assert.equal(loader.stack, 15);
+  assert.equal(loader.waitForStack, true);
+  assert.equal(loader.filterMode, 2);
+  assert.equal(loader.filterModeName, "allow-filter");
+  assert.equal(loader.filterSlots, null);
+});
+
+test("ModelState decodes q44 loader baseline without q28 from loader-ex-6", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, ENTITY, 91, [0, -3, 3, -7, 880]),
+    tableSection(160, ENTITY, 1, fieldDelta(3)),
+    tableSection(161, ENTITY, 2, fieldDelta(109))
+  ));
+
+  const loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.pick, 0);
+  assert.equal(loader.pickName, "top-left");
+  assert.equal(loader.place, 7);
+  assert.equal(loader.placeName, "bottom-right");
+  assert.equal(loader.requireOutput, false);
+  assert.equal(loader.priority, 0);
+  assert.equal(loader.priorityName, "normal");
+  assert.equal(loader.cycle, 45);
+  assert.equal(loader.stack, 9);
+  assert.equal(loader.waitForStack, true);
+  assert.equal(loader.filterMode, 3);
+  assert.equal(loader.filterModeName, "block-all");
+  assert.deepEqual(loader.filterSlots, [null, 109, null]);
+});
+
+test("ModelState decodes sparse direct-cycle initial loader config from loader-ex-8", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, ENTITY, 30, [-2, 1, -4, 700]),
+    tableSection(160, ENTITY, 1, fieldDelta(2)),
+    tableSection(161, ENTITY, 5, [153, 166].flatMap(fieldDelta))
+  ));
+
+  const loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.pick, 3);
+  assert.equal(loader.pickName, "middle-left");
+  assert.equal(loader.place, 2);
+  assert.equal(loader.placeName, "top-right");
+  assert.equal(loader.requireOutput, false);
+  assert.equal(loader.priority, 1);
+  assert.equal(loader.priorityName, "high");
+  assert.equal(loader.cycle, 36);
+  assert.equal(loader.stack, 12);
+  assert.equal(loader.waitForStack, false);
+  assert.equal(loader.filterMode, 2);
+  assert.equal(loader.filterModeName, "allow-filter");
+});
+
+test("ModelState keeps q44/no-q28 loader place origin across pick/place deltas", () => {
+  const middleRight = new ModelState();
+  middleRight.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, ENTITY, 91, [0, -3, -2, -11, 380])
+  ));
+  middleRight.apply(modelData(
+    2,
+    table78Section(162, ENTITY, 3, [3, 2])
+  ));
+  let loader = middleRight.entity(ENTITY).contents.loader;
+  assert.equal(loader.pick, 3);
+  assert.equal(loader.pickName, "middle-left");
+  assert.equal(loader.place, 4);
+  assert.equal(loader.placeName, "middle-right");
+  assert.equal(loader.stack, 5);
+
+  const topRight = new ModelState();
+  topRight.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, ENTITY, 91, [0, -3, 3, -11, 380])
+  ));
+  topRight.apply(modelData(
+    2,
+    table78Section(162, ENTITY, 2, [-5])
+  ));
+  loader = topRight.entity(ENTITY).contents.loader;
+  assert.equal(loader.pick, 0);
+  assert.equal(loader.pickName, "top-left");
+  assert.equal(loader.place, 2);
+  assert.equal(loader.placeName, "top-right");
+  assert.equal(loader.stack, 5);
+});
+
+test("ModelState updates q44/no-q40 loader cycle through q36 baseline delta edits", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, ENTITY, 91, [0, -3, 3, -5, 900]),
+    tableSection(160, ENTITY, 1, fieldDelta(3)),
+    tableSection(161, ENTITY, 2, fieldDelta(109))
+  ));
+
+  assert.equal(model.entity(ENTITY).contents.loader.cycle, 46);
+  assert.equal(model.entity(ENTITY).contents.loader.stack, 11);
+
+  const rows = [
+    [15, 47],
+    [35, 48],
+    [55, 49],
+    [75, 50]
+  ];
+  let previousQ36 = -5;
+  for (const [q36, expected] of rows) {
+    model.apply(modelData(
+      2,
+      table78Section(162, ENTITY, 16, [q36 - previousQ36])
+    ));
+    previousQ36 = q36;
+
+    const loader = model.entity(ENTITY).contents.loader;
+    assert.equal(loader.cycle, expected, `q36=${q36}`);
+    assert.equal(loader.stack, 11, `q36=${q36} stack`);
+    assert.equal(loader.pick, 0);
+    assert.equal(loader.place, 7);
+    assert.equal(loader.requireOutput, false);
+  }
+});
+
+test("ModelState keeps q44/no-q40 cycle stable on require-output q40 materialization", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, ENTITY, 91, [0, -3, 3, -7, 880]),
+    tableSection(160, ENTITY, 1, fieldDelta(3)),
+    tableSection(161, ENTITY, 2, fieldDelta(109))
+  ));
+
+  model.apply(modelData(
+    2,
+    table78Section(162, ENTITY, 32, [0])
+  ));
+
+  const loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.cycle, 45);
+  assert.equal(loader.stack, 9);
+  assert.equal(loader.requireOutput, true);
+});
+
+test("ModelState updates q44 direct-cycle loader config without toggling wait state", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, ENTITY, 95, [0, -3, -2, 1, -10, 960]),
+    tableSection(160, ENTITY, 1, fieldDelta(3)),
+    tableSection(161, ENTITY, 2, fieldDelta(109))
+  ));
+
+  model.apply(modelData(
+    2,
+    table78Section(162, ENTITY, 64, [40])
+  ));
+
+  let loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.cycle, 51);
+  assert.equal(loader.waitForStack, true);
+
+  model.apply(modelData(
+    3,
+    table78Section(162, ENTITY, 64, [0])
+  ));
+
+  loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.cycle, 51);
+  assert.equal(loader.waitForStack, false);
+});
+
+test("ModelState does not rebase loader positions from active flag bits on later updates", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, ENTITY, 127, [-1, -2, 2, 1, -4, 100, 0]),
+    tableSection(161, ENTITY, 2, fieldDelta(109))
+  ));
+
+  model.apply(modelData(
+    2,
+    table78Section(162, ENTITY, 99, [5, -4, 0, 0])
+  ));
+
+  const loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.pick, 6);
+  assert.equal(loader.pickName, "bottom-middle");
+  assert.equal(loader.place, 2);
+  assert.equal(loader.placeName, "top-right");
+  assert.equal(loader.requireOutput, true);
+  assert.equal(loader.waitForStack, true);
+  assert.equal(loader.priority, 1);
+  assert.equal(loader.cycle, 6);
+  assert.equal(loader.stack, 12);
 });
 
 test("WorldState names observed block tile shapes", () => {

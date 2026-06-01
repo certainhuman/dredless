@@ -1218,7 +1218,7 @@ export class ModelState {
     for (const section of update.sections || []) {
       if (section.table !== 78) continue;
       for (const changed of section.records || []) {
-        this.#loaderConfig.updateRecord(null, changed.entity, this.record(78, changed.entity), changed.mask);
+        this.#loaderConfig.updateRecord(null, changed.entity, this.record(78, changed.entity), changed.mask, changed.previous);
       }
     }
   }
@@ -1654,6 +1654,7 @@ export class ModelState {
         throw new Error(`model table ${tableId} tag ${tag} entity ${entity} mask offset ${reader.offset}: ${error.message}`);
       }
       const record = this.#getRecord(tableId, entity);
+      const previous = tableId === 78 ? cloneRecord(record) : null;
       record.lastMask = mask;
 
       try {
@@ -1663,7 +1664,9 @@ export class ModelState {
         throw new Error(`model table ${tableId} tag ${tag} entity ${entity} mask ${mask} offset ${reader.offset}: ${error.message}`);
       }
 
-      section.records.push({ entity, mask });
+      const changed = { entity, mask };
+      if (previous) changed.previous = previous;
+      section.records.push(changed);
     }
     return section;
   }
