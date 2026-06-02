@@ -89,6 +89,7 @@ Start connections from a session:
 const joinConnection = await session.startJoinConnection(servers[0], ships[0]);
 const startConnection = await session.startConnection(servers[0], ships[0]);
 const newShipConnection = await session.startNewShipConnection(servers[0], "myship", "#de9797");
+const inviteConnection = await session.startInviteConnection(servers[0], "2c0YMWSGcR_r4Qzl4RqDoYEI");
 ```
 
 Start ready clients from a session:
@@ -97,6 +98,7 @@ Start ready clients from a session:
 const joined = await session.join(servers[0], ships[0]);
 const started = await session.start(servers[0], ships[0]);
 const created = await session.newShip(servers[0], "myship", "#24f320ff");
+const invited = await session.startInvite(servers[0], "2c0YMWSGcR_r4Qzl4RqDoYEI");
 ```
 
 Top-level convenience factories create an anonymous session when none is supplied:
@@ -105,9 +107,11 @@ Top-level convenience factories create an anonymous session when none is supplie
 const joined = await Dredless.join(servers[0]);
 const started = await Dredless.start(servers[0]);
 const created = await Dredless.newShip(servers[0], "myship", "#24f320ff");
+const invited = await Dredless.startInvite(servers[0], "2c0YMWSGcR_r4Qzl4RqDoYEI");
 ```
 
 Server is required. If ship is omitted, a new unnamed ship is created.
+Invite helpers join with `never_load: false`.
 
 ## Live Watch Script
 

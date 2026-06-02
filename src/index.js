@@ -36,6 +36,14 @@ async function newShip(server, name = "", color = "", session = null) {
   return (await sessionOrAnon(session)).newShip(server, name, color);
 }
 
+async function invite(server, code, session = null) {
+  return (await sessionOrAnon(session)).invite(server, code);
+}
+
+async function startInvite(server, code, session = null) {
+  return (await sessionOrAnon(session)).startInvite(server, code);
+}
+
 export const Dredless = {
   Session,
   AnonSession,
@@ -52,6 +60,8 @@ export const Dredless = {
   join,
   start,
   newShip,
+  invite,
+  startInvite,
   WorldStore,
   WorldState,
   ModelState,

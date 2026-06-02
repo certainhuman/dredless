@@ -6,6 +6,10 @@ export function createShipSpec(name = "", color = "") {
   return { type: "new", name: String(name ?? ""), color: String(color ?? "") };
 }
 
+export function createInviteShipSpec(code) {
+  return { type: "invite", code: String(code ?? "") };
+}
+
 export function shipRef(ship) {
   if (ship == null) return null;
   if (typeof ship !== "object") return { type: "join_or_load", id: ship };

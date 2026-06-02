@@ -97,10 +97,13 @@ export class Session {
   startJoinConnection(server: ServerRef, ship?: ShipRef): Promise<Connection>;
   startConnection(server: ServerRef, ship?: ShipRef): Promise<Connection>;
   startNewShipConnection(server: ServerRef, name?: string, color?: string): Promise<Connection>;
+  startInviteConnection(server: ServerRef, code: string): Promise<Connection>;
 
   join(server: ServerRef, ship?: ShipRef): Promise<DredlessClient>;
   start(server: ServerRef, ship?: ShipRef): Promise<DredlessClient>;
   newShip(server: ServerRef, name?: string, color?: string): Promise<DredlessClient>;
+  invite(server: ServerRef, code: string): Promise<DredlessClient>;
+  startInvite(server: ServerRef, code: string): Promise<DredlessClient>;
 
   toJSON(): SessionSnapshot;
 }
@@ -808,6 +811,8 @@ export function fetchShipList(session: Session, server: ServerRef): Promise<Ship
 export function join(server: ServerRef, ship?: ShipRef, session?: Session | null): Promise<DredlessClient>;
 export function start(server: ServerRef, ship?: ShipRef, session?: Session | null): Promise<DredlessClient>;
 export function newShip(server: ServerRef, name?: string, color?: string, session?: Session | null): Promise<DredlessClient>;
+export function invite(server: ServerRef, code: string, session?: Session | null): Promise<DredlessClient>;
+export function startInvite(server: ServerRef, code: string, session?: Session | null): Promise<DredlessClient>;
 
 export interface DredlessNamespace {
   Session: typeof Session;
@@ -825,6 +830,8 @@ export interface DredlessNamespace {
   join: typeof join;
   start: typeof start;
   newShip: typeof newShip;
+  invite: typeof invite;
+  startInvite: typeof startInvite;
   WorldStore: typeof WorldStore;
   WorldState: typeof WorldState;
   ModelState: typeof ModelState;

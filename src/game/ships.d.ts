@@ -8,3 +8,4 @@ export {
 } from "../index.js";
 
 export function createShipSpec(name?: string, color?: string): ShipSpec;
+export function createInviteShipSpec(code: string): ShipSpec;

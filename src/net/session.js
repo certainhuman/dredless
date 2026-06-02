@@ -3,7 +3,7 @@ import { asNumber, isNode, normalizeBaseUrl } from "../runtime.js";
 import { cookieName, cookiePrefix, readSetCookies, setCookieValues } from "./cookies.js";
 import { HttpClient } from "./http.js";
 import { fetchGameVersion, resolveServer, serverId } from "./servers.js";
-import { createShipSpec, fetchShips, fetchShipList, shipRef } from "../game/ships.js";
+import { createInviteShipSpec, createShipSpec, fetchShips, fetchShipList, shipRef } from "../game/ships.js";
 import { Connection } from "../game/connection.js";
 import { DredlessClient } from "../client.js";
 
@@ -81,6 +81,10 @@ export class Session {
     return this.#startConnection(server, createShipSpec(name, color), false);
   }
 
+  async startInviteConnection(server, code) {
+    return this.#startConnection(server, createInviteShipSpec(code), false);
+  }
+
   async join(server, ship = null) {
     return readyClient(await this.startJoinConnection(server, ship));
   }
@@ -91,6 +95,14 @@ export class Session {
 
   async newShip(server, name = "", color = "") {
     return readyClient(await this.startNewShipConnection(server, name, color));
+  }
+
+  async invite(server, code) {
+    return readyClient(await this.startInviteConnection(server, code));
+  }
+
+  async startInvite(server, code) {
+    return this.invite(server, code);
   }
 
   toJSON() {
@@ -212,7 +224,7 @@ export async function createAnonToken(noticeVersion = null, baseUrl = DEFAULT_BA
     mode: "cors",
     credentials: "include",
     referrer: `${session.baseUrl}/`,
-    headers: anonHeaders()
+    headers: anonHeaders(session.baseUrl)
   });
   if (response.status === 503) throw new Error("Anon token creation is rate limited by the server");
   if (!response.ok) throw new Error(`account/login/anon failed: ${response.status} ${response.statusText}`);
@@ -268,10 +280,13 @@ function statusHeaders(baseUrl) {
   return headers;
 }
 
-function anonHeaders() {
-  const headers = { accept: "application/json" };
-  if (isNode()) headers["user-agent"] = JOIN_USER_AGENT;
-  return headers;
+function anonHeaders(baseUrl) {
+  const origin = normalizeBaseUrl(baseUrl);
+  return {
+    accept: "*/*",
+    origin,
+    referer: `${origin}/`
+  };
 }
 
 function joinHeaders(baseUrl) {

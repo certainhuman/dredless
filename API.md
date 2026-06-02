@@ -42,6 +42,8 @@ await Dredless.fetchShipList(session, server);
 await Dredless.join(server, ship?, session?);
 await Dredless.start(server, ship?, session?);
 await Dredless.newShip(server, name?, color?, session?);
+await Dredless.startInvite(server, code, session?);
+await Dredless.invite(server, code, session?);
 ```
 
 Notes:
@@ -53,6 +55,7 @@ Notes:
 - `join()` uses `never_load: true`.
 - `start()` uses `never_load: false`.
 - `newShip()` creates a new ship and returns a ready `DredlessClient`.
+- `startInvite()` / `invite()` join by invite code with `never_load: false`.
 - Server is required for client factories.
 - If ship is omitted for `join()` or `start()`, a new unnamed ship is created.
 
@@ -92,10 +95,13 @@ await session.fetchShipList(server);
 await session.startJoinConnection(server, ship?);
 await session.startConnection(server, ship?);
 await session.startNewShipConnection(server, name?, color?);
+await session.startInviteConnection(server, code);
 
 await session.join(server, ship?);
 await session.start(server, ship?);
 await session.newShip(server, name?, color?);
+await session.startInvite(server, code);
+await session.invite(server, code);
 
 session.toJSON();
 ```
