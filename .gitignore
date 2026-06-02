@@ -1,3 +1,9 @@
 /node_modules/
 watch.log
 /captures/
+/.idea/
+/.playwright-mcp/
+/AGENTS.md
+/_tmp_*.mjs
+/drednot-official-client/
+/package-lock.json

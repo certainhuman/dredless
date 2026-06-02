@@ -120,12 +120,15 @@ npm run watch:test
 available, and redraws known websocket state until Ctrl+C. Optional environment
 variables: `DRED_BASE_URL`, `DRED_TEST_SERVER=1`, `DRED_ANON_KEY`,
 `DRED_SERVER`, `DRED_SHIP`, `DRED_REFRESH_MS`, `DRED_LINES`, `DRED_COLUMNS`,
-`DRED_ALT_SCREEN=0`, `DRED_LOG_FILE=watch.log`, and `DRED_LOG_PACKETS=1`.
+`DRED_ALT_SCREEN=0`, `DRED_LOG_FILE=captures/watch.jsonl`, `DRED_LOG_APPEND=1`,
+and `DRED_LOG_PACKETS=1`.
 Use `DRED_ALT_SCREEN=0` to draw in the current terminal buffer instead of the
 alternate screen. Pass `--test` or run `npm run watch:test` to use
 `https://test.drednot.io`. The script writes JSON-lines diagnostics to
-`watch.log` by default; set `DRED_LOG_FILE=0` to disable logging or pass
-`--log-packets` to include full packet bodies. The dashboard includes initial
+`captures/watch.jsonl` by default; set `DRED_LOG_FILE=0` to disable logging,
+pass `--log FILE` to choose another output path, or pass `--append` to append
+instead of overwriting the log at startup. Bare log filenames are written under
+`captures/`. Pass `--log-packets` to include full packet bodies. The dashboard includes initial
 model state decoded from the websocket full snapshot, including entity package
 ids, fabricator rows, storage holders, loose items, fluid tanks, shield
 generator charge/efficiency/boost state, cannon ammo/aim/barrel recoil/spin/cooling state, shield projectors, doors, signs, spawn points, and
