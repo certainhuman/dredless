@@ -290,6 +290,7 @@ export interface EntityContentsSummary {
   cannon?: CannonSummary;
   pusher?: PusherSummary;
   loader?: LoaderSummary;
+  navigationUnit?: NavigationUnitSummary;
   commsStation?: CommsStationSummary;
   fluidTank?: { entity: number; amount: number | null; state: ModelRecord };
   shieldGenerator?: ShieldGeneratorSummary;
@@ -615,6 +616,15 @@ export interface LoaderSummary {
   filterSlotsState: ModelRecord;
 }
 
+export interface NavigationUnitSummary {
+  entity: number;
+  destination: number;
+  destinationName: string | null;
+  autoWarpOnShieldFailure: boolean | null;
+  autoWarpOnNoCaptains: boolean | null;
+  state: ModelRecord;
+}
+
 export interface PusherSummary {
   entity: number;
   mode: number;
@@ -772,6 +782,7 @@ export interface MachineSummary {
   cannons: CannonSummary[];
   pushers: PusherSummary[];
   loaders: LoaderSummary[];
+  navigationUnits: NavigationUnitSummary[];
   commsStations: CommsStationSummary[];
   fluidTanks: { entity: number; amount: number | null; state: ModelRecord }[];
   shieldGenerators: ShieldGeneratorSummary[];

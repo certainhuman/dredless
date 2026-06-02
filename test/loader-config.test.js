@@ -501,6 +501,249 @@ test("ModelState does not classify cargo hatch filter tables as loader config", 
   assert.equal(entity.kind.includes("loader"), false);
 });
 
+test("ModelState does not classify navigation unit table 78 state as loader config", () => {
+  const model = new ModelState();
+  const nav = 261;
+  model.apply(modelData(
+    1,
+    tableSection(43, nav, 1, fieldDelta(261)),
+    table78Section(162, nav, 25, [4, 1, 0])
+  ));
+
+  const entity = model.entity(nav);
+  assert.equal(entity.typeId, 261);
+  assert.equal(entity.typeName, "Navigation Unit (Starter, Packaged)");
+  assert.equal(entity.contents?.loader, undefined);
+  assert.equal(entity.contents?.navigationUnit?.destination, 4);
+  assert.equal(entity.contents?.navigationUnit?.destinationName, "falcon");
+  assert.equal(entity.contents?.navigationUnit?.autoWarpOnShieldFailure, false);
+  assert.equal(entity.contents?.navigationUnit?.autoWarpOnNoCaptains, false);
+  assert.equal(entity.kind.includes("loader"), false);
+  assert.equal(entity.kind.includes("navigation_unit"), true);
+});
+
+test("ModelState decodes navigation unit auto-warp baseline flags", () => {
+  const enabled = new ModelState();
+  enabled.apply(modelData(
+    1,
+    tableSection(43, 261, 1, fieldDelta(261)),
+    table78Section(162, 261, 3, [3, 1])
+  ));
+  assert.equal(enabled.entity(261).contents.navigationUnit.autoWarpOnShieldFailure, true);
+  assert.equal(enabled.entity(261).contents.navigationUnit.autoWarpOnNoCaptains, true);
+
+  const disabled = new ModelState();
+  disabled.apply(modelData(
+    1,
+    tableSection(43, 262, 1, fieldDelta(261)),
+    table78Section(162, 262, 19, [0, 3, 1])
+  ));
+  assert.equal(disabled.entity(262).contents.navigationUnit.autoWarpOnShieldFailure, true);
+  assert.equal(disabled.entity(262).contents.navigationUnit.autoWarpOnNoCaptains, false);
+
+  const shieldDisabled = new ModelState();
+  shieldDisabled.apply(modelData(
+    1,
+    tableSection(43, 263, 1, fieldDelta(261)),
+    table78Section(162, 263, 11, [0, 3, 1])
+  ));
+  assert.equal(shieldDisabled.entity(263).contents.navigationUnit.destination, 3);
+  assert.equal(shieldDisabled.entity(263).contents.navigationUnit.destinationName, "raven");
+  assert.equal(shieldDisabled.entity(263).contents.navigationUnit.autoWarpOnShieldFailure, false);
+  assert.equal(shieldDisabled.entity(263).contents.navigationUnit.autoWarpOnNoCaptains, true);
+
+  const bothDisabled = new ModelState();
+  bothDisabled.apply(modelData(
+    1,
+    tableSection(43, 264, 1, fieldDelta(261)),
+    table78Section(162, 264, 25, [0, 2, 0])
+  ));
+  assert.equal(bothDisabled.entity(264).contents.navigationUnit.destination, 2);
+  assert.equal(bothDisabled.entity(264).contents.navigationUnit.destinationName, "sparrow");
+  assert.equal(bothDisabled.entity(264).contents.navigationUnit.autoWarpOnShieldFailure, false);
+  assert.equal(bothDisabled.entity(264).contents.navigationUnit.autoWarpOnNoCaptains, false);
+
+  bothDisabled.apply(modelData(2, table78Section(162, 264, 2, [1])));
+  assert.equal(bothDisabled.entity(264).contents.navigationUnit.destination, 2);
+  assert.equal(bothDisabled.entity(264).contents.navigationUnit.destinationName, "sparrow");
+
+  bothDisabled.apply(modelData(3, table78Section(162, 264, 2, [-1])));
+  assert.equal(bothDisabled.entity(264).contents.navigationUnit.destination, 2);
+  assert.equal(bothDisabled.entity(264).contents.navigationUnit.destinationName, "sparrow");
+
+  bothDisabled.apply(modelData(4, table78Section(162, 264, 27, [0, 2, -1, 0])));
+  assert.equal(bothDisabled.entity(264).contents.navigationUnit.destination, 2);
+  assert.equal(bothDisabled.entity(264).contents.navigationUnit.destinationName, "sparrow");
+  assert.equal(bothDisabled.entity(264).contents.navigationUnit.autoWarpOnShieldFailure, false);
+  assert.equal(bothDisabled.entity(264).contents.navigationUnit.autoWarpOnNoCaptains, false);
+
+  bothDisabled.apply(modelData(5, table78Section(162, 264, 1, [-1])));
+  assert.equal(bothDisabled.entity(264).contents.navigationUnit.destination, 1);
+  assert.equal(bothDisabled.entity(264).contents.navigationUnit.destinationName, "finch");
+
+  bothDisabled.apply(modelData(6, table78Section(162, 264, 1, [3])));
+  assert.equal(bothDisabled.entity(264).contents.navigationUnit.destination, 4);
+  assert.equal(bothDisabled.entity(264).contents.navigationUnit.destinationName, "falcon");
+
+  bothDisabled.apply(modelData(7, table78Section(162, 264, 1, [-4])));
+  assert.equal(bothDisabled.entity(264).contents.navigationUnit.destination, 0);
+  assert.equal(bothDisabled.entity(264).contents.navigationUnit.destinationName, "hummingbird");
+
+  bothDisabled.apply(modelData(8, table78Section(162, 264, 1, [3])));
+  assert.equal(bothDisabled.entity(264).contents.navigationUnit.destination, 3);
+  assert.equal(bothDisabled.entity(264).contents.navigationUnit.destinationName, "raven");
+
+  const falconBase = new ModelState();
+  falconBase.apply(modelData(
+    1,
+    tableSection(43, 265, 1, fieldDelta(261)),
+    table78Section(162, 265, 17, [0, 4])
+  ));
+  assert.equal(falconBase.entity(265).contents.navigationUnit.destination, 4);
+  assert.equal(falconBase.entity(265).contents.navigationUnit.destinationName, "falcon");
+  assert.equal(falconBase.entity(265).contents.navigationUnit.autoWarpOnShieldFailure, true);
+  assert.equal(falconBase.entity(265).contents.navigationUnit.autoWarpOnNoCaptains, false);
+
+  falconBase.apply(modelData(2, table78Section(162, 265, 1, [-1])));
+  assert.equal(falconBase.entity(265).contents.navigationUnit.destination, 3);
+  assert.equal(falconBase.entity(265).contents.navigationUnit.destinationName, "raven");
+
+  falconBase.apply(modelData(3, table78Section(162, 265, 1, [-2])));
+  assert.equal(falconBase.entity(265).contents.navigationUnit.destination, 1);
+  assert.equal(falconBase.entity(265).contents.navigationUnit.destinationName, "finch");
+
+  falconBase.apply(modelData(4, table78Section(162, 265, 1, [-1])));
+  assert.equal(falconBase.entity(265).contents.navigationUnit.destination, 0);
+  assert.equal(falconBase.entity(265).contents.navigationUnit.destinationName, "hummingbird");
+
+  falconBase.apply(modelData(5, table78Section(162, 265, 1, [2])));
+  assert.equal(falconBase.entity(265).contents.navigationUnit.destination, 2);
+  assert.equal(falconBase.entity(265).contents.navigationUnit.destinationName, "sparrow");
+
+  falconBase.apply(modelData(6, table78Section(162, 265, 1, [4])));
+  assert.equal(falconBase.entity(265).contents.navigationUnit.destination, 6);
+  assert.equal(falconBase.entity(265).contents.navigationUnit.destinationName, "combat-arena");
+
+  const compactSparrow = new ModelState();
+  compactSparrow.apply(modelData(
+    1,
+    tableSection(43, 266, 1, fieldDelta(261)),
+    table78Section(162, 266, 9, [0, 2])
+  ));
+  assert.equal(compactSparrow.entity(266).contents.navigationUnit.destination, 2);
+  assert.equal(compactSparrow.entity(266).contents.navigationUnit.destinationName, "sparrow");
+  assert.equal(compactSparrow.entity(266).contents.navigationUnit.autoWarpOnShieldFailure, false);
+  assert.equal(compactSparrow.entity(266).contents.navigationUnit.autoWarpOnNoCaptains, true);
+
+  const destinationOnlyFalcon = new ModelState();
+  destinationOnlyFalcon.apply(modelData(
+    1,
+    tableSection(43, 267, 1, fieldDelta(261)),
+    table78Section(162, 267, 1, [4])
+  ));
+  assert.equal(destinationOnlyFalcon.entity(267).contents.navigationUnit.destination, 4);
+  assert.equal(destinationOnlyFalcon.entity(267).contents.navigationUnit.destinationName, "falcon");
+  assert.equal(destinationOnlyFalcon.entity(267).contents.navigationUnit.autoWarpOnShieldFailure, true);
+  assert.equal(destinationOnlyFalcon.entity(267).contents.navigationUnit.autoWarpOnNoCaptains, true);
+
+  const q36Finch = new ModelState();
+  q36Finch.apply(modelData(
+    1,
+    tableSection(43, 268, 1, fieldDelta(261)),
+    table78Section(162, 268, 17, [0, 1])
+  ));
+  assert.equal(q36Finch.entity(268).contents.navigationUnit.destination, 1);
+  assert.equal(q36Finch.entity(268).contents.navigationUnit.destinationName, "finch");
+  assert.equal(q36Finch.entity(268).contents.navigationUnit.autoWarpOnShieldFailure, true);
+  assert.equal(q36Finch.entity(268).contents.navigationUnit.autoWarpOnNoCaptains, false);
+
+  const noCaptainsOnlyHummingbird = new ModelState();
+  noCaptainsOnlyHummingbird.apply(modelData(
+    1,
+    tableSection(43, 269, 1, fieldDelta(261)),
+    table78Section(162, 269, 16, [0])
+  ));
+  assert.equal(noCaptainsOnlyHummingbird.entity(269).contents.navigationUnit.destination, 0);
+  assert.equal(noCaptainsOnlyHummingbird.entity(269).contents.navigationUnit.destinationName, "hummingbird");
+  assert.equal(noCaptainsOnlyHummingbird.entity(269).contents.navigationUnit.autoWarpOnShieldFailure, true);
+  assert.equal(noCaptainsOnlyHummingbird.entity(269).contents.navigationUnit.autoWarpOnNoCaptains, false);
+
+  const q24BaseFinch = new ModelState();
+  q24BaseFinch.apply(modelData(
+    1,
+    tableSection(43, 270, 1, fieldDelta(261)),
+    table78Section(162, 270, 19, [0, 1, 1])
+  ));
+  assert.equal(q24BaseFinch.entity(270).contents.navigationUnit.destination, 1);
+  assert.equal(q24BaseFinch.entity(270).contents.navigationUnit.destinationName, "finch");
+  assert.equal(q24BaseFinch.entity(270).contents.navigationUnit.autoWarpOnShieldFailure, true);
+  assert.equal(q24BaseFinch.entity(270).contents.navigationUnit.autoWarpOnNoCaptains, false);
+
+  q24BaseFinch.apply(modelData(2, table78Section(162, 270, 2, [-1])));
+  assert.equal(q24BaseFinch.entity(270).contents.navigationUnit.destination, 1);
+  assert.equal(q24BaseFinch.entity(270).contents.navigationUnit.destinationName, "finch");
+
+  q24BaseFinch.apply(modelData(3, table78Section(162, 270, 1, [1])));
+  assert.equal(q24BaseFinch.entity(270).contents.navigationUnit.destination, 2);
+  assert.equal(q24BaseFinch.entity(270).contents.navigationUnit.destinationName, "sparrow");
+
+  q24BaseFinch.apply(modelData(4, table78Section(162, 270, 1, [-1])));
+  assert.equal(q24BaseFinch.entity(270).contents.navigationUnit.destination, 1);
+  assert.equal(q24BaseFinch.entity(270).contents.navigationUnit.destinationName, "finch");
+});
+
+test("ModelState toggles navigation unit auto-warp flags from table 78 masks", () => {
+  const bothOff = new ModelState();
+  bothOff.apply(modelData(
+    1,
+    tableSection(43, 261, 1, fieldDelta(261)),
+    table78Section(162, 261, 27, [0, 3, 1, 0])
+  ));
+  assert.equal(bothOff.entity(261).contents.navigationUnit.autoWarpOnShieldFailure, false);
+  assert.equal(bothOff.entity(261).contents.navigationUnit.autoWarpOnNoCaptains, false);
+
+  bothOff.apply(modelData(2, table78Section(162, 261, 8, [0])));
+  assert.equal(bothOff.entity(261).contents.navigationUnit.autoWarpOnShieldFailure, true);
+  assert.equal(bothOff.entity(261).contents.navigationUnit.autoWarpOnNoCaptains, false);
+
+  bothOff.apply(modelData(3, table78Section(162, 261, 16, [0])));
+  assert.equal(bothOff.entity(261).contents.navigationUnit.autoWarpOnShieldFailure, true);
+  assert.equal(bothOff.entity(261).contents.navigationUnit.autoWarpOnNoCaptains, true);
+
+  bothOff.apply(modelData(4, table78Section(162, 261, 8, [0])));
+  assert.equal(bothOff.entity(261).contents.navigationUnit.autoWarpOnShieldFailure, false);
+  assert.equal(bothOff.entity(261).contents.navigationUnit.autoWarpOnNoCaptains, true);
+
+  bothOff.apply(modelData(5, table78Section(162, 261, 16, [0])));
+  assert.equal(bothOff.entity(261).contents.navigationUnit.autoWarpOnShieldFailure, false);
+  assert.equal(bothOff.entity(261).contents.navigationUnit.autoWarpOnNoCaptains, false);
+
+  const bothOn = new ModelState();
+  bothOn.apply(modelData(
+    1,
+    tableSection(43, 262, 1, fieldDelta(261)),
+    table78Section(162, 262, 3, [3, 1])
+  ));
+  assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnShieldFailure, true);
+  assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnNoCaptains, true);
+
+  bothOn.apply(modelData(2, table78Section(162, 262, 8, [0])));
+  assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnShieldFailure, false);
+  assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnNoCaptains, true);
+
+  bothOn.apply(modelData(3, table78Section(162, 262, 16, [0])));
+  assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnShieldFailure, false);
+  assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnNoCaptains, false);
+
+  bothOn.apply(modelData(4, table78Section(162, 262, 8, [0])));
+  assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnShieldFailure, true);
+  assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnNoCaptains, false);
+
+  bothOn.apply(modelData(5, table78Section(162, 262, 16, [0])));
+  assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnShieldFailure, true);
+  assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnNoCaptains, true);
+});
+
 test("ModelState decodes full initial loader config from loader-ex", () => {
   const model = new ModelState();
   model.apply(modelData(
