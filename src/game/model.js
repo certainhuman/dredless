@@ -323,6 +323,7 @@ const WIRE_TAG_TABLES = new Map([
   [88, 25],
   [89, 26],
   [90, 27],
+  [91, 28],
   [93, 30],
   [94, 31],
   [95, 32],
@@ -373,7 +374,7 @@ const WIRE_TAG_TABLES = new Map([
   [169, 77]
 ]);
 
-const MASK_ONLY_TABLES = new Set([13, 22, 23, 27, 30, 32, 36, 40, 46, 48, 52, 58, 64, 65, 66, 68, 73, 74]);
+const MASK_ONLY_TABLES = new Set([13, 22, 23, 27, 28, 30, 32, 36, 40, 46, 48, 52, 58, 64, 65, 66, 68, 73, 74]);
 
 const ENTITY_TYPE_NAMES = new Map(itemSchema.map((item) => [Number(item.id), item.name]));
 
