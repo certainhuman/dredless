@@ -165,6 +165,33 @@ test("loader pick/place single-state captures", () => {
   }
 });
 
+test("loader sparse q20/q24/q40 rows do not create tracked position config", () => {
+  const tracker = new LoaderConfigTracker();
+  const loader = { q20: 0, q24: 4, q40: -3 };
+  tracker.updateRecord(WORLD, ENTITY, loader, 35);
+  const config = tracker.getConfig(WORLD, ENTITY, loader);
+  assert.equal(tracker.hasPositionConfig(WORLD, ENTITY), false);
+  assert.deepEqual([config.pick, config.place], [7, null]);
+  assert.equal(config.requireOutput, true);
+  assert.equal(config.waitForStack, false);
+  assert.equal(config.stack, 16);
+  assert.equal(config.cycle, 1);
+});
+
+test("loader sparse q20/q24/q28 rows keep priority without tracked position config", () => {
+  const tracker = new LoaderConfigTracker();
+  const loader = { q20: -2, q24: 2, q28: -1 };
+  tracker.updateRecord(WORLD, ENTITY, loader, 7);
+  const config = tracker.getConfig(WORLD, ENTITY, loader);
+  assert.equal(tracker.hasPositionConfig(WORLD, ENTITY), false);
+  assert.deepEqual([config.pick, config.place], [5, null]);
+  assert.equal(config.priority, -1);
+  assert.equal(config.requireOutput, false);
+  assert.equal(config.waitForStack, false);
+  assert.equal(config.stack, 16);
+  assert.equal(config.cycle, 1);
+});
+
 test("ModelState exposes loader config after full packet state is applied", () => {
   const model = new ModelState();
   model.apply(modelData(
@@ -186,17 +213,17 @@ test("ModelState exposes loader config after full packet state is applied", () =
   );
 });
 
-test("ModelState applies loader tracker updates after all table 78 sections in a packet", () => {
+test("ModelState applies loader tracker updates from per-section table 78 records", () => {
   const model = new ModelState();
   model.apply(modelData(
     1,
     table78Section(162, ENTITY, 51, [0, -2, 1, 880]),
-    table78Section(168, ENTITY, 2, [-4])
+    table78Section(168, ENTITY, 2, [1])
   ));
 
   assert.deepEqual(
     [model.entity(ENTITY).contents.loader.pick, model.entity(ENTITY).contents.loader.place],
-    [5, 5]
+    [1, 6]
   );
 });
 

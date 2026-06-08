@@ -13,12 +13,6 @@ import { Connection } from "./game/connection.js";
 import { DredlessClient } from "./client.js";
 import { fetchNoticeVersion, fetchGameVersion, fetchServers } from "./net/servers.js";
 import { fetchShips, fetchShipList } from "./game/ships.js";
-import { WorldStore, WorldState } from "./game/world.js";
-import { ModelState, decodeModelData } from "./game/model.js";
-import { decodeMsgpack, encodeMsgpack } from "./protocol/msgpack.js";
-import { buildSignedCommandPacket } from "./protocol/commands.js";
-import { decryptPayload } from "./crypto/chacha.js";
-import { decompressLz4Frame } from "./compression/lz4.js";
 
 async function sessionOrAnon(session) {
   return session || createAnonSession();
@@ -61,16 +55,7 @@ export const Dredless = {
   start,
   newShip,
   invite,
-  startInvite,
-  WorldStore,
-  WorldState,
-  ModelState,
-  decodeModelData,
-  decodeMsgpack,
-  encodeMsgpack,
-  buildSignedCommandPacket,
-  decryptPayload,
-  decompressLz4Frame
+  startInvite
 };
 
 export default Dredless;

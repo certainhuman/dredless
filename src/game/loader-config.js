@@ -22,6 +22,11 @@ export const LOADER_FILTER_MODE_NAMES = new Map([
   [3, "block-all"]
 ]);
 
+const DEFAULT_LOADER_PRIORITY = 0;
+const DEFAULT_LOADER_FILTER_MODE = 0;
+const DEFAULT_LOADER_STACK = 16;
+const DEFAULT_LOADER_CYCLE = 1;
+
 export function wrapLoaderPosition(value) {
   return value == null ? null : ((value % 8) + 8) % 8;
 }
@@ -60,7 +65,7 @@ export class LoaderConfigTracker {
     for (const section of model.sections || []) {
       if (section.table !== 78) continue;
       for (const changed of section.records || []) {
-        const loader = world.model.record(78, changed.entity);
+        const loader = changed.record ?? world.model.record(78, changed.entity);
         this.updateRecord(world.id, changed.entity, loader, changed.mask, changed.previous);
       }
     }
@@ -103,8 +108,8 @@ export class LoaderConfigTracker {
       }
       this.requireOutputs.set(key, Boolean(mask & 32));
       this.waitForStacks.set(key, Boolean(mask & 64));
-      this.#initializeStackBaseline(key, loader);
-      this.#initializeCycleBaseline(key, loader);
+      if (!this.stackBases.has(key)) this.#initializeStackBaseline(key, loader);
+      if (!this.cycles.has(key)) this.#initializeCycleBaseline(key, loader);
       return;
     }
 
@@ -177,23 +182,23 @@ export class LoaderConfigTracker {
       : stackBase + stackField;
     const cycle = this.cycles.has(key)
       ? this.cycles.get(key)
-      : loader?.q40 == null ? null : ((loader.q40 + (loader.q36 ?? 0)) / 20) + 1;
+      : loader?.q40 == null || loader.q36 == null ? null : ((loader.q40 + loader.q36) / 20) + 1;
     return {
       pick,
       place,
-      priority: this.priorities.has(key) ? this.priorities.get(key) : 0,
-      requireOutput: this.requireOutputs.has(key) ? this.requireOutputs.get(key) : null,
-      waitForStack: this.waitForStacks.has(key) ? this.waitForStacks.get(key) : null,
-      stack,
-      cycle,
-      filterMode: loaderFilter ? loaderFilter.q20 ?? 0 : this.#filterMode(key, loader),
+      priority: this.priorities.has(key) ? this.priorities.get(key) : DEFAULT_LOADER_PRIORITY,
+      requireOutput: this.requireOutputs.has(key) ? this.requireOutputs.get(key) : false,
+      waitForStack: this.waitForStacks.has(key) ? this.waitForStacks.get(key) : false,
+      stack: stack ?? DEFAULT_LOADER_STACK,
+      cycle: cycle ?? DEFAULT_LOADER_CYCLE,
+      filterMode: loaderFilter ? loaderFilter.q20 ?? DEFAULT_LOADER_FILTER_MODE : this.#filterMode(key, loader) ?? DEFAULT_LOADER_FILTER_MODE,
       filterSlots: filterSlots ? [filterSlots.q20 ?? null, filterSlots.q24 ?? null, filterSlots.q28 ?? null] : null
     };
   }
 
   hasPositionConfig(worldId, entityId) {
     const key = this.#key(worldId, entityId);
-    return this.pickBases.has(key) || this.placeBases.has(key);
+    return this.pickBases.has(key) && this.placeBases.has(key);
   }
 
   #hasTrackedConfig(key) {
@@ -256,7 +261,7 @@ export class LoaderConfigTracker {
       this.cycles.set(key, (loader.q44 / 20) + 1);
       return;
     }
-    if (loader?.q40 == null) return;
+    if (loader?.q40 == null || loader.q36 == null) return;
     this.cycleModes.set(key, "offset");
     this.cycleDeltaBases.set(key, loader.q36 ?? 0);
     this.directCycleValues.delete(key);

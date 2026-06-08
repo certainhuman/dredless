@@ -33,6 +33,13 @@ export type ShipSpec =
 
 export type ServerRef = number | Server;
 export type ShipRef = number | string | Ship | ShipSpec | null;
+export type ReadWorldScope = "ship" | "current" | "overworld" | number;
+export interface ShipReadOptions {
+  includeWorld?: boolean;
+  includeTiles?: boolean;
+  includeModel?: boolean;
+  sort?: "distance" | null;
+}
 export interface DragPayload {
   source: number;
   target: number;
@@ -175,8 +182,11 @@ export class DredlessClient {
   connected: boolean;
   ready: boolean;
   packetCount: number;
+  /** @deprecated Debug/protocol access. Prefer state() and event callbacks. */
   lastPacket: unknown;
+  /** @deprecated Debug/protocol access. Prefer state(), ship(), and collection helpers. */
   packets: unknown[];
+  /** @deprecated Low-level world store. Prefer ship(), entities(), machines(), players(), blocks(), and materials(). */
   worlds: WorldStore;
   cpuLoad: number | null;
   inventory: InventoryState | null;
@@ -191,6 +201,7 @@ export class DredlessClient {
   lastCommandAck: CommandAck | null;
   decodeErrors: unknown[];
   readyPromise: Promise<this>;
+  /** @deprecated Debug/protocol access. Prefer state() and event callbacks. */
   get packetsRaw(): unknown[];
 
   waitUntilReady(): Promise<this>;
@@ -208,10 +219,27 @@ export class DredlessClient {
   drag(source: number, target: number, split?: boolean, command?: Command): this;
   close(code?: number, reason?: string): this;
   disconnect(code?: number, reason?: string): this;
+  /** @deprecated Prefer state(). */
   snapshot(options?: { includeTiles?: boolean; includeModel?: boolean }): ClientSnapshot;
+  state(options?: { includeTiles?: boolean; includeModel?: boolean }): ClientSnapshot;
+  /** @deprecated Prefer ship(), entities(scope), machines(scope), or players(scope). */
   world(id: number, options?: { includeTiles?: boolean; includeModel?: boolean }): WorldSnapshot | null;
+  /** @deprecated Prefer entities("overworld") or shipControls("overworld"). */
   overworld(options?: { includeTiles?: boolean; includeModel?: boolean }): WorldSnapshot | null;
+  /** @deprecated Prefer ship(). */
   shipWorld(options?: { includeTiles?: boolean; includeModel?: boolean }): WorldSnapshot | null;
+  ship(options?: { includeTiles?: boolean; includeModel?: boolean }): WorldSnapshot | null;
+  shipEntity(): EntitySummary | null;
+  entities(scope?: ReadWorldScope): EntitySummary[];
+  entity(entityId: number, scope?: ReadWorldScope): EntitySummary | null;
+  blocks(scope?: ReadWorldScope): BlockSummary[];
+  materials(scope?: ReadWorldScope): MaterialSummary[];
+  machines(scope?: ReadWorldScope): MachineSummary;
+  players(scope?: ReadWorldScope): PlayerSummary[];
+  shipControls(scope?: ReadWorldScope): ShipControlSummary[];
+  ships(options?: ShipReadOptions): ShipReadSummary[];
+  shipByHex(hexCode: string, options?: ShipReadOptions): ShipReadSummary | null;
+  shipByEntity(entityId: number, options?: ShipReadOptions): ShipReadSummary | null;
 
   on(type: string, callback: (...args: unknown[]) => void): this;
   off(type: string, callback: (...args: unknown[]) => void): this;
@@ -761,6 +789,27 @@ export interface ShipControlSummary {
   state: ModelRecord;
 }
 
+export interface ShipReadSummary {
+  entity: number;
+  name: string | null;
+  hexCode: string | null;
+  color: number | null;
+  colorCss: string | null;
+  position: { x: number | null; y: number | null; rot: number | null } | null;
+  distance: number | null;
+  footprint: EntitySummary["footprint"];
+  label: string;
+  kind: string[];
+  thrust: { x: number | null; y: number | null };
+  shield: ShipShieldSummary | null;
+  warp: ShipWarpSummary | null;
+  worldId: number | null;
+  hasWorldData: boolean;
+  world: WorldSnapshot | null;
+  control: ShipControlSummary;
+  entitySummary: EntitySummary;
+}
+
 export interface ShipShieldSummary {
   maxHp: number | null;
   baseHp: number | null;
@@ -832,15 +881,6 @@ export interface DredlessNamespace {
   newShip: typeof newShip;
   invite: typeof invite;
   startInvite: typeof startInvite;
-  WorldStore: typeof WorldStore;
-  WorldState: typeof WorldState;
-  ModelState: typeof ModelState;
-  decodeMsgpack: typeof decodeMsgpack;
-  encodeMsgpack: typeof encodeMsgpack;
-  buildSignedCommandPacket: typeof buildSignedCommandPacket;
-  decodeModelData: typeof decodeModelData;
-  decryptPayload: typeof decryptPayload;
-  decompressLz4Frame: typeof decompressLz4Frame;
 }
 
 export const Dredless: DredlessNamespace;

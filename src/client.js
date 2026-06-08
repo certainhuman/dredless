@@ -162,6 +162,10 @@ export class DredlessClient extends EventBus {
     };
   }
 
+  state(options = {}) {
+    return this.snapshot(options);
+  }
+
   world(id, options = {}) {
     return this.worlds.worlds.get(Number(id))?.snapshot(options) || null;
   }
@@ -172,6 +176,65 @@ export class DredlessClient extends EventBus {
 
   shipWorld(options = {}) {
     return this.worlds.shipWorld()?.snapshot(options) || null;
+  }
+
+  ship(options = {}) {
+    return this.shipWorld(options);
+  }
+
+  shipEntity() {
+    return this.worlds.currentShipEntity();
+  }
+
+  entities(scope = "ship") {
+    return this.#readWorld(scope)?.entities() || [];
+  }
+
+  entity(entityId, scope = "ship") {
+    return this.#readWorld(scope)?.entity(entityId) || null;
+  }
+
+  blocks(scope = "ship") {
+    return this.#readWorld(scope)?.blocks() || [];
+  }
+
+  materials(scope = "ship") {
+    return this.#readWorld(scope)?.materials() || [];
+  }
+
+  machines(scope = "ship") {
+    return this.#readWorld(scope)?.model.machines() || emptyMachineSummary();
+  }
+
+  players(scope = "ship") {
+    return this.#readWorld(scope)?.model.players() || [];
+  }
+
+  shipControls(scope = "overworld") {
+    return this.#readWorld(scope)?.model.shipControls() || [];
+  }
+
+  ships(options = {}) {
+    const normalized = normalizeShipReadOptions(options);
+    const overworld = this.worlds.overworld();
+    if (!overworld) return [];
+    const ships = overworld.entities()
+      .filter((entity) => entity?.contents?.shipControl)
+      .map((entity) => shipReadSummary(entity, normalized, this.worlds));
+    if (normalized.sort === "distance") {
+      ships.sort((a, b) => (a.distance ?? Number.POSITIVE_INFINITY) - (b.distance ?? Number.POSITIVE_INFINITY));
+    }
+    return ships;
+  }
+
+  shipByHex(hexCode, options = {}) {
+    const normalized = String(hexCode ?? "").toUpperCase();
+    return this.ships(options).find((ship) => String(ship.hexCode ?? "").toUpperCase() === normalized) || null;
+  }
+
+  shipByEntity(entityId, options = {}) {
+    const id = Number(entityId);
+    return this.ships(options).find((ship) => ship.entity === id) || null;
   }
 
   get packetsRaw() {
@@ -401,11 +464,87 @@ export class DredlessClient extends EventBus {
     catch (_) { return new WebSocket(url); }
   }
 
+  #readWorld(scope) {
+    if (scope == null || scope === "ship" || scope === "current") return this.worlds.shipWorld();
+    if (scope === "overworld") return this.worlds.overworld();
+    if (typeof scope === "number" || typeof scope === "string") return this.worlds.worlds.get(Number(scope)) || null;
+    return null;
+  }
+
   #fail(error) {
     this.#rejectReady?.(error);
     this.#rejectReady = null;
     try { this.emit("error", error); } catch (_) {}
   }
+}
+
+function emptyMachineSummary() {
+  return {
+    itemHolders: [],
+    health: [],
+    fabricators: [],
+    processors: [],
+    cannons: [],
+    pushers: [],
+    loaders: [],
+    navigationUnits: [],
+    commsStations: [],
+    fluidTanks: [],
+    shieldGenerators: [],
+    shieldProjectors: [],
+    expandoBoxes: []
+  };
+}
+
+function normalizeShipReadOptions(options) {
+  if (options == null || options === true) options = {};
+  return {
+    includeWorld: options.includeWorld !== false,
+    includeTiles: Boolean(options.includeTiles),
+    includeModel: Boolean(options.includeModel),
+    sort: options.sort ?? null
+  };
+}
+
+function shipReadSummary(entity, options, worlds) {
+  const control = entity.contents.shipControl;
+  const worldState = options.includeWorld && control.shipWorldId != null
+    ? worlds.worlds.get(Number(control.shipWorldId)) || null
+    : null;
+  const world = worldState ? worldState.snapshot({
+    includeTiles: options.includeTiles,
+    includeModel: options.includeModel
+  }) : null;
+  const current = worlds.currentShipEntity();
+  const distance = distanceBetween(entity.transform, current?.transform);
+  return {
+    entity: entity.entity,
+    name: control.name,
+    hexCode: control.hexCode,
+    color: control.color,
+    colorCss: control.colorCss,
+    position: entity.transform ? { x: entity.transform.x, y: entity.transform.y, rot: entity.transform.rot } : null,
+    distance,
+    footprint: entity.footprint,
+    label: entity.label,
+    kind: entity.kind,
+    thrust: {
+      x: control.thrustX,
+      y: control.thrustY
+    },
+    shield: control.shield,
+    warp: control.warp,
+    worldId: control.shipWorldId,
+    hasWorldData: Boolean(world),
+    world,
+    control,
+    entitySummary: entity
+  };
+}
+
+function distanceBetween(a, b) {
+  if (!a || !b || typeof a.x !== "number" || typeof a.y !== "number" || typeof b.x !== "number" || typeof b.y !== "number") return null;
+  return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
 function normalizeInventory(event) {

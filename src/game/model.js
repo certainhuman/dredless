@@ -809,14 +809,14 @@ function summarizeHugeThruster(entity, markerRecord, sizeRecord = null) {
   };
 }
 
-function summarizeLoader(entity, loaderRecord, loaderFilterRecord = null, filterSlotsRecord = null, tracker = null) {
-  if (!loaderRecord && !loaderFilterRecord) return null;
+function summarizeLoader(entity, loaderRecord, loaderFilterRecord = null, filterSlotsRecord = null, tracker = null, includeDefaults = false) {
+  if (!loaderRecord && !loaderFilterRecord && !includeDefaults) return null;
   const config = tracker?.getConfig(null, entity, loaderRecord, loaderFilterRecord, filterSlotsRecord) ?? {};
   const hasLoaderState = Boolean(loaderRecord);
   const hasPositionConfig = Boolean(tracker?.hasPositionConfig(null, entity));
   const pick = hasLoaderState && hasPositionConfig ? config.pick ?? null : null;
   const place = hasLoaderState && hasPositionConfig ? config.place ?? null : null;
-  const priority = hasLoaderState ? config.priority ?? null : null;
+  const priority = config.priority ?? 0;
   const filterMode = config.filterMode ?? null;
   return {
     entity,
@@ -826,10 +826,10 @@ function summarizeLoader(entity, loaderRecord, loaderFilterRecord = null, filter
     placeName: enumValueName(LOADER_POSITION_NAMES, place),
     priority,
     priorityName: enumValueName(LOADER_PRIORITY_NAMES, priority),
-    requireOutput: hasLoaderState ? config.requireOutput ?? null : null,
-    waitForStack: hasLoaderState ? config.waitForStack ?? null : null,
-    stack: hasLoaderState ? config.stack ?? null : null,
-    cycle: hasLoaderState ? config.cycle ?? null : null,
+    requireOutput: config.requireOutput ?? false,
+    waitForStack: config.waitForStack ?? false,
+    stack: config.stack ?? 16,
+    cycle: Math.max(1, config.cycle ?? 1),
     filterMode,
     filterModeName: enumValueName(LOADER_FILTER_MODE_NAMES, filterMode),
     filterSlots: config.filterSlots ?? null,
@@ -1256,7 +1256,7 @@ export class ModelState {
     for (const section of update.sections || []) {
       if (section.table !== 78) continue;
       for (const changed of section.records || []) {
-        this.#loaderConfig.updateRecord(null, changed.entity, this.record(78, changed.entity), changed.mask, changed.previous);
+        this.#loaderConfig.updateRecord(null, changed.entity, changed.record ?? this.record(78, changed.entity), changed.mask, changed.previous);
       }
     }
   }
@@ -1598,7 +1598,7 @@ export class ModelState {
     const cannon = summarizeCannon(entityId, cannonRecord, typeId);
     const pusher = summarizePusher(entityId, pusherRecord, loaderFilterSlotsRecord);
     const loader = (typeId === LOADER_TYPE_ID || (typeId == null && (loaderRecord || loaderFilterRecord || loaderFilterSlotsRecord)))
-      ? summarizeLoader(entityId, loaderRecord, loaderFilterRecord, loaderFilterSlotsRecord, this.#loaderConfig)
+      ? summarizeLoader(entityId, loaderRecord, loaderFilterRecord, loaderFilterSlotsRecord, this.#loaderConfig, typeId === LOADER_TYPE_ID)
       : null;
     const navigationUnit = summarizeNavigationUnit(entityId, typeId, loaderRecord, this.#navigationUnitAutoWarp.get(entityId));
     const fluidTank = fluidTankRecord ? { entity: entityId, amount: fluidTankRecord.q24 ?? null, state: cloneRecord(fluidTankRecord) } : null;
@@ -1781,6 +1781,7 @@ export class ModelState {
 
       const changed = { entity, mask };
       if (previous) changed.previous = previous;
+      if (tableId === 78) changed.record = cloneRecord(record);
       section.records.push(changed);
     }
     return section;
