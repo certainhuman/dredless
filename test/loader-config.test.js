@@ -84,7 +84,7 @@ function reviveLogValue(value) {
 }
 
 function captureUrl(name) {
-  return new URL(`../captures/${name}`, import.meta.url);
+  return new URL(`./fixtures/captures/${name}`, import.meta.url);
 }
 
 function replayCapture(name) {
@@ -96,10 +96,6 @@ function replayCapture(name) {
     if (event.event === "packet" && event.packet) store.apply(event.packet);
   }
   return store;
-}
-
-function hasCapture(name) {
-  return fs.existsSync(captureUrl(name));
 }
 
 function placedLoaderEntities(world) {
@@ -306,7 +302,7 @@ test("loader gap fixtures cover suspected semantic delta masks", () => {
   );
 });
 
-test("loader blueprint captures replay and match fixture configs", (t) => {
+test("loader blueprint captures replay and match fixture configs", () => {
   const captures = [
     ["loader-config-matrix.jsonl", loaderBlueprintFixtures.matrix, 11.5, 11.5],
     ["loader-delta.jsonl", loaderBlueprintFixtures.deltaReconfigured, 12.5, 11.5],
@@ -322,10 +318,6 @@ test("loader blueprint captures replay and match fixture configs", (t) => {
     ["loader-delta-gap-no-cycle.jsonl", loaderBlueprintFixtures.deltaGapNoCycleReconfigured, 9.5, 15.5],
     ["loader-delta-multi.jsonl", loaderBlueprintFixtures.deltaMultiStep3, 9.5, 12.5]
   ];
-  if (!captures.every(([name]) => hasCapture(name))) {
-    t.skip("local capture files are not present");
-    return;
-  }
 
   for (const [name, fixture, offsetX, offsetY] of captures) {
     const store = replayCapture(name);
