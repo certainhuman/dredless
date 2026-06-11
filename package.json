@@ -83,5 +83,8 @@
     "watch": "node watch.js",
     "watch:test": "node watch.js --test",
     "test:loader": "node --test test/loader-config.test.js"
+  },
+  "devDependencies": {
+    "dsa-shipshape": "^0.1.2"
   }
 }

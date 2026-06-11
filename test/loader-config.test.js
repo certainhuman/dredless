@@ -1,8 +1,15 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
+import { Blueprint, Item, Structure } from "dsa-shipshape";
 import { ModelState } from "../src/game/model.js";
 import { WorldState, WorldStore } from "../src/game/world.js";
 import { LoaderConfigTracker } from "../src/game/loader-config.js";
+import {
+  fixtureByName,
+  loaderBlueprintFixtures,
+  normalizeLoaderBuild
+} from "./loader-blueprint-fixtures.js";
 
 const WORLD = 11479;
 const ENTITY = 27;
@@ -141,6 +148,379 @@ function modelData(generation, ...sections) {
   ]);
 }
 
+function normalizeSlots(slots) {
+  return slots == null ? null : slots.map((slot) => slot?.itemId ?? slot ?? null);
+}
+
+function reviveLogValue(value) {
+  if (Array.isArray(value)) return value.map(reviveLogValue);
+  if (value && typeof value === "object") {
+    if (typeof value.$binary === "string") return new Uint8Array(Buffer.from(value.$binary, "base64"));
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, reviveLogValue(item)]));
+  }
+  return value;
+}
+
+function captureUrl(name) {
+  return new URL(`../captures/${name}`, import.meta.url);
+}
+
+function replayCapture(name) {
+  const store = new WorldStore();
+  const text = fs.readFileSync(captureUrl(name), "utf8");
+  for (const line of text.split(/\r?\n/)) {
+    if (!line) continue;
+    const event = reviveLogValue(JSON.parse(line));
+    if (event.event === "packet" && event.packet) store.apply(event.packet);
+  }
+  return store;
+}
+
+function hasCapture(name) {
+  return fs.existsSync(captureUrl(name));
+}
+
+function placedLoaderEntities(world) {
+  return world.model.entities().filter((entity) =>
+    entity.transform && entity.contents?.loader && entity.typeId === Item.LOADER_PACKAGED
+  );
+}
+
+function assertFixturePositionsPresent(world, fixture, offsetX, offsetY) {
+  const positions = new Set(placedLoaderEntities(world).map((entity) => `${entity.transform.x},${entity.transform.y}`));
+  for (const loader of fixture.loaders) {
+    assert.ok(
+      positions.has(`${loader.x + offsetX},${loader.y + offsetY}`),
+      `${fixture.name} missing loader ${loader.name}`
+    );
+  }
+}
+
+function assertFixtureLoadersMatch(world, fixture, offsetX, offsetY) {
+  const byPosition = new Map(placedLoaderEntities(world).map((entity) => [`${entity.transform.x},${entity.transform.y}`, entity]));
+  for (const loader of fixture.loaders) {
+    const entity = byPosition.get(`${loader.x + offsetX},${loader.y + offsetY}`);
+    assert.ok(entity, `${fixture.name} missing loader ${loader.name}`);
+    assertLoaderMatchesFixture(entity.contents.loader, loader, `${fixture.name} ${loader.name}`);
+  }
+}
+
+function assertLoaderMatchesFixture(loader, expected, message) {
+  assert.equal(loader.pick, expected.pick, `${message} pick`);
+  assert.equal(loader.place, expected.place, `${message} place`);
+  assert.equal(loader.priority, expected.priority, `${message} priority`);
+  assert.equal(loader.requireOutput, expected.requireOutput, `${message} requireOutput`);
+  assert.equal(loader.waitForStack, expected.waitForStack, `${message} waitForStack`);
+  assert.equal(loader.stack, expected.stack, `${message} stack`);
+  assert.equal(loader.cycle, expected.cycle, `${message} cycle`);
+  assert.equal(loader.filterMode, expected.filterMode, `${message} filterMode`);
+  assert.deepEqual(normalizeSlots(loader.filterSlots), expected.filterSlots, `${message} filterSlots`);
+}
+
+function assertFixturePositionsMatch(left, right) {
+  assert.deepEqual(
+    left.loaders.map((loader) => [loader.name, loader.x, loader.y]),
+    right.loaders.map((loader) => [loader.name, loader.x, loader.y])
+  );
+}
+
+function loaderFilterSections(entity, expected) {
+  const sections = [tableSection(160, entity, 1, fieldDelta(expected.filterMode))];
+  let mask = 0;
+  const values = [];
+  for (const [index, item] of expected.filterSlots.entries()) {
+    if (item == null) continue;
+    mask |= 1 << index;
+    values.push(item);
+  }
+  sections.push(tableSection(161, entity, mask, values.flatMap(fieldDelta)));
+  return sections;
+}
+
+function loaderFilterDeltaSections(entity, before, after) {
+  const sections = [];
+  const filterModeDelta = after.filterMode - before.filterMode;
+  if (filterModeDelta) sections.push(tableSection(160, entity, 1, fieldDelta(filterModeDelta)));
+
+  let mask = 0;
+  const values = [];
+  for (let index = 0; index < after.filterSlots.length; index += 1) {
+    const delta = (after.filterSlots[index] ?? 0) - (before.filterSlots[index] ?? 0);
+    if (!delta) continue;
+    mask |= 1 << index;
+    values.push(delta);
+  }
+  if (mask) sections.push(tableSection(161, entity, mask, values.flatMap(fieldDelta)));
+  return sections;
+}
+
+function loaderSnapshotSection(entity, expected) {
+  const hasFlag = expected.requireOutput || expected.waitForStack;
+  const mask = 31 | (expected.requireOutput ? 32 : 0) | (expected.waitForStack ? 64 : 0);
+  const slots = [
+    expected.pick - 3,
+    expected.place - 4,
+    expected.priority,
+    expected.stack - 16,
+    Math.round((expected.cycle - 1) * 20)
+  ];
+  return table78Section(162, entity, mask, hasFlag ? [0, ...slots] : slots);
+}
+
+function loaderSemanticDeltaSection(entity, before, after) {
+  const pickDelta = after.pick - before.pick;
+  const placeDelta = after.place - before.place;
+  const priorityDelta = after.priority - before.priority;
+  const stackDelta = after.stack - before.stack;
+  const cycleDelta = Math.round((after.cycle - before.cycle) * 20);
+  let mask = 96 | 1;
+  const values = [0, pickDelta];
+
+  if (placeDelta) {
+    mask |= 2;
+    values.push(placeDelta);
+  }
+  if (priorityDelta) {
+    mask |= 4;
+    values.push(priorityDelta);
+  }
+  if (stackDelta) {
+    mask |= 8;
+    values.push(stackDelta);
+  }
+  if (cycleDelta) {
+    mask |= 16;
+    values.push(cycleDelta);
+  }
+
+  return table78Section(162, entity, mask, values);
+}
+
+function loaderFixtureSections(fixture, entityBase) {
+  return fixture.loaders.flatMap((loader, index) => {
+    const entity = entityBase + index;
+    return [
+      tableSection(43, entity, 3, [252, 1].flatMap(fieldDelta)),
+      loaderSnapshotSection(entity, loader),
+      ...loaderFilterSections(entity, loader)
+    ];
+  });
+}
+
+test("dsa-shipshape loader blueprint fixtures round-trip normalized configs", () => {
+  assert.ok(loaderBlueprintFixtures.matrix.loaders.length >= 100, "matrix fixture should stay dense");
+  assert.ok(loaderBlueprintFixtures.pairMatrix.loaders.length >= 160, "pair matrix fixture should cover all pick/place pairs");
+  assert.ok(loaderBlueprintFixtures.checkerMatrix.loaders.length >= 60, "checker matrix fixture should stay dense");
+  assert.ok(loaderBlueprintFixtures.deltaBase.loaders.length >= 60, "delta base fixture should stay dense");
+  assert.ok(loaderBlueprintFixtures.delta2Base.loaders.length >= 80, "second delta base fixture should stay dense");
+  assert.ok(loaderBlueprintFixtures.delta3Base.loaders.length >= 50, "third delta base fixture should stay dense");
+  assert.ok(loaderBlueprintFixtures.delta4Base.loaders.length >= 60, "fourth delta base fixture should stay dense");
+  assert.ok(loaderBlueprintFixtures.delta5Base.loaders.length >= 60, "fifth delta base fixture should stay dense");
+  assert.ok(loaderBlueprintFixtures.delta6Base.loaders.length >= 60, "sixth delta base fixture should stay dense");
+  assert.equal(
+    loaderBlueprintFixtures.deltaReconfigured.loaders.length,
+    loaderBlueprintFixtures.deltaBase.loaders.length,
+    "delta fixtures must reconfigure the same loader count"
+  );
+  assert.equal(
+    loaderBlueprintFixtures.delta2Reconfigured.loaders.length,
+    loaderBlueprintFixtures.delta2Base.loaders.length,
+    "second delta fixtures must reconfigure the same loader count"
+  );
+  assert.equal(
+    loaderBlueprintFixtures.delta3Reconfigured.loaders.length,
+    loaderBlueprintFixtures.delta3Base.loaders.length,
+    "third delta fixtures must reconfigure the same loader count"
+  );
+  assert.equal(
+    loaderBlueprintFixtures.delta4Reconfigured.loaders.length,
+    loaderBlueprintFixtures.delta4Base.loaders.length,
+    "fourth delta fixtures must reconfigure the same loader count"
+  );
+  assert.equal(
+    loaderBlueprintFixtures.delta5Reconfigured.loaders.length,
+    loaderBlueprintFixtures.delta5Base.loaders.length,
+    "fifth delta fixtures must reconfigure the same loader count"
+  );
+  assert.equal(
+    loaderBlueprintFixtures.delta6Reconfigured.loaders.length,
+    loaderBlueprintFixtures.delta6Base.loaders.length,
+    "sixth delta fixtures must reconfigure the same loader count"
+  );
+
+  for (const fixture of Object.values(loaderBlueprintFixtures)) {
+    const decoded = Structure.fromBlueprint(Blueprint.decode(fixture.code));
+    const actual = decoded.getAll()
+      .filter((build) => build.item === Item.LOADER_PACKAGED)
+      .map(normalizeLoaderBuild)
+      .sort((a, b) => a.y - b.y || a.x - b.x);
+    const expected = fixture.loaders.map(({ name, ...loader }) => loader);
+    assert.deepEqual(actual, expected, `${fixture.name} round trip`);
+  }
+
+  assertFixturePositionsMatch(loaderBlueprintFixtures.deltaBase, loaderBlueprintFixtures.deltaReconfigured);
+  assertFixturePositionsMatch(loaderBlueprintFixtures.delta2Base, loaderBlueprintFixtures.delta2Reconfigured);
+  assertFixturePositionsMatch(loaderBlueprintFixtures.delta3Base, loaderBlueprintFixtures.delta3Reconfigured);
+  assertFixturePositionsMatch(loaderBlueprintFixtures.delta4Base, loaderBlueprintFixtures.delta4Reconfigured);
+  assertFixturePositionsMatch(loaderBlueprintFixtures.delta5Base, loaderBlueprintFixtures.delta5Reconfigured);
+  assertFixturePositionsMatch(loaderBlueprintFixtures.delta6Base, loaderBlueprintFixtures.delta6Reconfigured);
+});
+
+test("ModelState decodes dense semantic loader fixture snapshots", () => {
+  for (const [fixtureIndex, fixture] of [
+    loaderBlueprintFixtures.matrix,
+    loaderBlueprintFixtures.pairMatrix,
+    loaderBlueprintFixtures.checkerMatrix
+  ].entries()) {
+    const model = new ModelState();
+    const entityBase = 3000 + (fixtureIndex * 1000);
+    model.apply(modelData(
+      1,
+      ...loaderFixtureSections(fixture, entityBase)
+    ), { full: true });
+
+    for (const [index, loader] of fixture.loaders.entries()) {
+      const entity = entityBase + index;
+      assertLoaderMatchesFixture(model.entity(entity).contents.loader, loader, `${fixture.name} ${loader.name}`);
+    }
+  }
+});
+
+function assertLoaderReconfigurationFixture(baseFixture, reconfiguredFixture, entityBase, skipNames = new Set()) {
+  const model = new ModelState();
+  const baseByName = fixtureByName(baseFixture);
+  const entityByName = new Map(baseFixture.loaders.map((loader, index) => [loader.name, entityBase + index]));
+
+  model.apply(modelData(
+    1,
+    ...loaderFixtureSections(baseFixture, entityBase)
+  ), { full: true });
+
+  const updateSections = [];
+  for (const next of reconfiguredFixture.loaders) {
+    if (skipNames.has(next.name)) continue;
+    const entity = entityByName.get(next.name);
+    const before = baseByName.get(next.name);
+    updateSections.push(
+      loaderSemanticDeltaSection(entity, before, next),
+      ...loaderFilterDeltaSections(entity, before, next)
+    );
+  }
+
+  model.apply(modelData(2, ...updateSections));
+
+  for (const next of reconfiguredFixture.loaders) {
+    if (skipNames.has(next.name)) continue;
+    const entity = entityByName.get(next.name);
+    assertLoaderMatchesFixture(model.entity(entity).contents.loader, next, `${reconfiguredFixture.name} ${next.name}`);
+  }
+}
+
+test("ModelState applies dense semantic loader fixture reconfiguration deltas", () => {
+  assertLoaderReconfigurationFixture(
+    loaderBlueprintFixtures.deltaBase,
+    loaderBlueprintFixtures.deltaReconfigured,
+    4000,
+    new Set(["cycle-q40-origin", "cycle-q44-origin", "priority-offset"])
+  );
+  assertLoaderReconfigurationFixture(
+    loaderBlueprintFixtures.delta2Base,
+    loaderBlueprintFixtures.delta2Reconfigured,
+    5000
+  );
+  assertLoaderReconfigurationFixture(
+    loaderBlueprintFixtures.delta3Base,
+    loaderBlueprintFixtures.delta3Reconfigured,
+    6000
+  );
+  assertLoaderReconfigurationFixture(
+    loaderBlueprintFixtures.delta4Base,
+    loaderBlueprintFixtures.delta4Reconfigured,
+    7000
+  );
+  assertLoaderReconfigurationFixture(
+    loaderBlueprintFixtures.delta5Base,
+    loaderBlueprintFixtures.delta5Reconfigured,
+    8000
+  );
+  assertLoaderReconfigurationFixture(
+    loaderBlueprintFixtures.delta6Base,
+    loaderBlueprintFixtures.delta6Reconfigured,
+    9000
+  );
+});
+
+test("loader blueprint captures replay and match fixture configs", (t) => {
+  const captures = [
+    ["loader-config-matrix.jsonl", loaderBlueprintFixtures.matrix, 11.5, 11.5],
+    ["loader-delta.jsonl", loaderBlueprintFixtures.deltaReconfigured, 12.5, 11.5],
+    ["loader-config-pairs.jsonl", loaderBlueprintFixtures.pairMatrix, 7.5, 11.5],
+    ["loader-delta-2.jsonl", loaderBlueprintFixtures.delta2Reconfigured, 12.5, 13.5],
+    ["loader-config-checker.jsonl", loaderBlueprintFixtures.checkerMatrix, 9.5, 9.5],
+    ["loader-delta-3.jsonl", loaderBlueprintFixtures.delta3Reconfigured, 12.5, 11.5],
+    ["loader-delta-4.jsonl", loaderBlueprintFixtures.delta4Reconfigured, 11.5, 11.5],
+    ["loader-delta-5.jsonl", loaderBlueprintFixtures.delta5Reconfigured, 11.5, 11.5],
+    ["loader-delta-6.jsonl", loaderBlueprintFixtures.delta6Reconfigured, 11.5, 11.5]
+  ];
+  if (!captures.every(([name]) => hasCapture(name))) {
+    t.skip("local capture files are not present");
+    return;
+  }
+
+  for (const [name, fixture, offsetX, offsetY] of captures) {
+    const store = replayCapture(name);
+    const world = store.shipWorld();
+    assert.ok(world, `${name} ship world`);
+    assert.deepEqual(world.model.errors, [], `${name} decode errors`);
+    assert.equal(placedLoaderEntities(world).length, fixture.loaders.length, `${name} loader count`);
+    assertFixturePositionsPresent(world, fixture, offsetX, offsetY);
+    assertFixtureLoadersMatch(world, fixture, offsetX, offsetY);
+  }
+});
+
+test("ModelState loader deltas match dsa-shipshape reconfiguration fixtures", () => {
+  const base = fixtureByName(loaderBlueprintFixtures.deltaBase);
+  const updated = fixtureByName(loaderBlueprintFixtures.deltaReconfigured);
+  const q40Origin = 300;
+  const q44Origin = 301;
+  const priorityOffset = 302;
+  const q40Base = base.get("cycle-q40-origin");
+  const q44Base = base.get("cycle-q44-origin");
+  const priorityBase = base.get("priority-offset");
+  const q40Updated = updated.get("cycle-q40-origin");
+  const q44Updated = updated.get("cycle-q44-origin");
+  const priorityUpdated = updated.get("priority-offset");
+
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(43, q40Origin, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, q40Origin, 126, [-1, 3, 1, -7, 80]),
+    ...loaderFilterSections(q40Origin, q40Base),
+    tableSection(43, q44Origin, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, q44Origin, 95, [0, 1, -1, 1, -7, 140]),
+    ...loaderFilterSections(q44Origin, q44Base),
+    tableSection(43, priorityOffset, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, priorityOffset, 95, [0, 4, -3, 1, -5, 700]),
+    ...loaderFilterSections(priorityOffset, priorityBase)
+  ), { full: true });
+
+  assertLoaderMatchesFixture(model.entity(q40Origin).contents.loader, q40Base, "q40 origin initial");
+  assertLoaderMatchesFixture(model.entity(q44Origin).contents.loader, q44Base, "q44 origin initial");
+  assertLoaderMatchesFixture(model.entity(priorityOffset).contents.loader, priorityBase, "priority offset initial");
+
+  model.apply(modelData(
+    2,
+    table78Section(162, q40Origin, 16, [40]),
+    table78Section(162, q44Origin, 16, [20]),
+    table78Section(162, priorityOffset, 4, [-2])
+  ));
+
+  assertLoaderMatchesFixture(model.entity(q40Origin).contents.loader, q40Updated, "q40 origin reconfigured");
+  assertLoaderMatchesFixture(model.entity(q44Origin).contents.loader, q44Updated, "q44 origin reconfigured");
+  assertLoaderMatchesFixture(model.entity(priorityOffset).contents.loader, priorityUpdated, "priority offset reconfigured");
+});
+
 test("loader pick/place sequence captures", () => {
   for (const fixture of sequenceFixtures) {
     const tracker = new LoaderConfigTracker();
@@ -227,12 +607,183 @@ test("ModelState applies loader tracker updates from per-section table 78 record
   );
 });
 
+test("ModelState keeps sparse loader full-snapshot origin across repeated table 78 rows", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, ENTITY, 35, [0, 4, -3]),
+    table78Section(162, ENTITY, 3, [-3, 3])
+  ), { full: true });
+
+  const loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.pick, 7);
+  assert.equal(loader.pickName, "bottom-right");
+  assert.equal(loader.place, 1);
+  assert.equal(loader.placeName, "top-middle");
+  assert.equal(loader.requireOutput, true);
+  assert.equal(loader.waitForStack, false);
+});
+
+test("ModelState remaps indexed full-snapshot loader config rows", () => {
+  const model = new ModelState();
+  const loaderIds = [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114];
+  model.apply(modelData(
+    1,
+    ...loaderIds.map((entity) => tableSection(43, entity, 3, [252, 1].flatMap(fieldDelta))),
+    table78Section(162, 200, 0, []),
+    table78Section(162, 201, 1, [2]),
+    table78Section(162, 202, 2, [3]),
+    table78Section(162, 203, 3, [4, -4]),
+    table78Section(162, 204, 7, [2, 3, -1]),
+    table78Section(162, 205, 18, [3, 5]),
+    table78Section(162, 206, 32, [0]),
+    table78Section(162, 207, 33, [0, -2]),
+    table78Section(162, 208, 34, [0, 3]),
+    table78Section(162, 209, 35, [0, 1, -1]),
+    table78Section(162, 210, 65, [0, -3]),
+    table78Section(162, 211, 67, [0, -2, 2]),
+    table78Section(162, 212, 98, [-1, -3]),
+    table78Section(162, 213, 99, [-1, 4, -4]),
+    table78Section(162, 207, 1, [3])
+  ), { full: true });
+
+  const expected = [
+    [3, 4, 0, false, false, 1],
+    [5, 4, 0, false, false, 1],
+    [3, 7, 0, false, false, 1],
+    [7, 0, 0, false, false, 1],
+    [5, 7, -1, false, false, 1],
+    [3, 7, 0, false, false, 1.25],
+    [3, 4, 0, true, false, 1],
+    [1, 4, 0, true, false, 1],
+    [3, 7, 0, true, false, 1],
+    [4, 3, 0, true, false, 1],
+    [0, 4, 0, false, true, 1],
+    [1, 6, 0, false, true, 1],
+    [3, 1, 0, true, true, 1],
+    [7, 0, 0, true, true, 1],
+    [6, 4, 0, true, false, 1]
+  ];
+
+  for (const [index, entity] of loaderIds.entries()) {
+    const loader = model.entity(entity).contents.loader;
+    const [pick, place, priority, requireOutput, waitForStack, cycle] = expected[index];
+    assert.equal(loader.pick, pick, `loader ${entity} pick`);
+    assert.equal(loader.place, place, `loader ${entity} place`);
+    assert.equal(loader.priority, priority, `loader ${entity} priority`);
+    assert.equal(loader.requireOutput, requireOutput, `loader ${entity} requireOutput`);
+    assert.equal(loader.waitForStack, waitForStack, `loader ${entity} waitForStack`);
+    assert.equal(loader.cycle, cycle, `loader ${entity} cycle`);
+  }
+
+  assert.equal(model.record(78, 200), null);
+});
+
+test("ModelState decodes repeated indexed full-snapshot loader config rows", () => {
+  const model = new ModelState();
+  const loaderIds = [217, 218, 219, 220, 222, 223, 234, 236, 237, 238, 244, 245, 246, 248, 249, 251, 252, 253, 258];
+  model.apply(modelData(
+    1,
+    ...loaderIds.map((entity) => tableSection(43, entity, 3, [252, 1].flatMap(fieldDelta))),
+    table78Section(162, 217, 35, [0, 2, 3]),
+    table78Section(162, 218, 32, [0]),
+    table78Section(162, 219, 3, [-2, 3]),
+    table78Section(162, 220, 35, [0, 2, -3]),
+    table78Section(162, 222, 35, [0, 2, -3]),
+    table78Section(162, 223, 35, [0, 2, -3]),
+    table78Section(162, 234, 35, [0, 3, -3]),
+    table78Section(162, 236, 126, [-1, 3, 1, -7, 80]),
+    table78Section(162, 234, 7, [-2, 1, -1]),
+    table78Section(162, 230, 5, [1, -1]),
+    table78Section(162, 218, 3, [1, -17]),
+    table78Section(162, 217, 7, [3, 1, -1]),
+    table78Section(162, 219, 7, [2, -1, 4]),
+    table78Section(162, 220, 2, [-1]),
+    table78Section(162, 222, 9, [2, 49]),
+    table78Section(162, 220, 7, [1, -16, 0]),
+    table78Section(162, 223, 2, [-16]),
+    table78Section(162, 222, 6, [1, -16]),
+    table78Section(162, 217, 8, [-3])
+  ), { full: true });
+
+  const expected = new Map([
+    [217, { pick: 5, place: 7, priority: 0, requireOutput: true, waitForStack: false, stack: 16, cycle: 1 }],
+    [218, { pick: 3, place: 4, priority: 0, requireOutput: true, waitForStack: false, stack: 16, cycle: 1 }],
+    [219, { pick: 1, place: 7, priority: 0, requireOutput: false, waitForStack: false, stack: 16, cycle: 1 }],
+    [220, { pick: 5, place: 1, priority: 0, requireOutput: true, waitForStack: false, stack: 16, cycle: 1 }],
+    [222, { pick: 5, place: 1, priority: 0, requireOutput: true, waitForStack: false, stack: 16, cycle: 1 }],
+    [223, { pick: 5, place: 1, priority: 0, requireOutput: true, waitForStack: false, stack: 16, cycle: 1 }],
+    [234, { pick: 6, place: 1, priority: 0, requireOutput: true, waitForStack: false, stack: 16, cycle: 1 }],
+    [236, { pick: 3, place: 7, priority: 1, requireOutput: true, waitForStack: true, stack: 9, cycle: 5 }],
+    [237, { pick: 0, place: 2, priority: 0, requireOutput: false, waitForStack: false, stack: 16, cycle: 1 }],
+    [238, { pick: 0, place: 2, priority: 0, requireOutput: false, waitForStack: false, stack: 16, cycle: 1 }],
+    [244, { pick: 7, place: 3, priority: 0, requireOutput: false, waitForStack: false, stack: 16, cycle: 1 }],
+    [245, { pick: 0, place: 7, priority: 0, requireOutput: true, waitForStack: false, stack: 16, cycle: 1 }],
+    [246, { pick: 5, place: 1, priority: 0, requireOutput: false, waitForStack: false, stack: 16, cycle: 1 }],
+    [248, { pick: 7, place: 5, priority: 0, requireOutput: false, waitForStack: false, stack: 16, cycle: 1 }],
+    [249, { pick: 5, place: 0, priority: 0, requireOutput: false, waitForStack: false, stack: 16, cycle: 1 }],
+    [251, { pick: 3, place: 1, priority: 0, requireOutput: true, waitForStack: true, stack: 16, cycle: 1 }],
+    [252, { pick: 6, place: 4, priority: 0, requireOutput: true, waitForStack: false, stack: 16, cycle: 1 }],
+    [253, { pick: 6, place: 4, priority: 0, requireOutput: true, waitForStack: false, stack: 16, cycle: 1 }],
+    [258, { pick: 7, place: 1, priority: 0, requireOutput: true, waitForStack: false, stack: 16, cycle: 1 }]
+  ]);
+
+  for (const [entity, expectedConfig] of expected) {
+    const loader = model.entity(entity).contents.loader;
+    for (const [field, value] of Object.entries(expectedConfig)) {
+      assert.equal(loader[field], value, `loader ${entity} ${field}`);
+    }
+  }
+
+  model.apply(modelData(
+    2,
+    table78Section(162, 236, 16, [20])
+  ));
+  assert.equal(model.entity(236).contents.loader.cycle, 6);
+  assert.equal(model.entity(236).contents.loader.stack, 9);
+
+  model.apply(modelData(
+    3,
+    table78Section(162, 236, 16, [20])
+  ));
+  assert.equal(model.entity(236).contents.loader.cycle, 7);
+  assert.equal(model.entity(236).contents.loader.stack, 9);
+});
+
+test("ModelState decodes q44 indexed full-snapshot loader config rows", () => {
+  const model = new ModelState();
+  model.apply(modelData(
+    1,
+    tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
+    table78Section(162, ENTITY, 95, [0, 1, -1, 1, -7, 140])
+  ), { full: true });
+
+  let loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.pick, 4);
+  assert.equal(loader.place, 3);
+  assert.equal(loader.priority, 1);
+  assert.equal(loader.requireOutput, false);
+  assert.equal(loader.waitForStack, true);
+  assert.equal(loader.stack, 9);
+  assert.equal(loader.cycle, 8);
+
+  model.apply(modelData(
+    2,
+    table78Section(162, ENTITY, 16, [20])
+  ));
+
+  loader = model.entity(ENTITY).contents.loader;
+  assert.equal(loader.cycle, 9);
+  assert.equal(loader.stack, 9);
+});
+
 test("ModelState decodes direct loader position/cycle baseline", () => {
   const model = new ModelState();
   model.apply(modelData(
     1,
     table78Section(162, ENTITY, 19, [-1, 1, 720])
-  ));
+  ), { full: true });
 
   const loader = model.entity(ENTITY).contents.loader;
   assert.equal(loader.pick, 2);
@@ -289,7 +840,7 @@ test("ModelState decodes loader stack from baseline plus q32 delta", () => {
   const model = new ModelState();
   model.apply(modelData(
     1,
-    table78Section(162, ENTITY, 120, [-1, -15, 390, 0])
+    table78Section(162, ENTITY, 120, [-1, -15, 390])
   ));
   assert.equal(model.entity(ENTITY).contents.loader.stack, 1);
   assert.equal(model.entity(ENTITY).contents.loader.cycle, 20.5);
@@ -379,8 +930,8 @@ test("ModelState decodes q44 cycle baseline with direct q36 updates", () => {
   const model = new ModelState();
   model.apply(modelData(
     1,
-    table78Section(162, ENTITY, 104, [-1, -11, 0])
-  ));
+    table78Section(162, ENTITY, 72, [-1, 0])
+  ), { full: true });
   assert.equal(model.entity(ENTITY).contents.loader.cycle, 1);
 
   const rows = [
@@ -477,7 +1028,7 @@ test("ModelState exposes normalized pusher configuration", () => {
   model.apply(modelData(
     1,
     table78Section(163, ENTITY, 4, [450])
-  ));
+  ), { full: true });
 
   let pusher = model.entity(ENTITY).contents.pusher;
   assert.equal(pusher.mode, 2);
@@ -496,7 +1047,7 @@ test("ModelState exposes normalized pusher configuration", () => {
       ...[-1, 2, 1350, 500, 50].flatMap(fieldDelta)
     ]),
     table78Section(161, ENTITY, 7, [100, 101, 103])
-  ));
+  ), { full: true });
 
   pusher = model.entity(ENTITY).contents.pusher;
   assert.equal(model.entity(ENTITY).contents.loader, undefined);
@@ -519,7 +1070,7 @@ test("ModelState does not classify cargo hatch filter tables as loader config", 
     tableSection(43, hatch, 1, fieldDelta(221)),
     tableSection(160, hatch, 0, []),
     tableSection(161, hatch, 0, [])
-  ));
+  ), { full: true });
 
   const entity = model.entity(hatch);
   assert.equal(entity.typeId, 221);
@@ -776,9 +1327,9 @@ test("ModelState decodes full initial loader config from loader-ex", () => {
   model.apply(modelData(
     1,
     tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
-    table78Section(162, ENTITY, 127, [-1, -2, 2, 1, -4, 100, 0]),
+    table78Section(162, ENTITY, 127, [-1, -2, 2, 1, -4, 100]),
     tableSection(161, ENTITY, 2, fieldDelta(109))
-  ));
+  ), { full: true });
 
   const loader = model.entity(ENTITY).contents.loader;
   assert.equal(loader.pick, 1);
@@ -908,7 +1459,7 @@ test("ModelState decodes q44 priority offset updates from loader-ex-9", () => {
     table78Section(162, ENTITY, 95, [0, 4, -3, 1, -5, 700]),
     tableSection(160, ENTITY, 1, fieldDelta(1)),
     tableSection(161, ENTITY, 4, fieldDelta(109))
-  ));
+  ), { full: true });
 
   let loader = model.entity(ENTITY).contents.loader;
   assert.equal(loader.pick, 7);
@@ -946,9 +1497,9 @@ test("ModelState decodes q44 full-row priority and filter fallback from loader-e
   model.apply(modelData(
     1,
     tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
-    table78Section(162, ENTITY, 127, [-1, 1, -1, -1, -4, 880, 0]),
+    table78Section(162, ENTITY, 127, [-1, 1, -1, -1, -4, 880]),
     tableSection(161, ENTITY, 4, fieldDelta(109))
-  ));
+  ), { full: true });
 
   const loader = model.entity(ENTITY).contents.loader;
   assert.equal(loader.pick, 4);
@@ -971,8 +1522,8 @@ test("ModelState decodes q32 filter baseline from loader-ex-11", () => {
   model.apply(modelData(
     1,
     tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
-    table78Section(162, ENTITY, 121, [-1, 3, -1, 1060, 0])
-  ));
+    table78Section(162, ENTITY, 121, [-1, 3, -1, 1060])
+  ), { full: true });
 
   let loader = model.entity(ENTITY).contents.loader;
   assert.equal(loader.pick, 6);
@@ -1054,8 +1605,8 @@ test("ModelState decodes q32 filter fallback from loader-ex-13", () => {
   model.apply(modelData(
     1,
     tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
-    table78Section(162, ENTITY, 127, [-1, 4, -4, 1, -1, 1060, 0])
-  ));
+    table78Section(162, ENTITY, 127, [-1, 4, -4, 1, -1, 1060])
+  ), { full: true });
 
   const loader = model.entity(ENTITY).contents.loader;
   assert.equal(loader.pick, 7);
@@ -1251,13 +1802,13 @@ test("ModelState does not rebase loader positions from active flag bits on later
   model.apply(modelData(
     1,
     tableSection(43, ENTITY, 3, [252, 1].flatMap(fieldDelta)),
-    table78Section(162, ENTITY, 127, [-1, -2, 2, 1, -4, 100, 0]),
+    table78Section(162, ENTITY, 127, [-1, -2, 2, 1, -4, 100]),
     tableSection(161, ENTITY, 2, fieldDelta(109))
   ));
 
   model.apply(modelData(
     2,
-    table78Section(162, ENTITY, 99, [5, -4, 0, 0])
+    table78Section(162, ENTITY, 99, [5, -4, 0])
   ));
 
   const loader = model.entity(ENTITY).contents.loader;

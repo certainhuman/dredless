@@ -289,8 +289,21 @@ const MODEL_TABLE_SPECS = new Map([
   [75, { name: "rare_snapshot", fields: numericFields({ 1: 20, 8: 24, 16: 28 }) }],
   [76, { name: "numeric_single", fields: numericFields({ 1: 20 }) }],
   [77, { name: "numeric_sparse", fields: numericFields({ 1: 20, 2: 24, 4: 28 }) }],
-  [78, { name: "local_session_marker", fields: numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40, 64: 44 }) }]
+  [78, {
+    name: "local_session_marker",
+    read(reader, record, mask) {
+      for (const { bit, offset } of TABLE_78_NUMERIC_FIELDS) {
+        if (!(mask & bit)) continue;
+        record[qKey(offset)] = (record[qKey(offset)] || 0) + reader.readFieldDelta();
+      }
+      if ((mask & 64) && !(mask & 32)) {
+        record.q44 = (record.q44 || 0) + reader.readFieldDelta();
+      }
+    }
+  }]
 ]);
+
+const TABLE_78_NUMERIC_FIELDS = numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40 });
 
 const WIRE_TAG_TABLES = new Map([
   [1, 0],
@@ -493,6 +506,33 @@ function cloneRecord(record) {
     out[key] = value instanceof Uint8Array ? [...value] : value;
   }
   return out;
+}
+
+const TABLE_78_FIELD_BITS = [
+  ["q20", 1],
+  ["q24", 2],
+  ["q28", 4],
+  ["q32", 8],
+  ["q36", 16],
+  ["q40", 32],
+  ["q44", 64]
+];
+
+function table78DeltaRecord(changed) {
+  const record = { lastMask: changed.mask };
+  for (const [field, bit] of TABLE_78_FIELD_BITS) {
+    if (!(changed.mask & bit)) continue;
+    if (field === "q44" && ((changed.mask & 32) || changed.record?.q44 == null)) continue;
+    record[field] = (changed.record?.[field] ?? 0) - (changed.previous?.[field] ?? 0);
+  }
+  return record;
+}
+
+function isSemanticLoaderDelta(changed, full) {
+  return !full &&
+    changed.previous != null &&
+    (changed.mask & 96) === 96 &&
+    (changed.mask & 16) === 16;
 }
 
 function decodeText(blob) {
@@ -1119,10 +1159,11 @@ export class ModelState {
     return this.#derivedState().blocks.slice();
   }
 
-  apply(bytes) {
+  apply(bytes, { full = false } = {}) {
     const reader = new ModelReader(bytes);
     const update = {
       generation: null,
+      full: Boolean(full),
       changedEntities: new Set(),
       sections: [],
       removals: [],
@@ -1168,6 +1209,7 @@ export class ModelState {
       this.errors.push({ message: error.message, generation: update.generation });
     }
 
+    this.#remapIndexedLoaderConfig(update);
     this.#updateLoaderConfig(update);
     this.#updateNavigationUnitAutoWarp(update);
     this.#updateHelmOccupancy(update);
@@ -1253,12 +1295,57 @@ export class ModelState {
   }
 
   #updateLoaderConfig(update) {
+    const seenEntities = new Set();
     for (const section of update.sections || []) {
       if (section.table !== 78) continue;
       for (const changed of section.records || []) {
-        this.#loaderConfig.updateRecord(null, changed.entity, changed.record ?? this.record(78, changed.entity), changed.mask, changed.previous);
+        if (changed.indexedLoaderConfig) {
+          this.#loaderConfig.updateIndexedSnapshotRecord(null, changed.entity, changed.record, changed.mask, changed.cumulativeRecord, changed.configEntity);
+          continue;
+        }
+        const typeId = entityTypeIdFromRecord(this.record(7, changed.entity));
+        this.#loaderConfig.updateRecord(null, changed.entity, changed.record ?? this.record(78, changed.entity), changed.mask, changed.previous, {
+          repeatedInUpdate: seenEntities.has(changed.entity),
+          allowSparseBaseline: typeId === LOADER_TYPE_ID,
+          repeatedInSection: changed.repeatedInSection,
+          semanticSnapshot: Boolean(update.full),
+          semanticDelta: isSemanticLoaderDelta(changed, update.full),
+          deltaRecord: table78DeltaRecord(changed)
+        });
+        seenEntities.add(changed.entity);
       }
     }
+  }
+
+  #remapIndexedLoaderConfig(update) {
+    if (!update.full || update.error) return;
+    const rows = [];
+    for (const section of update.sections || []) {
+      if (section.table !== 78) continue;
+      for (const changed of section.records || []) rows.push(changed);
+    }
+    if (!rows.length) return;
+
+    const loaderIds = [...this.table(7).entries()]
+      .filter(([, record]) => entityTypeIdFromRecord(record) === LOADER_TYPE_ID)
+      .map(([entity]) => entity)
+      .sort((a, b) => a - b);
+    if (loaderIds.length !== rows.length) return;
+    if (rows.every((row, index) => row.entity === loaderIds[index])) return;
+
+    const remappedTable = new Map();
+    for (const [index, changed] of rows.entries()) {
+      const rawRecord = table78DeltaRecord(changed);
+      changed.configEntity = changed.entity;
+      changed.entity = loaderIds[index];
+      changed.cumulativeRecord = cloneRecord(changed.record || {});
+      changed.record = cloneRecord(rawRecord);
+      delete changed.previous;
+      changed.indexedLoaderConfig = true;
+      remappedTable.set(changed.entity, cloneRecord(rawRecord));
+      update.changedEntities.add(changed.entity);
+    }
+    this.tables.set(78, remappedTable);
   }
 
   #updateNavigationUnitAutoWarp(update) {
@@ -1750,8 +1837,13 @@ export class ModelState {
 
   #readSection(reader, tag, tableId) {
     const spec = MODEL_TABLE_SPECS.get(tableId);
+    return this.#readSectionRecords(reader, tag, tableId, spec);
+  }
+
+  #readSectionRecords(reader, tag, tableId, spec) {
     const section = { tag, table: tableId, name: spec?.name || null, records: [] };
     let entity = 0;
+    const seenEntities = tableId === 78 ? new Set() : null;
     while (reader.remaining > 0) {
       const recordOffset = reader.offset;
       let delta;
@@ -1781,6 +1873,8 @@ export class ModelState {
 
       const changed = { entity, mask };
       if (previous) changed.previous = previous;
+      if (seenEntities?.has(entity)) changed.repeatedInSection = true;
+      seenEntities?.add(entity);
       if (tableId === 78) changed.record = cloneRecord(record);
       section.records.push(changed);
     }

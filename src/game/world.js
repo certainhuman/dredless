@@ -119,7 +119,7 @@ export class WorldStore {
       try {
         if (packet.full) world.model = new ModelState({ isOverworld: world.isOverworld });
         result.decoded = decryptPayload(packet.model_data, packet.world, world.seed);
-        result.model = world.model.apply(result.decoded);
+        result.model = world.model.apply(result.decoded, { full: Boolean(packet.full) });
         if (result.model?.error && packet.full && previousModel) world.model = previousModel;
       }
       catch (error) {

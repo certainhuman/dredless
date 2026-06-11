@@ -26,6 +26,10 @@ const DEFAULT_LOADER_PRIORITY = 0;
 const DEFAULT_LOADER_FILTER_MODE = 0;
 const DEFAULT_LOADER_STACK = 16;
 const DEFAULT_LOADER_CYCLE = 1;
+const DEFAULT_LOADER_PICK = 3;
+const DEFAULT_LOADER_PLACE = 4;
+const LOADER_CONFIG_NUMERIC_BITS = [1, 2, 4, 8, 16];
+const LOADER_CONFIG_NUMERIC_FIELDS = ["q20", "q24", "q28", "q32", "q36"];
 
 export function wrapLoaderPosition(value) {
   return value == null ? null : ((value % 8) + 8) % 8;
@@ -37,12 +41,276 @@ export function enumName(map, value) {
   return name == null ? String(value) : `${name}(${value})`;
 }
 
+export function decodeIndexedLoaderSnapshotRecord(loader, mask = 0, cumulative = null, reference = null) {
+  const config = {
+    pick: 3,
+    place: 4,
+    priority: DEFAULT_LOADER_PRIORITY,
+    requireOutput: false,
+    waitForStack: false,
+    stack: DEFAULT_LOADER_STACK,
+    cycle: DEFAULT_LOADER_CYCLE
+  };
+
+  if (mask & 32) config.requireOutput = true;
+  if (mask & 64) config.waitForStack = true;
+
+  switch (mask) {
+    case 0:
+      break;
+    case 1:
+      config.pick = wrapLoaderPosition((loader.q20 ?? 0) + 3);
+      if (cumulative?.q40 != null) config.requireOutput = true;
+      break;
+    case 2:
+      if (reference && cumulative?.q40 != null && loader.q24 != null) {
+        if (loader.q24 <= -8) {
+          config.pick = wrapLoaderPosition((reference.pick ?? 3) + 1);
+          config.place = wrapLoaderPosition((reference.place ?? 4) + 3);
+          config.requireOutput = true;
+        } else {
+          config.pick = wrapLoaderPosition((reference.pick ?? 3) + 2);
+          config.place = wrapLoaderPosition((reference.place ?? 4) + 4);
+        }
+      } else {
+        config.place = wrapLoaderPosition((loader.q24 ?? 0) + 4);
+      }
+      break;
+    case 3:
+      config.pick = reference && loader.q24 <= -8
+        ? wrapLoaderPosition((reference.pick ?? 3) + (loader.q20 ?? 0) + 3)
+        : wrapLoaderPosition((loader.q20 ?? 0) + 3);
+      config.place = wrapLoaderPosition((loader.q24 ?? 0) + 4);
+      // Some repeated full-snapshot rows keep flag state in the materialized
+      // cumulative row while only sending pick/place deltas in the row mask.
+      if (cumulative?.q44 != null && cumulative?.q36 == null && cumulative?.q40 == null) {
+        config.requireOutput = true;
+        config.waitForStack = true;
+      }
+      break;
+    case 5:
+      config.pick = wrapLoaderPosition((loader.q28 ?? 0) + 1);
+      config.place = wrapLoaderPosition((loader.q28 ?? 0) + 3);
+      break;
+    case 6:
+      config.pick = wrapLoaderPosition((loader.q24 ?? 0) + 5);
+      config.place = wrapLoaderPosition((loader.q24 ?? 0) + 3);
+      config.requireOutput = true;
+      break;
+    case 7:
+      if (reference && (cumulative?.q40 != null || loader.q24 <= -8 || loader.q28 >= 2)) {
+        if (loader.q24 <= -8) {
+          config.pick = wrapLoaderPosition((reference.pick ?? 3) + (loader.q20 ?? 0) + 5);
+          config.place = wrapLoaderPosition(reference.place ?? 4);
+          config.requireOutput = true;
+          config.waitForStack = true;
+          if (loader.q28 != null) config.priority = loader.q28;
+        } else if (loader.q28 >= 2) {
+          config.pick = wrapLoaderPosition((reference.pick ?? 3) + loader.q28);
+          config.place = wrapLoaderPosition((reference.place ?? 4) + (loader.q20 ?? 0));
+          config.priority = loader.q28 - 4;
+        } else if ((loader.q20 ?? 0) >= 3) {
+          config.pick = wrapLoaderPosition((reference.pick ?? 3) + (loader.q20 ?? 0));
+          config.place = wrapLoaderPosition(reference.place ?? 4);
+          config.priority = (loader.q28 ?? 0) + 1;
+          config.requireOutput = Boolean(reference.requireOutput);
+          config.waitForStack = Boolean(reference.waitForStack);
+        } else {
+          config.pick = wrapLoaderPosition((loader.q20 ?? 0) + 2);
+          config.place = wrapLoaderPosition((reference.place ?? 4) + (loader.q24 ?? 0));
+          config.priority = (loader.q28 ?? 0) + 1;
+        }
+      } else {
+        config.pick = wrapLoaderPosition((loader.q20 ?? 0) + 3);
+        config.place = wrapLoaderPosition((loader.q24 ?? 0) + 4);
+        if (loader.q28 != null) config.priority = loader.q28;
+      }
+      break;
+    case 8:
+      config.pick = wrapLoaderPosition((cumulative?.q40 ?? 0) + 4);
+      config.place = wrapLoaderPosition((cumulative?.q28 ?? 0) + 2);
+      config.requireOutput = true;
+      break;
+    case 9:
+      config.pick = wrapLoaderPosition((loader.q20 ?? 0) + 3);
+      config.place = wrapLoaderPosition((cumulative?.q40 ?? 0) + 3);
+      break;
+    case 18:
+      config.pick = wrapLoaderPosition(loader.q24 ?? 0);
+      config.place = wrapLoaderPosition((loader.q36 ?? 0) + 2);
+      if (loader.q36 != null) config.cycle = (loader.q36 / 20) + 1;
+      break;
+    case 32:
+      break;
+    case 65:
+      config.pick = wrapLoaderPosition((loader.q44 ?? 0) + 3);
+      break;
+    case 33:
+      config.pick = wrapLoaderPosition((loader.q40 ?? 0) + 3);
+      config.place = wrapLoaderPosition((loader.q20 ?? 0) + 4);
+      break;
+    case 34:
+      config.pick = wrapLoaderPosition((loader.q24 ?? 0) + 3);
+      config.place = wrapLoaderPosition((loader.q40 ?? 0) + 4);
+      break;
+    case 35:
+      config.pick = wrapLoaderPosition((loader.q24 ?? 0) + 3);
+      config.place = wrapLoaderPosition((loader.q40 ?? 0) + 4);
+      break;
+    case 67:
+      config.pick = wrapLoaderPosition((loader.q24 ?? 0) + 3);
+      config.place = wrapLoaderPosition((loader.q44 ?? 0) + 4);
+      break;
+    case 95:
+      config.pick = wrapLoaderPosition((loader.q24 ?? 0) + 3);
+      config.place = wrapLoaderPosition((loader.q28 ?? 0) + 4);
+      if (loader.q32 != null) config.priority = loader.q32;
+      if (loader.q36 != null) config.stack = DEFAULT_LOADER_STACK + loader.q36;
+      if (loader.q44 != null) config.cycle = (loader.q44 / 20) + 1;
+      break;
+    case 98:
+      config.place = wrapLoaderPosition((loader.q40 ?? 0) + 4);
+      break;
+    case 99:
+      config.pick = wrapLoaderPosition((loader.q24 ?? 0) + 3);
+      config.place = wrapLoaderPosition((loader.q40 ?? 0) + 4);
+      break;
+    case 126:
+      config.pick = wrapLoaderPosition(loader.q28 ?? 0);
+      config.place = wrapLoaderPosition(loader.q24 ?? 0);
+      if (loader.q32 != null) config.priority = loader.q32;
+      if (loader.q36 != null) config.stack = DEFAULT_LOADER_STACK + loader.q36;
+      if (loader.q40 != null) config.cycle = (loader.q40 / 20) + 1;
+      break;
+    default:
+      return null;
+  }
+
+  return config;
+}
+
+export function decodeLoaderSnapshotRecord(loader, mask = loader?.lastMask ?? 0) {
+  if (!loader) return null;
+  const hasRequireOutput = Boolean(mask & 32);
+  const hasWaitForStack = Boolean(mask & 64);
+  const hasFlag = hasRequireOutput || hasWaitForStack;
+  const slots = [];
+
+  for (const [index, bit] of LOADER_CONFIG_NUMERIC_BITS.entries()) {
+    if (!(mask & bit)) continue;
+    const value = loader[LOADER_CONFIG_NUMERIC_FIELDS[index]];
+    if (value == null) return null;
+    slots.push(value);
+  }
+  if (hasRequireOutput) {
+    if (loader.q40 == null) return null;
+    slots.push(loader.q40);
+  } else if (hasWaitForStack) {
+    if (loader.q44 == null) return null;
+    slots.push(loader.q44);
+  }
+
+  if (hasFlag && slots.length) slots.shift();
+
+  const config = {
+    pick: 3,
+    place: 4,
+    priority: DEFAULT_LOADER_PRIORITY,
+    requireOutput: hasRequireOutput,
+    waitForStack: hasWaitForStack,
+    stack: DEFAULT_LOADER_STACK,
+    cycle: DEFAULT_LOADER_CYCLE
+  };
+
+  if (mask & 1) {
+    if (!slots.length) return null;
+    config.pick = wrapLoaderPosition(slots.shift() + 3);
+  }
+  if (mask & 2) {
+    if (!slots.length) return null;
+    config.place = wrapLoaderPosition(slots.shift() + 4);
+  }
+  if (mask & 4) {
+    if (!slots.length) return null;
+    config.priority = slots.shift();
+  }
+  if (mask & 8) {
+    if (!slots.length) return null;
+    config.stack = DEFAULT_LOADER_STACK + slots.shift();
+  }
+  if (mask & 16) {
+    if (!slots.length) return null;
+    config.cycle = (slots.shift() / 20) + 1;
+  }
+
+  return config;
+}
+
+function decodeLoaderSemanticDeltaRecord(loader, mask = loader?.lastMask ?? 0) {
+  if (!loader) return null;
+  const hasRequireOutput = Boolean(mask & 32);
+  const hasWaitForStack = Boolean(mask & 64);
+  if (!hasRequireOutput && !hasWaitForStack) return null;
+
+  const slots = [];
+  for (const [index, bit] of LOADER_CONFIG_NUMERIC_BITS.entries()) {
+    if (!(mask & bit)) continue;
+    slots.push(loader[LOADER_CONFIG_NUMERIC_FIELDS[index]] ?? 0);
+  }
+  if (hasRequireOutput) slots.push(loader.q40 ?? 0);
+  else if (hasWaitForStack) slots.push(loader.q44 ?? 0);
+
+  if (slots.length) slots.shift();
+
+  const config = {};
+  if (mask & 1) config.pick = slots.shift() ?? 0;
+  if (mask & 2) config.place = slots.shift() ?? 0;
+  if (mask & 4) config.priority = slots.shift() ?? 0;
+  if (mask & 8) config.stack = slots.shift() ?? 0;
+  if (mask & 16) config.cycleTicks = slots.shift() ?? 0;
+  config.requireOutput = hasRequireOutput;
+  config.waitForStack = hasWaitForStack;
+  return config;
+}
+
+function loaderDeltaRecord(loader, mask, previous) {
+  const record = { lastMask: mask };
+  for (const [field, bit] of [
+    ["q20", 1],
+    ["q24", 2],
+    ["q28", 4],
+    ["q32", 8],
+    ["q36", 16],
+    ["q40", 32],
+    ["q44", 64]
+  ]) {
+    if (!(mask & bit)) continue;
+    if (field === "q44" && ((mask & 32) || loader?.q44 == null)) continue;
+    record[field] = (loader?.[field] ?? 0) - (previous?.[field] ?? 0);
+  }
+  return record;
+}
+
+function isSemanticLoaderDelta(changed, full) {
+  return !full &&
+    changed.previous != null &&
+    (changed.mask & 96) === 96 &&
+    (changed.mask & 16) === 16;
+}
+
+function filterSlotValue(value) {
+  return value == null || value === 0 ? null : value;
+}
+
 export class LoaderConfigTracker {
   constructor() {
     this.pickBases = new Map();
     this.pickDeltaBases = new Map();
     this.placeBases = new Map();
     this.placeDeltaBases = new Map();
+    this.currentPicks = new Map();
+    this.currentPlaces = new Map();
+    this.sparsePositionBaselines = new Set();
     this.priorities = new Map();
     this.priorityOffsets = new Map();
     this.filterModes = new Map();
@@ -62,24 +330,43 @@ export class LoaderConfigTracker {
     const world = update?.world;
     const model = update?.result?.model;
     if (!world || !model) return;
+    const seenEntities = new Set();
     for (const section of model.sections || []) {
       if (section.table !== 78) continue;
       for (const changed of section.records || []) {
+        if (changed.indexedLoaderConfig) {
+          this.updateIndexedSnapshotRecord(world.id, changed.entity, changed.record, changed.mask, changed.cumulativeRecord, changed.configEntity);
+          continue;
+        }
         const loader = changed.record ?? world.model.record(78, changed.entity);
-        this.updateRecord(world.id, changed.entity, loader, changed.mask, changed.previous);
+        this.updateRecord(world.id, changed.entity, loader, changed.mask, changed.previous, {
+          repeatedInUpdate: seenEntities.has(changed.entity),
+          repeatedInSection: changed.repeatedInSection,
+          semanticSnapshot: Boolean(model.full),
+          semanticDelta: isSemanticLoaderDelta(changed, model.full),
+          deltaRecord: loaderDeltaRecord(loader, changed.mask, changed.previous)
+        });
+        seenEntities.add(changed.entity);
       }
     }
   }
 
-  updateRecord(worldId, entityId, loader, mask = 0, previous = null) {
+  updateRecord(worldId, entityId, loader, mask = 0, previous = null, options = {}) {
     if (!loader) return;
     const key = this.#key(worldId, entityId);
     const hasTrackedConfig = this.#hasTrackedConfig(key);
+    if (hasTrackedConfig &&
+      (options.repeatedInSection || options.repeatedInUpdate) &&
+      this.sparsePositionBaselines.has(key) &&
+      this.hasPositionConfig(worldId, entityId)) {
+      return;
+    }
     if (!hasTrackedConfig && this.#isDirectPositionCycleBaseline(loader, mask)) {
       this.pickBases.set(key, 3);
       this.pickDeltaBases.set(key, 0);
       this.placeBases.set(key, 4);
       this.placeDeltaBases.set(key, 0);
+      this.#setCurrentPosition(key, loader);
       if ((mask & 4) && loader.q28 >= -1 && loader.q28 <= 1) this.priorities.set(key, loader.q28);
       this.requireOutputs.set(key, Boolean(mask & 32));
       this.waitForStacks.set(key, Boolean(mask & 64));
@@ -93,7 +380,15 @@ export class LoaderConfigTracker {
       return;
     }
 
-    const baseline = hasTrackedConfig ? null : this.#loaderBaseline(loader);
+    if (!hasTrackedConfig && options.allowSparseBaseline && this.#isSparsePositionBaseline(loader, mask)) {
+      this.#applySparsePositionBaseline(key, loader, mask);
+      return;
+    }
+
+    const baseline = hasTrackedConfig ? null : this.#loaderBaseline(loader, mask, options.semanticSnapshot);
+    if (hasTrackedConfig && options.semanticDelta && this.#applySemanticDelta(worldId, entityId, loader, mask, previous, options.deltaRecord)) {
+      return;
+    }
     const hasInitialConfigFields = baseline || ((mask & 31) && ((mask & 32) || ((mask & 64) && (mask & 4))));
     // Loader table 78 is an affine config vector: initial/full rows establish
     // origins, then later rows are deltas even when active flag bits are present.
@@ -147,6 +442,57 @@ export class LoaderConfigTracker {
     if ((mask & 4) && loader.q28 != null) this.priorities.set(key, this.#priority(key, loader.q28));
     if ((mask & 8) && this.filterSources.get(key) === "q32" && loader.q32 != null) this.filterModes.set(key, loader.q32);
     if (mask & 16) this.#updateCycle(key, loader);
+    if ((mask & 3) && this.hasPositionConfig(worldId, entityId)) this.#setCurrentPosition(key, loader);
+  }
+
+  updateIndexedSnapshotRecord(worldId, entityId, loader, mask = 0, cumulative = null, configEntity = null) {
+    if (!loader) return false;
+    const reference = configEntity == null || Number(configEntity) === Number(entityId)
+      ? null
+      : this.#trackedConfig(worldId, configEntity);
+    const config = decodeIndexedLoaderSnapshotRecord(loader, mask, cumulative, reference);
+    if (!config) return false;
+
+    const key = this.#key(worldId, entityId);
+    this.pickBases.set(key, config.pick);
+    this.pickDeltaBases.set(key, loader.q20 ?? 0);
+    this.placeBases.set(key, config.place);
+    this.placeDeltaBases.set(key, loader.q24 ?? 0);
+    this.currentPicks.set(key, config.pick);
+    this.currentPlaces.set(key, config.place);
+    this.sparsePositionBaselines.delete(key);
+    this.priorities.set(key, config.priority);
+    if (mask === 95 && loader.q28 != null) this.priorityOffsets.set(key, config.priority - loader.q28);
+    else this.priorityOffsets.delete(key);
+    this.filterModes.delete(key);
+    this.filterSources.delete(key);
+    this.requireOutputs.set(key, config.requireOutput);
+    this.waitForStacks.set(key, config.waitForStack);
+    this.stackBases.set(key, config.stack - (loader.q32 ?? 0));
+    this.stackSources.delete(key);
+    this.cycles.set(key, config.cycle);
+    if (mask === 95) {
+      this.cycleModes.set(key, "q44-q36-delta");
+      this.cycleDeltaBases.set(key, loader.q36 ?? 0);
+      this.directCycleValues.set(key, loader.q44);
+      this.directCycleFields.set(key, "q44");
+    } else if (mask === 126) {
+      this.cycleModes.set(key, "offset");
+      this.cycleDeltaBases.set(key, loader.q36 ?? 0);
+      this.directCycleValues.delete(key);
+      this.directCycleFields.delete(key);
+    } else {
+      this.cycleModes.set(key, "direct");
+      this.cycleDeltaBases.set(key, 0);
+    }
+    if (loader.q36 != null && mask === 18) {
+      this.directCycleValues.set(key, loader.q36);
+      this.directCycleFields.set(key, "q36");
+    } else if (mask !== 95 && mask !== 126) {
+      this.directCycleValues.delete(key);
+      this.directCycleFields.delete(key);
+    }
+    return true;
   }
 
   delete(worldId, entityId) {
@@ -155,6 +501,9 @@ export class LoaderConfigTracker {
     this.pickDeltaBases.delete(key);
     this.placeBases.delete(key);
     this.placeDeltaBases.delete(key);
+    this.currentPicks.delete(key);
+    this.currentPlaces.delete(key);
+    this.sparsePositionBaselines.delete(key);
     this.priorities.delete(key);
     this.priorityOffsets.delete(key);
     this.filterModes.delete(key);
@@ -172,11 +521,11 @@ export class LoaderConfigTracker {
 
   getConfig(worldId, entityId, loader, loaderFilter = null, filterSlots = null) {
     const key = this.#key(worldId, entityId);
-    const pick = this.#pick(key, loader);
-    const place = this.#place(key, loader);
+    const pick = this.currentPicks.has(key) ? this.currentPicks.get(key) : this.#pick(key, loader);
+    const place = this.currentPlaces.has(key) ? this.currentPlaces.get(key) : this.#place(key, loader);
     const stackBase = this.stackBases.get(key) ?? 16;
     const stackSource = this.stackSources.get(key) ?? "q32";
-    const stackField = stackSource === "q36" ? loader?.q36 : loader?.q32;
+    const stackField = stackSource === "fixed" ? null : loader?.[stackSource];
     const stack = stackField == null
       ? this.stackBases.has(key) || this.hasPositionConfig(worldId, entityId) ? stackBase : null
       : stackBase + stackField;
@@ -192,7 +541,7 @@ export class LoaderConfigTracker {
       stack: stack ?? DEFAULT_LOADER_STACK,
       cycle: cycle ?? DEFAULT_LOADER_CYCLE,
       filterMode: loaderFilter ? loaderFilter.q20 ?? DEFAULT_LOADER_FILTER_MODE : this.#filterMode(key, loader) ?? DEFAULT_LOADER_FILTER_MODE,
-      filterSlots: filterSlots ? [filterSlots.q20 ?? null, filterSlots.q24 ?? null, filterSlots.q28 ?? null] : null
+      filterSlots: filterSlots ? [filterSlotValue(filterSlots.q20), filterSlotValue(filterSlots.q24), filterSlotValue(filterSlots.q28)] : null
     };
   }
 
@@ -272,7 +621,7 @@ export class LoaderConfigTracker {
   #initializeStackBaseline(key, loader) {
     if (this.stackBases.has(key)) return;
     if (loader?.q32 == null) return;
-    const baseline = this.#loaderBaseline(loader);
+    const baseline = this.#loaderBaseline(loader, loader?.lastMask);
     if (baseline) {
       this.stackBases.set(key, baseline.stack - loader.q32);
       return;
@@ -345,12 +694,55 @@ export class LoaderConfigTracker {
       loader.q44 == null;
   }
 
+  #trackedConfig(worldId, entityId) {
+    const key = this.#key(worldId, entityId);
+    if (!this.#hasTrackedConfig(key)) return null;
+    return {
+      pick: this.currentPicks.has(key) ? this.currentPicks.get(key) : this.pickBases.get(key),
+      place: this.currentPlaces.has(key) ? this.currentPlaces.get(key) : this.placeBases.get(key),
+      priority: this.priorities.get(key) ?? DEFAULT_LOADER_PRIORITY,
+      requireOutput: this.requireOutputs.get(key) ?? false,
+      waitForStack: this.waitForStacks.get(key) ?? false,
+      stack: this.stackBases.get(key) ?? DEFAULT_LOADER_STACK,
+      cycle: this.cycles.get(key) ?? DEFAULT_LOADER_CYCLE
+    };
+  }
+
+  #isSparsePositionBaseline(loader, mask) {
+    return (mask & 3) === 3 &&
+      loader.q20 != null &&
+      loader.q24 != null &&
+      loader.q28 == null &&
+      loader.q32 == null &&
+      loader.q36 == null &&
+      loader.q44 == null;
+  }
+
+  #applySparsePositionBaseline(key, loader, mask) {
+    const pickField = loader.q40 == null ? loader.q20 : loader.q24;
+    const placeField = loader.q40 == null ? loader.q24 : loader.q40;
+    const pick = wrapLoaderPosition(pickField + 3);
+    const place = wrapLoaderPosition(placeField + 4);
+    this.pickBases.set(key, pick);
+    this.pickDeltaBases.set(key, loader.q20 ?? 0);
+    this.placeBases.set(key, place);
+    this.placeDeltaBases.set(key, loader.q24 ?? 0);
+    this.currentPicks.set(key, pick);
+    this.currentPlaces.set(key, place);
+    this.sparsePositionBaselines.add(key);
+    this.priorities.set(key, DEFAULT_LOADER_PRIORITY);
+    this.requireOutputs.set(key, Boolean(mask & 32));
+    this.waitForStacks.set(key, Boolean(mask & 64));
+    this.stackBases.set(key, DEFAULT_LOADER_STACK);
+    this.cycles.set(key, DEFAULT_LOADER_CYCLE);
+  }
+
   #filterMode(key, loader) {
     if (this.filterSources.get(key) === "q32" && loader?.q32 != null) {
       return this.#validFilterMode(loader.q32);
     }
     if (this.filterModes.has(key)) return this.#validFilterMode(this.filterModes.get(key));
-    const baseline = this.#loaderBaseline(loader);
+    const baseline = this.#loaderBaseline(loader, loader?.lastMask);
     if (!baseline) return null;
     return this.#validFilterMode(baseline.filterMode);
   }
@@ -359,7 +751,43 @@ export class LoaderConfigTracker {
     return mode >= 0 && mode <= 3 ? mode : null;
   }
 
-  #loaderBaseline(loader) {
+  #semanticFilterMode(loader, mask) {
+    const q28IsDirectPriority = loader.q28 != null && loader.q28 >= -1 && loader.q28 <= 1;
+    const q24FilterMode = loader.q24 != null && loader.q32 != null && loader.q40 != null ? loader.q24 + 2 : null;
+    const q28FilterMode = loader.q28 != null && loader.q32 != null ? loader.q28 + 1 : null;
+    const q32FilterMode = !q28IsDirectPriority && loader.q28 != null && loader.q32 != null && loader.q40 != null ? loader.q32 + 1 : null;
+    const q32DirectMode = loader.q28 == null && loader.q32 != null && (mask & 32) ? loader.q32 : null;
+    if (q28IsDirectPriority && this.#validFilterMode(q24FilterMode) != null) return q24FilterMode;
+    if (this.#validFilterMode(q28FilterMode) != null) return q28FilterMode;
+    if (this.#validFilterMode(q32FilterMode) != null) return q32FilterMode;
+    if (this.#validFilterMode(q32DirectMode) != null) return q32DirectMode;
+    if (this.#validFilterMode(q24FilterMode) != null) return q24FilterMode;
+    return null;
+  }
+
+  #semanticFilterField(loader, mask) {
+    const q32DirectMode = loader.q28 == null && loader.q32 != null && (mask & 32) ? loader.q32 : null;
+    return this.#validFilterMode(q32DirectMode) != null ? "q32" : null;
+  }
+
+  #loaderBaseline(loader, mask = loader?.lastMask, semanticSnapshot = false) {
+    const snapshot = semanticSnapshot ? decodeLoaderSnapshotRecord(loader, mask) : null;
+    if (snapshot) {
+      return {
+        pickBase: snapshot.pick,
+        pickDeltaBase: loader.q20 ?? 0,
+        placeBase: snapshot.place,
+        placeDeltaBase: loader.q24 ?? 0,
+        priority: snapshot.priority,
+        stack: snapshot.stack,
+        stackField: "fixed",
+        cycle: snapshot.cycle,
+        cycleMode: loader.q44 != null && loader.q40 == null ? "q44-q36-delta" : "offset",
+        filterMode: this.#semanticFilterMode(loader, mask),
+        filterField: this.#semanticFilterField(loader, mask),
+        q32: loader.q32 ?? 0
+      };
+    }
     if (!loader || loader.q36 == null) return null;
     if (loader.q40 == null && loader.q44 == null) {
       if (loader.q20 != null || loader.q24 == null || loader.q28 == null || loader.q32 == null) return null;
@@ -458,13 +886,15 @@ export class LoaderConfigTracker {
     this.pickDeltaBases.set(key, baseline.pickDeltaBase);
     this.placeBases.set(key, baseline.placeBase);
     this.placeDeltaBases.set(key, baseline.placeDeltaBase);
+    this.sparsePositionBaselines.delete(key);
+    this.#setCurrentPosition(key, loader);
     if (baseline.filterMode != null) {
       this.filterModes.set(key, baseline.filterMode);
       if (baseline.filterField) this.filterSources.set(key, baseline.filterField);
       else this.filterSources.delete(key);
     }
     if (baseline.stack != null) {
-      const stackField = baseline.stackField === "q36" ? loader.q36 ?? 0 : baseline.q32;
+      const stackField = baseline.stackField === "fixed" ? 0 : baseline.stackField ? loader[baseline.stackField] ?? 0 : baseline.q32;
       this.stackBases.set(key, baseline.stack - stackField);
       if (baseline.stackField) this.stackSources.set(key, baseline.stackField);
       else this.stackSources.delete(key);
@@ -492,6 +922,66 @@ export class LoaderConfigTracker {
       if (loader.q28 != null) this.priorityOffsets.set(key, baseline.priority - loader.q28);
       this.priorities.set(key, baseline.priority);
     } else if (loader.q28 != null && loader.q36 != null) this.#initializePriorityOffset(key, loader);
+  }
+
+  #applySemanticDelta(worldId, entityId, loader, mask, previous, deltaRecord) {
+    const key = this.#key(worldId, entityId);
+    const delta = decodeLoaderSemanticDeltaRecord(deltaRecord ?? loaderDeltaRecord(loader, mask, previous), mask);
+    if (!delta) return false;
+
+    const previousConfig = this.getConfig(worldId, entityId, previous);
+    const pick = delta.pick == null ? previousConfig.pick : wrapLoaderPosition((previousConfig.pick ?? DEFAULT_LOADER_PICK) + delta.pick);
+    const place = delta.place == null ? previousConfig.place : wrapLoaderPosition((previousConfig.place ?? DEFAULT_LOADER_PLACE) + delta.place);
+
+    if (pick != null) {
+      this.pickBases.set(key, pick);
+      this.pickDeltaBases.set(key, loader?.q20 ?? 0);
+      this.currentPicks.set(key, pick);
+    }
+    if (place != null) {
+      this.placeBases.set(key, place);
+      this.placeDeltaBases.set(key, loader?.q24 ?? 0);
+      this.currentPlaces.set(key, place);
+    }
+
+    if (delta.priority != null) {
+      const priority = previousConfig.priority + delta.priority;
+      this.priorities.set(key, priority);
+      if (loader?.q28 != null) this.priorityOffsets.set(key, priority - loader.q28);
+      else this.priorityOffsets.delete(key);
+    }
+
+    if (delta.stack != null) {
+      this.stackBases.set(key, previousConfig.stack + delta.stack);
+      this.stackSources.set(key, "fixed");
+    }
+
+    if (delta.cycleTicks != null) {
+      this.cycles.set(key, previousConfig.cycle + (delta.cycleTicks / 20));
+      if (loader?.q44 != null && loader.q40 == null) {
+        this.cycleModes.set(key, "q44-q36-delta");
+        this.cycleDeltaBases.set(key, loader.q36 ?? 0);
+        this.directCycleValues.set(key, loader.q44);
+        this.directCycleFields.set(key, "q44");
+      } else {
+        this.cycleModes.set(key, "offset");
+        this.cycleDeltaBases.set(key, loader?.q36 ?? 0);
+        this.directCycleValues.delete(key);
+        this.directCycleFields.delete(key);
+      }
+    }
+
+    if (delta.requireOutput) this.requireOutputs.set(key, !previousConfig.requireOutput);
+    if (delta.waitForStack) this.waitForStacks.set(key, !previousConfig.waitForStack);
+    this.sparsePositionBaselines.delete(key);
+    return true;
+  }
+
+  #setCurrentPosition(key, loader) {
+    const pick = this.#pick(key, loader);
+    const place = this.#place(key, loader);
+    if (pick != null) this.currentPicks.set(key, pick);
+    if (place != null) this.currentPlaces.set(key, place);
   }
 
   #pick(key, loader) {
