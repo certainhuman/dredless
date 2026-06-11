@@ -531,8 +531,7 @@ function table78DeltaRecord(changed) {
 function isSemanticLoaderDelta(changed, full) {
   return !full &&
     changed.previous != null &&
-    (changed.mask & 96) === 96 &&
-    (changed.mask & 16) === 16;
+    (changed.mask & 96) === 96;
 }
 
 function decodeText(blob) {

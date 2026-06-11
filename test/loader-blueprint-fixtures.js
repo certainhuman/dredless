@@ -484,6 +484,69 @@ function makeDelta6Cases(reconfigured = false) {
   return cases;
 }
 
+function makeDeltaGapCycleCases(reconfigured = false) {
+  const cases = [];
+  for (let variant = 0; variant < 8; variant += 1) {
+    for (let subset = 0; subset < 16; subset += 1) {
+      const seed = 1700 + (variant * 41) + subset;
+      const base = generatedLoaderCase(`gap-cycle-v${variant}-m${String(subset).padStart(2, "0")}`, 1 + subset, 1 + variant, seed, {
+        priority: PRIORITIES[(variant + subset) % PRIORITIES.length],
+        maxStack: STACKS[(variant + (subset * 3)) % STACKS.length],
+        cycleTime: CYCLE_TIMES[(variant + (subset * 5)) % CYCLE_TIMES.length],
+        requireOutputInventory: Boolean((variant + subset) & 1),
+        waitForStackLimit: Boolean((variant * 3 + subset) & 2),
+        filterMode: FILTER_MODES[(variant + subset) % FILTER_MODES.length],
+        filterSlots: FILTER_SLOTS[(seed + 1) % FILTER_SLOTS.length]
+      });
+      cases.push(reconfigured ? reconfigureGapCycleCase(base, variant, subset) : base);
+    }
+  }
+  return cases;
+}
+
+function makeDeltaGapNoCycleCases(reconfigured = false) {
+  const cases = [];
+  for (let variant = 0; variant < 4; variant += 1) {
+    for (let subset = 0; subset < 16; subset += 1) {
+      const seed = 2100 + (variant * 41) + subset;
+      const base = generatedLoaderCase(`gap-no-cycle-v${variant}-m${String(subset).padStart(2, "0")}`, 1 + subset, 1 + variant, seed, {
+        priority: PRIORITIES[(variant + subset + 1) % PRIORITIES.length],
+        maxStack: STACKS[(variant + (subset * 5)) % STACKS.length],
+        cycleTime: CYCLE_TIMES[(variant + (subset * 7)) % CYCLE_TIMES.length],
+        requireOutputInventory: Boolean((variant + subset + 1) & 1),
+        waitForStackLimit: Boolean((variant * 5 + subset) & 2),
+        filterMode: FILTER_MODES[(variant + subset + 1) % FILTER_MODES.length],
+        filterSlots: FILTER_SLOTS[(seed + 2) % FILTER_SLOTS.length]
+      });
+      cases.push(reconfigured ? reconfigureGapNoCycleCase(base, variant, subset) : base);
+    }
+  }
+  return cases;
+}
+
+function makeDeltaMultiStepCases(step = 0) {
+  const cases = [];
+  for (let variant = 0; variant < 4; variant += 1) {
+    for (let subset = 0; subset < 16; subset += 1) {
+      const seed = 2500 + (variant * 47) + subset;
+      let item = generatedLoaderCase(`delta-multi-v${variant}-m${String(subset).padStart(2, "0")}`, 1 + subset, 1 + variant, seed, {
+        priority: PRIORITIES[(variant + (subset * 2)) % PRIORITIES.length],
+        maxStack: STACKS[(variant + (subset * 7)) % STACKS.length],
+        cycleTime: CYCLE_TIMES[(variant + (subset * 3)) % CYCLE_TIMES.length],
+        requireOutputInventory: Boolean((variant + subset) & 1),
+        waitForStackLimit: Boolean((variant + subset + 1) & 2),
+        filterMode: FILTER_MODES[(variant + subset + 2) % FILTER_MODES.length],
+        filterSlots: FILTER_SLOTS[(seed + 3) % FILTER_SLOTS.length]
+      });
+      for (let currentStep = 1; currentStep <= step; currentStep += 1) {
+        item = reconfigureMultiStepCase(item, variant, subset, currentStep);
+      }
+      cases.push(item);
+    }
+  }
+  return cases;
+}
+
 function reconfigureDeltaCase(item, seed) {
   const nextPick = POSITIONS[(item.config.pickPosition + 1) % POSITIONS.length];
   let nextPlace = POSITIONS[(item.config.placePosition + 2) % POSITIONS.length];
@@ -607,6 +670,89 @@ function reconfigureDelta6Case(item, seed) {
   };
 }
 
+function reconfigureGapCycleCase(item, variant, subset) {
+  const config = reconfigureGapCaseConfig(item.config, variant, subset, {
+    changeCycle: true,
+    cycleSeed: variant + subset + 13
+  });
+  return {
+    ...item,
+    config,
+    filterMode: FILTER_MODES[(variant + subset + 2) % FILTER_MODES.length],
+    filterSlots: FILTER_SLOTS[(variant + subset + 4) % FILTER_SLOTS.length]
+  };
+}
+
+function reconfigureGapNoCycleCase(item, variant, subset) {
+  const config = reconfigureGapCaseConfig(item.config, variant, subset, {
+    changeCycle: false,
+    cycleSeed: variant + subset + 17
+  });
+  return {
+    ...item,
+    config,
+    filterMode: FILTER_MODES[(variant + subset + 3) % FILTER_MODES.length],
+    filterSlots: FILTER_SLOTS[(variant + subset + 5) % FILTER_SLOTS.length]
+  };
+}
+
+function reconfigureMultiStepCase(item, variant, subset, step) {
+  const config = reconfigureGapCaseConfig(item.config, variant + step, subset, {
+    changeCycle: step !== 2,
+    cycleSeed: variant + subset + (step * 11)
+  });
+  return {
+    ...item,
+    config,
+    filterMode: FILTER_MODES[(variant + subset + step + 2) % FILTER_MODES.length],
+    filterSlots: FILTER_SLOTS[(variant + subset + (step * 3)) % FILTER_SLOTS.length]
+  };
+}
+
+function reconfigureGapCaseConfig(config, variant, subset, { changeCycle, cycleSeed }) {
+  let pickPosition = config.pickPosition;
+  let placePosition = config.placePosition;
+  if (subset & 1) pickPosition = POSITIONS[(pickPosition + 1 + (variant % 6)) % POSITIONS.length];
+  if (subset & 2) placePosition = POSITIONS[(placePosition + 2 + (variant % 5)) % POSITIONS.length];
+  ({ pickPosition, placePosition } = keepDifferentPositions(pickPosition, placePosition, subset, variant));
+
+  return {
+    ...config,
+    pickPosition,
+    placePosition,
+    priority: (subset & 4) ? nextPriority(config.priority, 1 + (variant % 2)) : config.priority,
+    maxStack: (subset & 8) ? nextStack(config.maxStack, 3 + variant + subset) : config.maxStack,
+    cycleTime: changeCycle ? nextCycleTime(config.cycleTime, cycleSeed) : config.cycleTime,
+    requireOutputInventory: !config.requireOutputInventory,
+    waitForStackLimit: !config.waitForStackLimit
+  };
+}
+
+function keepDifferentPositions(pickPosition, placePosition, subset, variant) {
+  if (pickPosition !== placePosition) return { pickPosition, placePosition };
+  if (subset & 2) {
+    return { pickPosition, placePosition: POSITIONS[(placePosition + 1 + (variant % 6)) % POSITIONS.length] };
+  }
+  return { pickPosition: POSITIONS[(pickPosition + 1 + (variant % 6)) % POSITIONS.length], placePosition };
+}
+
+function nextPriority(priority, shift) {
+  const index = PRIORITIES.indexOf(priority);
+  return PRIORITIES[((index < 0 ? 0 : index) + shift) % PRIORITIES.length];
+}
+
+function nextStack(stack, seed) {
+  const index = STACKS.indexOf(stack);
+  const next = STACKS[((index < 0 ? 0 : index) + seed) % STACKS.length];
+  return next === stack ? STACKS[(STACKS.indexOf(next) + 1) % STACKS.length] : next;
+}
+
+function nextCycleTime(cycleTime, seed) {
+  const index = CYCLE_TIMES.indexOf(cycleTime);
+  const next = CYCLE_TIMES[((index < 0 ? 0 : index) + seed) % CYCLE_TIMES.length];
+  return next === cycleTime ? CYCLE_TIMES[(CYCLE_TIMES.indexOf(next) + 1) % CYCLE_TIMES.length] : next;
+}
+
 export const loaderBlueprintFixtures = {
   matrix: createLoaderBlueprint("loader-config-matrix", 16, 10, makeMatrixCases()),
   pairMatrix: createLoaderBlueprint("loader-config-pairs", 23, 10, makePairMatrixCases()),
@@ -622,7 +768,15 @@ export const loaderBlueprintFixtures = {
   delta5Base: createLoaderBlueprint("loader-delta-5-base", 12, 8, makeDelta5Cases(false)),
   delta5Reconfigured: createLoaderBlueprint("loader-delta-5-reconfigured", 12, 8, makeDelta5Cases(true)),
   delta6Base: createLoaderBlueprint("loader-delta-6-base", 12, 8, makeDelta6Cases(false)),
-  delta6Reconfigured: createLoaderBlueprint("loader-delta-6-reconfigured", 12, 8, makeDelta6Cases(true))
+  delta6Reconfigured: createLoaderBlueprint("loader-delta-6-reconfigured", 12, 8, makeDelta6Cases(true)),
+  deltaGapCycleBase: createLoaderBlueprint("loader-delta-gap-cycle-base", 18, 10, makeDeltaGapCycleCases(false)),
+  deltaGapCycleReconfigured: createLoaderBlueprint("loader-delta-gap-cycle-reconfigured", 18, 10, makeDeltaGapCycleCases(true)),
+  deltaGapNoCycleBase: createLoaderBlueprint("loader-delta-gap-no-cycle-base", 18, 6, makeDeltaGapNoCycleCases(false)),
+  deltaGapNoCycleReconfigured: createLoaderBlueprint("loader-delta-gap-no-cycle-reconfigured", 18, 6, makeDeltaGapNoCycleCases(true)),
+  deltaMultiBase: createLoaderBlueprint("loader-delta-multi-base", 18, 6, makeDeltaMultiStepCases(0)),
+  deltaMultiStep1: createLoaderBlueprint("loader-delta-multi-step-1", 18, 6, makeDeltaMultiStepCases(1)),
+  deltaMultiStep2: createLoaderBlueprint("loader-delta-multi-step-2", 18, 6, makeDeltaMultiStepCases(2)),
+  deltaMultiStep3: createLoaderBlueprint("loader-delta-multi-step-3", 18, 6, makeDeltaMultiStepCases(3))
 };
 
 export function fixtureByName(fixture) {

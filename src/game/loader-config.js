@@ -294,8 +294,7 @@ function loaderDeltaRecord(loader, mask, previous) {
 function isSemanticLoaderDelta(changed, full) {
   return !full &&
     changed.previous != null &&
-    (changed.mask & 96) === 96 &&
-    (changed.mask & 16) === 16;
+    (changed.mask & 96) === 96;
 }
 
 function filterSlotValue(value) {
@@ -441,6 +440,12 @@ export class LoaderConfigTracker {
     }
     if ((mask & 4) && loader.q28 != null) this.priorities.set(key, this.#priority(key, loader.q28));
     if ((mask & 8) && this.filterSources.get(key) === "q32" && loader.q32 != null) this.filterModes.set(key, loader.q32);
+    const q32FilterOnlyUpdate = this.filterSources.get(key) === "q32" && mask === 8;
+    if ((mask & 8) && !options.semanticDelta && !q32FilterOnlyUpdate && loader.q32 != null && this.stackBases.has(key)) {
+      const previousConfig = this.getConfig(worldId, entityId, previous);
+      this.stackBases.set(key, previousConfig.stack - (previous?.q32 ?? 0));
+      this.stackSources.set(key, "q32");
+    }
     if (mask & 16) this.#updateCycle(key, loader);
     if ((mask & 3) && this.hasPositionConfig(worldId, entityId)) this.#setCurrentPosition(key, loader);
   }
@@ -665,7 +670,10 @@ export class LoaderConfigTracker {
       if (base != null) {
         this.directCycleValues.set(key, base);
         this.directCycleFields.set(key, "q44");
-        this.cycles.set(key, ((base + (loader?.q36 ?? 0) - (this.cycleDeltaBases.get(key) ?? 0)) / 20) + 1);
+        const q36 = loader?.q36 ?? 0;
+        this.cycles.set(key, base < 0 && loader?.q36 != null
+          ? (q36 / 20) + 1
+          : ((base + q36 - (this.cycleDeltaBases.get(key) ?? 0)) / 20) + 1);
       }
       return;
     }
