@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Dredless Official WebSocket Capture
 // @namespace    dredless
-// @version      0.3.1
+// @version      0.3.2
 // @description  Capture official drednot.io WebSocket traffic from window.tpgaClient.repsocket.websocket.
 // @match        https://drednot.io/*
 // @match        https://test.drednot.io/*
@@ -11,7 +11,7 @@
 // ==/UserScript==
 
 (() => {
-  const VERSION = "0.3.1";
+  const VERSION = "0.3.2";
   const GLOBAL_KEY = "__dredlessOfficialWsCapture";
   const PUBLIC_KEY = "dredlessOfficialCapture";
   const global = globalThis;
@@ -110,11 +110,56 @@
     };
   }
 
+  function objectTag(value) {
+    return Object.prototype.toString.call(value);
+  }
+
+  function isArrayBufferLike(value) {
+    if (!value || typeof value !== "object") return false;
+    const tag = objectTag(value);
+    return tag === "[object ArrayBuffer]" || tag === "[object SharedArrayBuffer]";
+  }
+
+  function isArrayBufferViewLike(value) {
+    if (!value || typeof value !== "object") return false;
+    if (ArrayBuffer.isView(value)) return true;
+    const tag = objectTag(value);
+    return (
+      isArrayBufferLike(value.buffer) &&
+      Number.isInteger(value.byteOffset) &&
+      Number.isInteger(value.byteLength) &&
+      (
+        tag === "[object DataView]" ||
+        tag === "[object Uint8Array]" ||
+        tag === "[object Uint8ClampedArray]" ||
+        tag === "[object Int8Array]" ||
+        tag === "[object Uint16Array]" ||
+        tag === "[object Int16Array]" ||
+        tag === "[object Uint32Array]" ||
+        tag === "[object Int32Array]" ||
+        tag === "[object Float32Array]" ||
+        tag === "[object Float64Array]" ||
+        tag === "[object BigUint64Array]" ||
+        tag === "[object BigInt64Array]"
+      )
+    );
+  }
+
+  function isBlobLike(value) {
+    return Boolean(
+      value &&
+      typeof value === "object" &&
+      typeof value.arrayBuffer === "function" &&
+      typeof value.size === "number" &&
+      typeof value.type === "string"
+    );
+  }
+
   function serializeFrameData(data) {
     if (typeof data === "string") return { kind: "text", byteLength: data.length, text: data };
-    if (data instanceof ArrayBuffer) return binaryPayload(new Uint8Array(data));
-    if (ArrayBuffer.isView(data)) return binaryPayload(new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
-    if (typeof Blob === "function" && data instanceof Blob) {
+    if (isArrayBufferLike(data)) return binaryPayload(new Uint8Array(data));
+    if (isArrayBufferViewLike(data)) return binaryPayload(new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
+    if (isBlobLike(data)) {
       return data.arrayBuffer().then((buffer) => ({
         kind: "blob",
         byteLength: buffer.byteLength,
@@ -122,7 +167,7 @@
         base64: bytesToBase64(new Uint8Array(buffer))
       }));
     }
-    return { kind: typeof data, byteLength: null, text: String(data) };
+    return { kind: typeof data, byteLength: null, tag: objectTag(data), text: String(data) };
   }
 
   function recordFrame(direction, activeSocket, data) {
