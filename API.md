@@ -729,9 +729,37 @@ Return shape:
   color,
   colorCss,
   actionName,
+  blueprintId,
+  blueprintItems,
   state
 }
 ```
+
+Blueprint scanner previews use `actionName: "blueprint"` and include
+`blueprintItems`:
+
+```js
+[
+  {
+    entity,
+    itemId,
+    itemName,
+    bits,             // expanded BITS value, defaulting to 1
+    rawBits,          // raw table value, equal to bits - 1 when present
+    placementOffsets, // X+ offsets selected by bits
+    placementCount,
+    placements,
+    x,
+    y,
+    rot,
+    state
+  }
+]
+```
+
+Blueprint preview rows represent blueprint build commands, not item stacks.
+`placements` expands `bits` along the X+ axis from the command base position
+`x,y`.
 
 Cost:
 

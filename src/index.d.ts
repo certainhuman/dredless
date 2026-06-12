@@ -314,6 +314,7 @@ export interface EntityContentsSummary {
   itemHolder?: ItemHolderSummary;
   expandoBox?: ExpandoBoxSummary;
   hoverOutline?: HoverOutlineSummary;
+  blueprintPreview?: BlueprintPreviewSummary;
   itemCrate?: ItemCrateSummary;
   health?: HealthSummary;
   fabricator?: FabricatorSummary;
@@ -336,7 +337,7 @@ export interface EntityContentsSummary {
 
 export interface EntitySummary {
   entity: number;
-  category: "placed_entity" | "loose_item" | "untyped_holder" | "metadata" | "player" | "ship_control" | "entity";
+  category: "placed_entity" | "loose_item" | "untyped_holder" | "metadata" | "player" | "ship_control" | "blueprint_preview" | "entity";
   typeId: number | null;
   typeName: string | null;
   markerTypeId: number | null;
@@ -778,7 +779,30 @@ export interface PlayerActionPreviewSummary {
   progress: number | null;
   color: number | null;
   colorCss: string | null;
-  actionName: "place" | "break" | null;
+  actionName: "place" | "break" | "blueprint" | null;
+  blueprintId: number | null;
+  blueprintItems: BlueprintPreviewSummary[];
+  state: ModelRecord;
+}
+
+export interface BlueprintPreviewSummary {
+  entity: number;
+  itemId: number;
+  itemName: string | null;
+  bits: number;
+  rawBits: number | null;
+  placementOffsets: number[];
+  placementCount: number;
+  placements: {
+    offset: number;
+    x: number | null;
+    y: number | null;
+    itemId: number;
+    itemName: string | null;
+  }[];
+  x: number | null;
+  y: number | null;
+  rot: number | null;
   state: ModelRecord;
 }
 

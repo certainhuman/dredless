@@ -960,14 +960,62 @@ function colorToCss(color) {
 function previewActionName(color) {
   if (color === 0x00ff00) return "place";
   if (color === 0xff0000) return "break";
+  if (color === 0x0000ff) return "blueprint";
   return null;
 }
 
-function summarizePlayerPreview(entity, record) {
+function bitOffsets(value) {
+  if (!Number.isSafeInteger(value) || value < 1) return [];
+  let bits = BigInt(value);
+  const offsets = [];
+  let offset = 0;
+  while (bits > 0n && offset < 64) {
+    if (bits & 1n) offsets.push(offset);
+    bits >>= 1n;
+    offset++;
+  }
+  return offsets;
+}
+
+function summarizeBlueprintPreview(entity, record, transformRecord = null) {
+  if (!record || record.q20 == null) return null;
+  const rawBits = Number.isSafeInteger(Number(record.q24)) ? Number(record.q24) : null;
+  const bits = rawBits == null ? 1 : rawBits + 1;
+  const placementOffsets = bitOffsets(bits);
+  const transform = transformRecord ? {
+    entity,
+    x: numberOrNull(transformRecord.q20, 40),
+    y: numberOrNull(transformRecord.q24, 40),
+    rot: numberOrNull(transformRecord.q28, 127.324)
+  } : null;
+  return {
+    entity,
+    itemId: record.q20,
+    itemName: entityNameFromType(record.q20),
+    bits,
+    rawBits,
+    placementOffsets,
+    placementCount: placementOffsets.length,
+    placements: placementOffsets.map((offset) => ({
+      offset,
+      x: transform?.x == null ? null : transform.x + offset,
+      y: transform?.y ?? null,
+      itemId: record.q20,
+      itemName: entityNameFromType(record.q20)
+    })),
+    x: transform?.x ?? null,
+    y: transform?.y ?? null,
+    rot: transform?.rot ?? null,
+    state: cloneRecord(record)
+  };
+}
+
+function summarizePlayerPreview(entity, record, blueprintItems = []) {
   if (!record) return null;
   const color = record.q40 == null ? null : Number(record.q40);
   const active = typeof record.q36 === "number" && record.q36 !== 0;
   if (!active && record.q36 == null) return null;
+  const actionName = Number.isFinite(color) ? previewActionName(color) : null;
   return {
     entity,
     active,
@@ -978,12 +1026,14 @@ function summarizePlayerPreview(entity, record) {
     progress: record.q36 ?? null,
     color: Number.isFinite(color) ? color : null,
     colorCss: Number.isFinite(color) ? colorToCss(color) : null,
-    actionName: Number.isFinite(color) ? previewActionName(color) : null,
+    actionName,
+    blueprintId: record.q44 ?? null,
+    blueprintItems: actionName === "blueprint" ? blueprintItems : [],
     state: cloneRecord(record)
   };
 }
 
-function summarizePlayer(entity, record, previewRecord = null) {
+function summarizePlayer(entity, record, previewRecord = null, blueprintItems = []) {
   if (!record) return null;
   const rawHeldItemId = record.q28 == null ? null : Number(record.q28);
   const heldItemId = Number.isFinite(rawHeldItemId) && rawHeldItemId !== 0 ? rawHeldItemId : null;
@@ -1003,7 +1053,7 @@ function summarizePlayer(entity, record, previewRecord = null) {
     patronTier: patronTierName(gameRank),
     piloting: Boolean(record.q107),
     muted: Boolean(record.q112),
-    actionPreview: summarizePlayerPreview(entity, previewRecord),
+    actionPreview: summarizePlayerPreview(entity, previewRecord, blueprintItems),
     state: cloneRecord(record)
   };
 }
@@ -1067,6 +1117,7 @@ function entityFootprint(entity) {
 
 function entityLabel(entity) {
   if (entity?.category === "metadata" && entity?.typeName) return `Metadata ${entity.typeName}`;
+  if (entity?.blueprintPreview) return `Blueprint Preview (${entity.blueprintPreview.itemName ?? entity.blueprintPreview.itemId ?? "item"})`;
   if (entity?.category === "loose_item" && entity?.itemHolder?.itemName) return `Loose ${entity.itemHolder.itemName}`;
   if (entity?.category === "untyped_holder" && entity?.itemHolder?.itemName) return `Untyped Holder (${entity.itemHolder.itemName})`;
   if (entity?.mapMarker) return `Map Marker (${entity.mapMarker.title ?? entity.mapMarker.key ?? entity.mapMarker.kind ?? "marker"})`;
@@ -1094,6 +1145,7 @@ function entityLabel(entity) {
 
 function entityCategory(entity) {
   if (entity?.player) return "player";
+  if (entity?.blueprintPreview) return "blueprint_preview";
   if (entity?.shipControl) return "ship_control";
   if (entity?.itemCrate) return "item_crate";
   if (entity?.mapMarker) return "map_marker";
@@ -1296,6 +1348,9 @@ export class ModelState {
     if (!this._derived) return;
     if (!update.removals.length && !update.changedEntities.size) return;
 
+    if (update.sections.some((section) => section.table === 12)) {
+      for (const entityId of this.table(55).keys()) update.changedEntities.add(entityId);
+    }
     for (const entityId of update.removals) this.#removeDerivedEntity(entityId);
     for (const entityId of update.changedEntities) this.#refreshDerivedEntity(entityId);
     this._derived.tableSummaries = this.#tableSummaries();
@@ -1663,6 +1718,12 @@ export class ModelState {
     derived.machines = machines;
   }
 
+  #blueprintPreviewItems() {
+    return [...this.table(12).entries()]
+      .map(([entity, record]) => summarizeBlueprintPreview(entity, record, this.record(0, entity)))
+      .filter(Boolean);
+  }
+
   #summarizeEntity(entityId, tableRows = []) {
     const transformRecord = this.record(0, entityId);
     const itemHolderRecord = this.record(6, entityId);
@@ -1691,6 +1752,7 @@ export class ModelState {
     const bodyStateRecord = this.record(1, entityId);
     const typeRecord = this.record(7, entityId);
     const crateSizeRecord = this.record(3, entityId);
+    const blueprintPreviewRecord = this.record(12, entityId);
     const expandoSizeRecord = this.record(51, entityId);
     const crateItemRecord = this.record(19, entityId);
     const markerTableIds = [73].filter((tableId) => this.record(tableId, entityId));
@@ -1713,7 +1775,8 @@ export class ModelState {
     const fluidTank = fluidTankRecord ? { entity: entityId, amount: fluidTankRecord.q24 ?? null, state: cloneRecord(fluidTankRecord) } : null;
     const shieldGenerator = typeId === 256 ? summarizeShieldGenerator(entityId, shieldRecord, itemHolderRecord, shieldGeneratorBoostRecord) : null;
     const shieldProjector = typeId === 257 ? summarizeShieldProjector(entityId, shieldProjectorRecord) : null;
-    const player = summarizePlayer(entityId, playerRecord, this.record(14, entityId));
+    const blueprintPreview = summarizeBlueprintPreview(entityId, blueprintPreviewRecord, transformRecord);
+    const player = summarizePlayer(entityId, playerRecord, this.record(14, entityId), this.#blueprintPreviewItems());
     const shipControl = summarizeShipControl(entityId, shipControlRecord);
     const helm = summarizeHelm(entityId, typeId, this.#helmOccupied.get(entityId));
     const commsStation = summarizeCommsStation(entityId, typeId, commsStationRecord, this.#commsStationOccupied.get(entityId));
@@ -1740,10 +1803,10 @@ export class ModelState {
       rot: numberOrNull(transformRecord.q28, 127.324),
       flags: [transformRecord.q33, transformRecord.q34, transformRecord.q35].filter((value) => value != null)
     } : null;
-    const contents = mergeContents({ itemHolder }, { expandoBox }, { hoverOutline }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { health }, { fabricator }, { processor }, { cannon }, { pusher }, { loader }, { navigationUnit }, { commsStation }, { fluidTank }, { shieldGenerator }, { shieldProjector }, { helm }, { player }, { shipControl }, { sign }, { spawnPoint }, { door }, { shipSize });
+    const contents = mergeContents({ itemHolder }, { expandoBox }, { hoverOutline }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { blueprintPreview }, { health }, { fabricator }, { processor }, { cannon }, { pusher }, { loader }, { navigationUnit }, { commsStation }, { fluidTank }, { shieldGenerator }, { shieldProjector }, { helm }, { player }, { shipControl }, { sign }, { spawnPoint }, { door }, { shipSize });
     const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, expandoBox, hoverOutline, itemCrate, hugeThruster, fabricator, processor, cannon, pusher, loader, navigationUnit, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
     const typeName = entityNameFromType(typeId);
-    const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, mapMarker, dockingSpring, hugeThruster, fabricator, processor, cannon, pusher, loader, navigationUnit, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
+    const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, mapMarker, dockingSpring, hugeThruster, blueprintPreview, fabricator, processor, cannon, pusher, loader, navigationUnit, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
     const summary = {
       entity: entityId,
       category,
@@ -1759,6 +1822,7 @@ export class ModelState {
         mapMarker,
         dockingSpring,
         hugeThruster,
+        blueprintPreview,
         expandoBox,
         hoverOutline,
         itemHolder,
@@ -1790,6 +1854,7 @@ export class ModelState {
         mapMarker ? "map_marker" : null,
         dockingSpring ? "docking_spring" : null,
         hugeThruster ? "huge_thruster" : null,
+        blueprintPreview ? "blueprint_preview" : null,
         markerTableIds.length ? "marker" : null,
         looseItemMarker ? "loose_item_marker" : null,
         fabricator ? "fabricator" : null,

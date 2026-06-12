@@ -14,6 +14,7 @@ export {
   type TransformSummary,
   type EntitySummary,
   type BlockSummary,
+  type BlueprintPreviewSummary,
   type PusherSummary,
   type LoaderSummary,
   type SignSummary,

@@ -108,6 +108,19 @@ function replayCapture(name) {
   return store;
 }
 
+function replayCaptureUntil(name, predicate) {
+  const store = new WorldStore();
+  const text = fs.readFileSync(captureUrl(name), "utf8");
+  for (const line of text.split(/\r?\n/)) {
+    if (!line) continue;
+    const event = reviveLogValue(JSON.parse(line));
+    if (event.event !== "packet" || !event.packet) continue;
+    const update = store.apply(event.packet);
+    if (predicate(update, store)) return store;
+  }
+  return store;
+}
+
 function placedLoaderEntities(world) {
   return world.model.entities().filter((entity) =>
     entity.transform && entity.contents?.loader && entity.typeId === Item.LOADER_PACKAGED
@@ -1264,4 +1277,81 @@ test("ModelState decodes replicated player action preview", () => {
   player = model.entity(87).contents.player;
   assert.equal(player.actionPreview.active, false);
   assert.equal(player.actionPreview.color, 0);
+});
+
+test("blueprint scanner preview exposes grouped blueprint items", () => {
+  const store = replayCaptureUntil("blueprints-sample.jsonl", (update) =>
+    update?.type === "model" &&
+    update.world?.id === 2872 &&
+    update.result?.model?.sections?.some((section) => section.table === 12)
+  );
+  const world = store.shipWorld();
+  assert.ok(world, "ship world");
+  assert.deepEqual(world.model.errors, [], "blueprint sample decode errors");
+
+  const player = world.model.players().find((item) => item.heldItemId === 120);
+  assert.ok(player, "blueprint scanner holder");
+  assert.equal(player.heldItemName, "Blueprint Scanner");
+  assert.equal(player.actionPreview.actionName, "blueprint");
+  assert.equal(player.actionPreview.active, true);
+  assert.equal(player.actionPreview.blueprintId, 100003016);
+  assert.equal(player.actionPreview.width, 1.5);
+  assert.equal(player.actionPreview.height, 2);
+
+  const expectedItems = [
+    [232, "Iron Block", 7, 6, [0, 1, 2]],
+    [237, "Item Net", 7, 6, [0, 1, 2]],
+    [240, "Expando Box (Packaged)", 1, null, [0]]
+  ];
+  const previewItems = player.actionPreview.blueprintItems
+    .map((item) => [item.itemId, item.itemName, item.bits, item.rawBits, item.placementOffsets])
+    .sort((a, b) => a[0] - b[0]);
+  assert.deepEqual(previewItems, expectedItems);
+
+  const previewEntities = world.model.entities()
+    .filter((entity) => entity.contents?.blueprintPreview)
+    .map((entity) => [
+      entity.category,
+      entity.contents.blueprintPreview.itemId,
+      entity.contents.blueprintPreview.placementCount
+    ])
+    .sort((a, b) => a[1] - b[1]);
+  assert.deepEqual(previewEntities, expectedItems.map(([itemId, , , , offsets]) => ["blueprint_preview", itemId, offsets.length]));
+
+  const expanded = player.actionPreview.blueprintItems
+    .flatMap((item) => item.placements.map((placement) => [item.itemId, placement.x, placement.y]))
+    .sort((a, b) => a[0] - b[0] || a[2] - b[2] || a[1] - b[1]);
+  assert.deepEqual(expanded, [
+    [232, 13.5, 11.5], [232, 14.5, 11.5], [232, 15.5, 11.5],
+    [237, 13.5, 8.5], [237, 14.5, 8.5], [237, 15.5, 8.5],
+    [240, 14, 10]
+  ]);
+});
+
+test("blueprint scanner preview expands repeated placement bits", () => {
+  const store = replayCaptureUntil("more-blueprints-sample.jsonl", (update) =>
+    update?.type === "model" &&
+    update.world?.id === 2881 &&
+    update.result?.model?.sections?.some((section) => section.table === 12)
+  );
+  const world = store.shipWorld();
+  assert.ok(world, "ship world");
+  assert.deepEqual(world.model.errors, [], "blueprint sample decode errors");
+
+  const player = world.model.players().find((item) => item.heldItemId === 120);
+  assert.ok(player, "blueprint scanner holder");
+  assert.equal(player.actionPreview.actionName, "blueprint");
+  assert.equal(player.actionPreview.width, 5);
+  assert.equal(player.actionPreview.height, 1);
+  assert.equal(player.actionPreview.blueprintId, 3692);
+  assert.equal(player.actionPreview.blueprintItems.reduce((total, item) => total + item.placementCount, 0), 13);
+
+  const expandedPositions = player.actionPreview.blueprintItems
+    .flatMap((item) => item.placements.map((placement) => [placement.x, placement.y]))
+    .sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+  assert.deepEqual(expandedPositions, [
+    [6.5, 9.5], [7.5, 9.5], [8.5, 9.5], [9.5, 9.5], [10.5, 9.5],
+    [11.5, 9.5], [12.5, 9.5], [13.5, 9.5], [14.5, 9.5], [15.5, 9.5],
+    [8.5, 10.5], [11.5, 10.5], [15.5, 10.5]
+  ]);
 });
