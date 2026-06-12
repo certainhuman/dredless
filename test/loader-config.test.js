@@ -1279,6 +1279,43 @@ test("ModelState decodes replicated player action preview", () => {
   assert.equal(player.actionPreview.color, 0);
 });
 
+test("ModelState decodes thruster facing and fuel", () => {
+  const typeSection = (entity, typeId) => tableSection(43, entity, 1, fieldDelta(typeId));
+  const thrusterSection = (entity, mask, values) => tableSection(133, entity, mask, values.flatMap(fieldDelta));
+  const model = new ModelState();
+
+  model.apply(modelData(
+    1,
+    typeSection(10, 230), thrusterSection(10, 4, [63]),
+    typeSection(11, 230), thrusterSection(11, 5, [1, 62]),
+    typeSection(12, 230), thrusterSection(12, 1, [2]),
+    typeSection(13, 230), thrusterSection(13, 1, [3]),
+    typeSection(14, 231), thrusterSection(14, 1, [4]),
+    typeSection(15, 231), thrusterSection(15, 1, [5]),
+    typeSection(16, 231), thrusterSection(16, 1, [6]),
+    typeSection(17, 231), thrusterSection(17, 1, [7])
+  ));
+
+  const thrusters = new Map(model.machines().thrusters.map((thruster) => [thruster.entity, thruster]));
+  assert.equal(thrusters.size, 8);
+  assert.deepEqual(
+    [...thrusters.values()].map((thruster) => [thruster.entity, thruster.facing, thruster.facingName, thruster.fuel]),
+    [
+      [10, 0, "bottom", 63],
+      [11, 1, "top", 62],
+      [12, 2, "right", null],
+      [13, 3, "left", null],
+      [14, 4, "bottom-right", null],
+      [15, 5, "bottom-left", null],
+      [16, 6, "top-right", null],
+      [17, 7, "top-left", null]
+    ]
+  );
+  assert.equal(model.entity(10).contents.thruster.typeName, "Thruster (Packaged)");
+  assert.equal(model.entity(14).contents.thruster.typeName, "Thruster (Starter, Packaged)");
+  assert.ok(model.entity(10).kind.includes("thruster"));
+});
+
 test("blueprint scanner preview exposes grouped blueprint items", () => {
   const store = replayCaptureUntil("blueprints-sample.jsonl", (update) =>
     update?.type === "model" &&

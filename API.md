@@ -574,6 +574,7 @@ Return shape:
   fabricators,
   processors,
   cannons,
+  thrusters,
   pushers,
   loaders,
   navigationUnits,
@@ -582,6 +583,20 @@ Return shape:
   shieldGenerators,
   shieldProjectors,
   expandoBoxes
+}
+```
+
+Thruster shape:
+
+```js
+{
+  entity,
+  typeId,
+  typeName,
+  facing,     // 0 bottom, 1 top, 2 right, 3 left; starter corners use 4..7
+  facingName, // bottom, top, right, left, bottom-right, bottom-left, top-right, top-left
+  fuel,
+  state
 }
 ```
 

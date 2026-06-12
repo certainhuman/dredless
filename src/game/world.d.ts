@@ -15,6 +15,7 @@ export {
   type EntitySummary,
   type BlockSummary,
   type BlueprintPreviewSummary,
+  type ThrusterSummary,
   type PusherSummary,
   type LoaderSummary,
   type SignSummary,

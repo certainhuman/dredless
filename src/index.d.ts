@@ -320,6 +320,7 @@ export interface EntityContentsSummary {
   fabricator?: FabricatorSummary;
   processor?: { entity: number; state: ModelRecord };
   cannon?: CannonSummary;
+  thruster?: ThrusterSummary;
   pusher?: PusherSummary;
   loader?: LoaderSummary;
   navigationUnit?: NavigationUnitSummary;
@@ -638,6 +639,16 @@ export interface CannonSummary {
   state: ModelRecord;
 }
 
+export interface ThrusterSummary {
+  entity: number;
+  typeId: number;
+  typeName: string | null;
+  facing: number;
+  facingName: "bottom" | "top" | "right" | "left" | "bottom-right" | "bottom-left" | "top-right" | "top-left" | null;
+  fuel: number | null;
+  state: ModelRecord;
+}
+
 export interface LoaderSummary {
   entity: number;
   pick: number | null;
@@ -866,6 +877,7 @@ export interface MachineSummary {
   fabricators: FabricatorSummary[];
   processors: { entity: number; state: ModelRecord }[];
   cannons: CannonSummary[];
+  thrusters: ThrusterSummary[];
   pushers: PusherSummary[];
   loaders: LoaderSummary[];
   navigationUnits: NavigationUnitSummary[];

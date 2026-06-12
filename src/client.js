@@ -485,6 +485,7 @@ function emptyMachineSummary() {
     fabricators: [],
     processors: [],
     cannons: [],
+    thrusters: [],
     pushers: [],
     loaders: [],
     navigationUnits: [],
