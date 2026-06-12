@@ -464,6 +464,7 @@ export interface Tileset {
 export interface WorldSnapshot {
   id: number;
   is_overworld: boolean | null;
+  overworldZone: OverworldZoneSummary | null;
   tileset: Tileset | null;
   seed: number | null;
   block_w: number | null;
@@ -485,6 +486,15 @@ export interface WorldSnapshot {
   shipControls: ShipControlSummary[];
   commsBubbles: CommsBubbleSummary[];
   tiles?: Tile[];
+}
+
+export interface OverworldZoneSummary {
+  id: number;
+  baseId: number;
+  layer: number;
+  key: string;
+  name: string;
+  displayName: string;
 }
 
 export interface WorldUpdate {

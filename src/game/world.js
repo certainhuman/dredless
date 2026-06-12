@@ -2,6 +2,7 @@ import { decryptPayload } from "../crypto/chacha.js";
 import { decompressLz4Frame } from "../compression/lz4.js";
 import { decodeMsgpack } from "../protocol/msgpack.js";
 import { ModelState } from "./model.js";
+import { overworldZoneFromId } from "./overworld.js";
 import { getTilesetForWorld } from "./tilesets.js";
 
 const TILE_SHAPE_NAMES = new Map([
@@ -281,9 +282,11 @@ export class WorldState {
 
   snapshot({ includeTiles = false, includeModel = false } = {}) {
     const model = this.model.snapshot({ includeTables: includeModel });
+    const overworldZone = this.isOverworld ? overworldZoneFromId(this.id) : null;
     return {
       id: this.id,
       is_overworld: this.isOverworld,
+      overworldZone,
       tileset: this.tileset,
       seed: this.seed,
       block_w: this.blockWidth,

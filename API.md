@@ -335,6 +335,7 @@ Return shape:
 {
   id,
   is_overworld,
+  overworldZone,
   tileset,
   seed,
   block_w,
@@ -358,6 +359,22 @@ Return shape:
   tiles
 }
 ```
+
+For overworld worlds, `overworldZone` is:
+
+```js
+{
+  id,          // actual overworld id, including layer offset
+  baseId,      // base zone id used by navigation destinations
+  layer,       // zero-based layer index
+  key,         // "freeport", "hummingbird", ...
+  name,        // display base name
+  displayName  // base name plus layer, for example "Sparrow II"
+}
+```
+
+Known base ids are `0` Freeport, `10` Hummingbird, `20` Finch,
+`30` Sparrow, `40` Raven, `50` Falcon, and `60` Combat Arena.
 
 `tiles` is present only with `includeTiles: true`.
 
@@ -616,13 +633,16 @@ Navigation unit shape:
 ```js
 {
   entity,
-  destination,
-  destinationName,
+  destination,     // normalized destination base id, for example 30 for Sparrow
+  destinationName, // lowercase destination key
   autoWarpOnShieldFailure,
   autoWarpOnNoCaptains,
   state
 }
 ```
+
+The raw navigation-unit table encodes destinations as `baseId - 1`; Dredless
+normalizes that to the real base id before exposing `destination`.
 
 Cannon shape:
 

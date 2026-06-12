@@ -6,6 +6,10 @@ import {
   LOADER_PRIORITY_NAMES,
   LoaderConfigTracker
 } from "./loader-config.js";
+import {
+  navigationDestinationFromEncodedValue,
+  navigationZoneFromBaseId
+} from "./overworld.js";
 import fs from "node:fs";
 
 const itemSchema = JSON.parse(fs.readFileSync(new URL("../../spec/item_schema.json", import.meta.url), "utf8"));
@@ -479,14 +483,15 @@ const SHIELD_GENERATOR_BOOST_STATE_NAMES = new Map([
   [2, "failed"]
 ]);
 
-const NAVIGATION_DESTINATION_NAMES = new Map([
-  [0, "hummingbird"],
-  [1, "finch"],
-  [2, "sparrow"],
-  [3, "raven"],
-  [4, "falcon"],
-  [6, "combat-arena"]
-]);
+const NAVIGATION_DEFAULT_DESTINATION = 10;
+
+function navigationDestinationName(destination) {
+  return navigationZoneFromBaseId(destination)?.key ?? null;
+}
+
+function isNavigationDestination(destination) {
+  return navigationDestinationName(destination) != null;
+}
 
 function numberOrNull(value, divisor = 1) {
   return typeof value === "number" ? value / divisor : null;
@@ -619,14 +624,18 @@ function summarizeHelm(entity, typeId, occupied = false) {
 }
 
 function navigationDestinationFromRecord(record, changedMask = record?.lastMask ?? 0) {
-  if (!record) return 0;
-  if ((changedMask & 9) === 9 && record.q20 === 0 && record.q24 == null && NAVIGATION_DESTINATION_NAMES.has(record.q32)) return record.q32;
-  if ((changedMask & 25) === 25 && record.q20 === 0 && record.q24 == null && NAVIGATION_DESTINATION_NAMES.has(record.q32)) return record.q32;
-  if ((changedMask & 17) === 17 && record.q20 === 0 && record.q24 == null && record.q32 == null && NAVIGATION_DESTINATION_NAMES.has(record.q36)) return record.q36;
-  if (changedMask === 1 && record.q20 != null) return record.q20;
-  if ((changedMask & 1) && record.q20 != null && record.q20 !== 0) return record.q20;
-  if (record.q20 === 0 && NAVIGATION_DESTINATION_NAMES.has(record.q24)) return record.q24;
-  return record.q20 ?? 0;
+  if (!record) return NAVIGATION_DEFAULT_DESTINATION;
+  const q32Destination = navigationDestinationFromEncodedValue(record.q32);
+  const q36Destination = navigationDestinationFromEncodedValue(record.q36);
+  const q24Destination = navigationDestinationFromEncodedValue(record.q24);
+  const q20Destination = navigationDestinationFromEncodedValue(record.q20);
+  if ((changedMask & 9) === 9 && record.q20 === 0 && record.q24 == null && q32Destination != null) return q32Destination;
+  if ((changedMask & 25) === 25 && record.q20 === 0 && record.q24 == null && q32Destination != null) return q32Destination;
+  if ((changedMask & 17) === 17 && record.q20 === 0 && record.q24 == null && record.q32 == null && q36Destination != null) return q36Destination;
+  if (changedMask === 1 && q20Destination != null) return q20Destination;
+  if ((changedMask & 1) && q20Destination != null && record.q20 !== 0) return q20Destination;
+  if (record.q20 === 0 && q24Destination != null) return q24Destination;
+  return q20Destination ?? NAVIGATION_DEFAULT_DESTINATION;
 }
 
 function summarizeNavigationUnit(entity, typeId, record, trackedState = null) {
@@ -635,7 +644,7 @@ function summarizeNavigationUnit(entity, typeId, record, trackedState = null) {
   return {
     entity,
     destination,
-    destinationName: NAVIGATION_DESTINATION_NAMES.get(destination) ?? null,
+    destinationName: navigationDestinationName(destination),
     autoWarpOnShieldFailure: trackedState?.shieldFailure ?? null,
     autoWarpOnNoCaptains: trackedState?.noCaptains ?? null,
     state: cloneRecord(record)
@@ -1362,16 +1371,20 @@ export class ModelState {
 
         if (!trackedBeforeUpdate.has(changed.entity)) {
           if (initializedThisUpdate.has(changed.entity)) continue;
-          const q32DestinationRow = (changed.mask & 9) === 9 && record.q20 === 0 && record.q24 == null && NAVIGATION_DESTINATION_NAMES.has(record.q32);
+          const q32Destination = navigationDestinationFromEncodedValue(record.q32);
+          const q36Destination = navigationDestinationFromEncodedValue(record.q36);
+          const q24Destination = navigationDestinationFromEncodedValue(record.q24);
+          const q20Destination = navigationDestinationFromEncodedValue(record.q20);
+          const q32DestinationRow = (changed.mask & 9) === 9 && record.q20 === 0 && record.q24 == null && q32Destination != null;
           const destinationBase = q32DestinationRow
-            ? record.q32
-            : (changed.mask & 17) === 17 && record.q20 === 0 && record.q24 == null && record.q32 == null && NAVIGATION_DESTINATION_NAMES.has(record.q36)
-              ? record.q36
-              : record.q20 === 0 && NAVIGATION_DESTINATION_NAMES.has(record.q24)
-                ? record.q24
+            ? q32Destination
+            : (changed.mask & 17) === 17 && record.q20 === 0 && record.q24 == null && record.q32 == null && q36Destination != null
+              ? q36Destination
+              : record.q20 === 0 && q24Destination != null
+                ? q24Destination
               : null;
-          const q36DestinationRow = destinationBase === record.q36 && record.q36 != null;
-          const pureDestinationRow = changed.mask === 1 && NAVIGATION_DESTINATION_NAMES.has(record.q20);
+          const q36DestinationRow = destinationBase === q36Destination && q36Destination != null;
+          const pureDestinationRow = changed.mask === 1 && q20Destination != null;
           const noCaptainsOnlyRow = changed.mask === 16 && record.q36 === 0;
           this.#navigationUnitAutoWarp.set(changed.entity, {
             destination: navigationDestinationFromRecord(record, changed.mask),
@@ -1389,20 +1402,23 @@ export class ModelState {
 
         const current = this.#navigationUnitAutoWarp.get(changed.entity);
         if (!current) continue;
-        const q32DestinationRow = (changed.mask & 9) === 9 && record.q20 === 0 && record.q24 == null && NAVIGATION_DESTINATION_NAMES.has(record.q32);
-        const q36DestinationRow = (changed.mask & 17) === 17 && record.q20 === 0 && record.q24 == null && record.q32 == null && NAVIGATION_DESTINATION_NAMES.has(record.q36);
+        const q32Destination = navigationDestinationFromEncodedValue(record.q32);
+        const q36Destination = navigationDestinationFromEncodedValue(record.q36);
+        const q20Destination = navigationDestinationFromEncodedValue(record.q20);
+        const q32DestinationRow = (changed.mask & 9) === 9 && record.q20 === 0 && record.q24 == null && q32Destination != null;
+        const q36DestinationRow = (changed.mask & 17) === 17 && record.q20 === 0 && record.q24 == null && record.q32 == null && q36Destination != null;
         const baselineRow = (changed.mask & 27) === 27 && record.q20 === 0 && record.q24 != null && record.q32 != null && record.q36 != null;
         if (q32DestinationRow) {
-          current.destination = record.q32;
-          current.destinationBase = record.q32;
+          current.destination = q32Destination;
+          current.destinationBase = q32Destination;
           current.shieldFailure = false;
           if (record.q36 != null) current.noCaptains = record.q36 !== 0;
           else if (changed.mask === 9) current.noCaptains = true;
           continue;
         }
         if (q36DestinationRow) {
-          current.destination = record.q36;
-          current.destinationBase = record.q36;
+          current.destination = q36Destination;
+          current.destinationBase = q36Destination;
           continue;
         }
         if (baselineRow) {
@@ -1410,8 +1426,15 @@ export class ModelState {
           current.noCaptains = record.q36 !== 0;
           continue;
         }
-        if (changed.mask === 1) current.destination = current.destinationBase == null ? record.q20 ?? 0 : current.destinationBase + (record.q20 ?? 0);
-        else if ((changed.mask & 1) && record.q20 != null && record.q20 !== 0) current.destination = record.q20;
+        if (changed.mask === 1) {
+          const relativeDestination = current.destinationBase == null || typeof record.q20 !== "number"
+            ? null
+            : current.destinationBase + record.q20;
+          current.destination = q20Destination ?? (isNavigationDestination(relativeDestination) ? relativeDestination : current.destination);
+        }
+        else if ((changed.mask & 1) && record.q20 != null && record.q20 !== 0) {
+          current.destination = q20Destination ?? (isNavigationDestination(record.q20) ? record.q20 : current.destination);
+        }
         if (changed.mask & 8) current.shieldFailure = !current.shieldFailure;
         if (changed.mask & 16) current.noCaptains = !current.noCaptains;
       }
