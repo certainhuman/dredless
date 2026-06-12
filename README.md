@@ -154,6 +154,39 @@ offline with:
 npm run benchmark -- captures/near-ship.jsonl
 ```
 
+Capture the official browser client's websocket instead with the userscript in
+`official-ws-hook.user.js`. Install it in Firefox with Violentmonkey or another
+userscript manager, then open `https://drednot.io/` and join a ship. A small
+`Dredless WS` panel appears in the bottom-right corner.
+
+Panel controls:
+
+- `Start` / `Stop`: resume or pause frame capture.
+- `Hook`: retry attaching to `window.tpgaClient.repsocket.websocket`.
+- `Download`: save the raw bidirectional JSONL capture.
+- `Copy`: copy the raw JSONL capture to the clipboard.
+- `Clear`: clear the current in-page capture buffer.
+
+`Start`, `Hook`, and `Clear` require two clicks to avoid accidental
+capture-state changes while interacting with the game. `Stop` is immediate.
+
+Convert the downloaded raw bidirectional frame log into decoded records with:
+
+```sh
+npm run decode:official-ws -- path/to/official-ws.jsonl --out captures/official-decoded.jsonl
+```
+
+The browser hook attaches directly to
+`window.tpgaClient.repsocket.websocket`. It wraps only that live socket
+instance's `send` method and adds a `message` listener; it does not replace the
+global `WebSocket` class. The userscript starts polling before join and hooks the
+socket once the official client creates it. It also exposes
+`window.dredlessOfficialCapture` for console access. The decoder writes incoming
+frames as `event=packet` records and outgoing frames as `event=outgoing`
+records. This is useful for reverse-engineering official client commands because
+Dredless' normal `capture.js` only records traffic from its own headless
+websocket client.
+
 Inspect overworld mob/projectile behavior from a capture with:
 
 ```sh

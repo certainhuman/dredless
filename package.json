@@ -80,6 +80,7 @@
     "check": "node --check src/index.js && find src -name '*.js' -print0 | xargs -0 -n1 node --check",
     "analyze:entities": "node analyze-entities.js",
     "capture": "node capture.js",
+    "decode:official-ws": "node official-ws-decode.js",
     "watch": "node watch.js",
     "watch:test": "node watch.js --test",
     "test:loader": "node --test test/loader-config.test.js"
