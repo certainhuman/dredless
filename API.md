@@ -197,6 +197,14 @@ client.setLauncherAngle(angle);
 client.setLauncherPower(power);
 client.sendUiConfig(data);
 client.solveGeneratorPuzzle(entity, solution);
+client.sendPusherConfig(entity, config?);
+client.setPusherAngle(entity, angle, config?);
+client.setPusherSpeed(entity, speed, config?);
+client.setPusherLength(entity, length, config?);
+client.setPusherMode(entity, mode, config?);
+client.setPusherFilteredMode(entity, filteredMode, config?);
+client.setPusherFilterInventory(entity, filterInventory, config?);
+client.setPusherFilterItems(entity, filterSlots?);
 client.inputSettings();
 client.setInputSettings(settings?, options?);
 client.setWrenchMode(mode, options?);
@@ -267,6 +275,30 @@ client.setLauncherPower(15);
 `angle` is degrees and is rounded/wrapped into `0..359`. `power` is the
 launcher UI value `0..30`. These commands target the currently open launcher
 panel; no entity id is present in the outgoing type `5` message.
+
+Pusher helpers use compact `type: 8` UI/config payloads and include the target
+entity id. `sendPusherConfig(entity, config)` sends the full pusher config;
+omitted fields default to the currently decoded pusher state, then to the
+official defaults: default mode `do-nothing`, filtered mode `push`, angle `0`,
+speed `20`, length `1000`, and filter-by-inventory off.
+
+```js
+client.sendPusherConfig(pusher.entity, {
+  mode: "pull",
+  filteredMode: "do-nothing",
+  angle: 90,
+  speed: 13,
+  length: 300,
+  filterInventory: true
+});
+
+client.setPusherAngle(pusher.entity, 180);
+client.setPusherFilterItems(pusher.entity, [100, 0, 0]); // Wrench in slot 0
+```
+
+Pusher modes are `0`/`"push"`, `1`/`"pull"`, and
+`2`/`"do-nothing"`. `setPusherFilterItems()` accepts three item ids; `0`,
+`null`, or omitted slots mean empty.
 
 Shield generator puzzle submissions use a compact `type: 8` UI/config payload:
 

@@ -5,7 +5,7 @@ import { Blueprint, Item, Structure } from "dsa-shipshape";
 import { ModelState } from "../src/game/model.js";
 import { generateGeneratorMaze, solveGeneratorMazeSeed } from "../src/game/generator-maze.js";
 import { WorldState, WorldStore } from "../src/game/world.js";
-import { buildGeneratorMazePuzzleData, buildNavigationUnitConfigData } from "../src/protocol/ui-config.js";
+import { buildGeneratorMazePuzzleData, buildNavigationUnitConfigData, buildPusherConfigData, buildPusherFilterItemsData } from "../src/protocol/ui-config.js";
 import {
   fixtureByName,
   loaderBlueprintFixtures,
@@ -719,6 +719,55 @@ test("buildGeneratorMazePuzzleData matches official client generator captures", 
     hex(buildGeneratorMazePuzzleData(60, "41243")),
     "90003c8a0b6d617a655f70757a7a6c6500908a0534313234338d9191",
     "fail-generator-puzzle.jsonl"
+  );
+});
+
+test("buildPusherConfigData matches official client pusher command captures", () => {
+  const entity = 28;
+
+  assert.equal(
+    hex(buildPusherConfigData(entity, {
+      mode: "do-nothing",
+      filteredMode: "push",
+      angle: 90,
+      speed: 20,
+      filterInventory: false,
+      length: 1000
+    })),
+    "90001c8a0d636f6e6669675f70757368657200900200845a148e85e8039191",
+    "change-pusher-angle-to-90.jsonl"
+  );
+
+  assert.equal(
+    hex(buildPusherConfigData(entity, {
+      mode: "do-nothing",
+      filteredMode: "push",
+      angle: 90,
+      speed: 13,
+      filterInventory: false,
+      length: 300
+    })),
+    "90001c8a0d636f6e6669675f70757368657200900200845a0d8e852c019191",
+    "change-pusher-target-speed-to-13.jsonl"
+  );
+
+  assert.equal(
+    hex(buildPusherConfigData(entity, {
+      mode: "push",
+      filteredMode: "do-nothing",
+      angle: 90,
+      speed: 13,
+      filterInventory: true,
+      length: 300
+    })),
+    "90001c8a0d636f6e6669675f70757368657200900002845a0d8d852c019191",
+    "enable-pusher-filter-by-inventory.jsonl"
+  );
+
+  assert.equal(
+    hex(buildPusherFilterItemsData(entity, [100, 0, 0])),
+    "90001c8a0c66696c7465725f6974656d730090846400009191",
+    "add-wrench-to-pusher-filter-slot-1.jsonl"
   );
 });
 

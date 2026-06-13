@@ -6,7 +6,7 @@ export { ModelState, decodeModelData } from "./game/model.js";
 export { generateGeneratorMaze, solveGeneratorMazeSeed, maybeSolveGeneratorMazeSeed } from "./game/generator-maze.js";
 export { decodeMsgpack, encodeMsgpack } from "./protocol/msgpack.js";
 export { buildSignedCommandPacket } from "./protocol/commands.js";
-export { buildGeneratorMazePuzzleData, buildNavigationUnitConfigData } from "./protocol/ui-config.js";
+export { buildGeneratorMazePuzzleData, buildNavigationUnitConfigData, buildPusherConfigData, buildPusherFilterItemsData } from "./protocol/ui-config.js";
 export { decryptPayload } from "./crypto/chacha.js";
 export { decompressLz4Frame } from "./compression/lz4.js";
 

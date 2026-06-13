@@ -6,7 +6,7 @@ import { fetchServers } from "./net/servers.js";
 import { Connection } from "./game/connection.js";
 import { WorldStore } from "./game/world.js";
 import { buildSignedCommandPacket } from "./protocol/commands.js";
-import { buildGeneratorMazePuzzleData, buildNavigationUnitConfigData } from "./protocol/ui-config.js";
+import { buildGeneratorMazePuzzleData, buildNavigationUnitConfigData, buildPusherConfigData, buildPusherFilterItemsData } from "./protocol/ui-config.js";
 import { decodeMsgpack, encodeMsgpack, cloneCommand } from "./protocol/msgpack.js";
 import { toUint8Array } from "./protocol/binary.js";
 
@@ -150,6 +150,38 @@ export class DredlessClient extends EventBus {
 
   solveGeneratorPuzzle(entity, solution) {
     return this.sendUiConfig(buildGeneratorMazePuzzleData(entity, solution));
+  }
+
+  sendPusherConfig(entity, config = {}) {
+    return this.sendUiConfig(buildPusherConfigData(entity, this.#pusherConfigDefaults(entity, config)));
+  }
+
+  setPusherAngle(entity, angle, config = {}) {
+    return this.sendPusherConfig(entity, { ...config, angle });
+  }
+
+  setPusherSpeed(entity, speed, config = {}) {
+    return this.sendPusherConfig(entity, { ...config, speed });
+  }
+
+  setPusherLength(entity, length, config = {}) {
+    return this.sendPusherConfig(entity, { ...config, length });
+  }
+
+  setPusherMode(entity, mode, config = {}) {
+    return this.sendPusherConfig(entity, { ...config, mode });
+  }
+
+  setPusherFilteredMode(entity, filteredMode, config = {}) {
+    return this.sendPusherConfig(entity, { ...config, filteredMode });
+  }
+
+  setPusherFilterInventory(entity, filterInventory, config = {}) {
+    return this.sendPusherConfig(entity, { ...config, filterInventory });
+  }
+
+  setPusherFilterItems(entity, filterSlots = []) {
+    return this.sendUiConfig(buildPusherFilterItemsData(entity, filterSlots));
   }
 
   inputSettings() {
@@ -588,6 +620,18 @@ export class DredlessClient extends EventBus {
       warp: config.warp ?? "idle",
       autoWarpOnShieldFailure: config.autoWarpOnShieldFailure ?? summary?.autoWarpOnShieldFailure ?? false,
       autoWarpOnNoCaptains: config.autoWarpOnNoCaptains ?? summary?.autoWarpOnNoCaptains ?? false
+    };
+  }
+
+  #pusherConfigDefaults(entity, config = {}) {
+    const summary = this.entity(entity)?.contents?.pusher || null;
+    return {
+      mode: config.mode ?? summary?.mode ?? 2,
+      filteredMode: config.filteredMode ?? summary?.filteredMode ?? 0,
+      angle: config.angle ?? summary?.angle ?? 0,
+      speed: config.speed ?? summary?.speed ?? 20,
+      filterInventory: config.filterInventory ?? summary?.filterInventory ?? false,
+      length: config.length ?? summary?.length ?? 1000
     };
   }
 

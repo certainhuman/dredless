@@ -77,6 +77,17 @@ export interface Command {
   drag?: DragPayload | null;
 }
 
+export type PusherMode = 0 | 1 | 2 | "push" | "pull" | "do-nothing" | "doNothing" | "none";
+
+export interface PusherConfig {
+  mode?: PusherMode;
+  filteredMode?: PusherMode;
+  angle?: number;
+  speed?: number;
+  filterInventory?: boolean;
+  length?: number;
+}
+
 export class Session {
   constructor(gameSession?: string | null, gameVersion?: string | null);
 
@@ -223,6 +234,14 @@ export class DredlessClient {
   setLauncherPower(power: number): this;
   sendUiConfig(data: unknown): this;
   solveGeneratorPuzzle(entity: number, solution: string | number): this;
+  sendPusherConfig(entity: number, config?: PusherConfig): this;
+  setPusherAngle(entity: number, angle: number, config?: PusherConfig): this;
+  setPusherSpeed(entity: number, speed: number, config?: PusherConfig): this;
+  setPusherLength(entity: number, length: number, config?: PusherConfig): this;
+  setPusherMode(entity: number, mode: PusherMode, config?: PusherConfig): this;
+  setPusherFilteredMode(entity: number, filteredMode: PusherMode, config?: PusherConfig): this;
+  setPusherFilterInventory(entity: number, filterInventory: boolean, config?: PusherConfig): this;
+  setPusherFilterItems(entity: number, filterSlots?: Array<number | null | undefined>): this;
   inputSettings(): CurrentInputSettings;
   setInputSettings(settings?: InputSettings, options?: { send?: boolean }): this;
   setWrenchMode(mode: WrenchMode, options?: { send?: boolean }): this;
@@ -980,6 +999,8 @@ export function encodeMsgpack(value: unknown): Uint8Array;
 export function buildSignedCommandPacket(command: Command, sessionId: number): Uint8Array;
 export function buildNavigationUnitConfigData(entity: number, config: NavigationUnitConfig & { destination: number }): Uint8Array;
 export function buildGeneratorMazePuzzleData(entity: number, solution: string | number): Uint8Array;
+export function buildPusherConfigData(entity: number, config?: PusherConfig): Uint8Array;
+export function buildPusherFilterItemsData(entity: number, filterSlots?: Array<number | null | undefined>): Uint8Array;
 export function generateGeneratorMaze(seed: number): GeneratorMaze;
 export function solveGeneratorMazeSeed(seed: number): string;
 export function maybeSolveGeneratorMazeSeed(seed: number | null | undefined): string | null;
