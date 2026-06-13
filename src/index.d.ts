@@ -219,6 +219,11 @@ export class DredlessClient {
   fabricatorUnlockResource(row: number): this;
   fabricatorEject(row: number): this;
   sendUiConfig(data: unknown): this;
+  inputSettings(): CurrentInputSettings;
+  setInputSettings(settings?: InputSettings, options?: { send?: boolean }): this;
+  setWrenchMode(mode: WrenchMode, options?: { send?: boolean }): this;
+  setWrenchAction(mode: WrenchMode, options?: { send?: boolean }): this;
+  setTurretMode(mode: TurretMode, options?: { send?: boolean }): this;
   sendNavigationUnitConfig(entity: number, config?: NavigationUnitConfig): this;
   setNavigationDestination(entity: number, destination: number, config?: NavigationUnitConfig): this;
   setNavigationAutoWarp(entity: number, config?: NavigationUnitConfig): this;
@@ -297,6 +302,23 @@ export interface NavigationUnitConfig {
   warp?: boolean | "start" | "idle" | "cancel";
   autoWarpOnShieldFailure?: boolean;
   autoWarpOnNoCaptains?: boolean;
+}
+
+export type WrenchMode = 0 | 1 | 2 | "drop-all-items" | "grab-primary-items" | "grab-all-items";
+export type TurretMode = 0 | 1 | "continuous-fire" | "volley-fire";
+
+export interface InputSettings {
+  wrenchMode?: WrenchMode;
+  wrench_mode?: WrenchMode;
+  turretMode?: TurretMode;
+  turret_mode?: TurretMode;
+}
+
+export interface CurrentInputSettings {
+  wrenchMode: 0 | 1 | 2;
+  wrenchModeName: "drop-all-items" | "grab-primary-items" | "grab-all-items" | null;
+  turretMode: 0 | 1;
+  turretModeName: "continuous-fire" | "volley-fire" | null;
 }
 
 export interface InventorySlot {

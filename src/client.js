@@ -57,13 +57,17 @@ export class DredlessClient extends EventBus {
   #bootstrapped = false;
   #resolveReady = null;
   #rejectReady = null;
+  #inputSettings = {
+    wrench_mode: 1,
+    turret_mode: 0
+  };
 
   waitUntilReady() {
     return this.readyPromise;
   }
 
-  send(command) {
-    const normalized = cloneCommand(command);
+  send(command = {}) {
+    const normalized = cloneCommand({ ...this.#inputSettings, ...command });
     if (normalized.n == null) normalized.n = this.#commandNumber++;
     if (!this.sid) {
       this.#queuedCommands.push(normalized);
@@ -130,6 +134,35 @@ export class DredlessClient extends EventBus {
 
   sendUiConfig(data) {
     return this.sendMessage({ type: 8, data });
+  }
+
+  inputSettings() {
+    return {
+      wrenchMode: this.#inputSettings.wrench_mode,
+      wrenchModeName: wrenchModeName(this.#inputSettings.wrench_mode),
+      turretMode: this.#inputSettings.turret_mode,
+      turretModeName: turretModeName(this.#inputSettings.turret_mode)
+    };
+  }
+
+  setInputSettings(settings = {}, { send = true } = {}) {
+    const wrench = settings.wrenchMode ?? settings.wrench_mode;
+    const turret = settings.turretMode ?? settings.turret_mode;
+    if (wrench != null) this.#inputSettings.wrench_mode = normalizeWrenchMode(wrench);
+    if (turret != null) this.#inputSettings.turret_mode = normalizeTurretMode(turret);
+    return send ? this.send({}) : this;
+  }
+
+  setWrenchMode(mode, options = {}) {
+    return this.setInputSettings({ wrenchMode: mode }, options);
+  }
+
+  setWrenchAction(mode, options = {}) {
+    return this.setWrenchMode(mode, options);
+  }
+
+  setTurretMode(mode, options = {}) {
+    return this.setInputSettings({ turretMode: mode }, options);
   }
 
   sendNavigationUnitConfig(entity, config = {}) {
@@ -536,6 +569,45 @@ export class DredlessClient extends EventBus {
     this.#rejectReady = null;
     try { this.emit("error", error); } catch (_) {}
   }
+}
+
+const WRENCH_MODES = new Map([
+  [0, "drop-all-items"],
+  [1, "grab-primary-items"],
+  [2, "grab-all-items"]
+]);
+
+const WRENCH_MODE_VALUES = new Map([...WRENCH_MODES].map(([value, name]) => [name, value]));
+
+const TURRET_MODES = new Map([
+  [0, "continuous-fire"],
+  [1, "volley-fire"]
+]);
+
+const TURRET_MODE_VALUES = new Map([...TURRET_MODES].map(([value, name]) => [name, value]));
+
+function wrenchModeName(value) {
+  return WRENCH_MODES.get(value) ?? null;
+}
+
+function turretModeName(value) {
+  return TURRET_MODES.get(value) ?? null;
+}
+
+function normalizeWrenchMode(value) {
+  const normalized = typeof value === "string" ? WRENCH_MODE_VALUES.get(value) : Number(value);
+  if (normalized == null || !WRENCH_MODES.has(normalized)) {
+    throw new RangeError(`Unknown wrench mode: ${value}`);
+  }
+  return normalized;
+}
+
+function normalizeTurretMode(value) {
+  const normalized = typeof value === "string" ? TURRET_MODE_VALUES.get(value) : Number(value);
+  if (normalized == null || !TURRET_MODES.has(normalized)) {
+    throw new RangeError(`Unknown turret mode: ${value}`);
+  }
+  return normalized;
 }
 
 function emptyMachineSummary() {

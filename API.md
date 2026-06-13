@@ -193,6 +193,11 @@ client.fabricatorLockResource(row);
 client.fabricatorUnlockResource(row);
 client.fabricatorEject(row);
 client.sendUiConfig(data);
+client.inputSettings();
+client.setInputSettings(settings?, options?);
+client.setWrenchMode(mode, options?);
+client.setWrenchAction(mode, options?);
+client.setTurretMode(mode, options?);
 client.sendNavigationUnitConfig(entity, config?);
 client.setNavigationDestination(entity, destination, config?);
 client.setNavigationAutoWarp(entity, config?);
@@ -239,6 +244,35 @@ client.fabricatorEject(0);
 
 `sendFabricatorCommand()` is the legacy `craft_add` wrapper. Use
 `sendFabricatorMessage(cmd, args)` for raw confirmed fabricator commands.
+
+Input settings are persistent defaults included on every signed `type: 0`
+command. The official client does not send a separate settings packet for these
+controls; it changes the repeated `wrench_mode` and `turret_mode` fields:
+
+```js
+client.setWrenchMode("grab-all-items");
+client.setTurretMode("volley-fire");
+client.inputSettings();
+```
+
+Wrench modes:
+
+```js
+0 // drop-all-items
+1 // grab-primary-items
+2 // grab-all-items
+```
+
+Turret modes:
+
+```js
+0 // continuous-fire
+1 // volley-fire
+```
+
+By default `setWrenchMode()`, `setWrenchAction()`, `setTurretMode()`, and
+`setInputSettings()` also send one immediate input command carrying the updated
+defaults. Pass `{ send:false }` to only update future commands.
 
 Navigation-unit helpers send the observed top-level `type: 8` UI/config
 payload for `config_nav_unit`:
