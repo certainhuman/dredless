@@ -91,12 +91,40 @@ export class DredlessClient extends EventBus {
     return this.sendMessage({ type: 7, outfit });
   }
 
+  sendFabricatorMessage(cmd, args = [-1, -1, -1]) {
+    return this.sendMessage({ type: 5, cmd, args });
+  }
+
   sendFabricatorCommand(itemId, count = 1, index = -1) {
-    return this.sendMessage({ type: 5, cmd: "craft_add", args: [itemId, count, index] });
+    return this.craftAdd(itemId, count, index);
   }
 
   craftAdd(itemId, count = 1, index = -1) {
-    return this.sendFabricatorCommand(itemId, count, index);
+    return this.sendFabricatorMessage("craft_add", [itemId, count, index]);
+  }
+
+  craftSub(itemId, count = 1, index = 0) {
+    return this.sendFabricatorMessage("craft_sub", [itemId, count, index]);
+  }
+
+  craftClearQueue() {
+    return this.sendFabricatorMessage("clear_queue");
+  }
+
+  craftToggleRepeat() {
+    return this.sendFabricatorMessage("toggle_repeat");
+  }
+
+  fabricatorLockResource(row) {
+    return this.sendFabricatorMessage("lock", [row, -1, -1]);
+  }
+
+  fabricatorUnlockResource(row) {
+    return this.sendFabricatorMessage("unlock", [row, -1, -1]);
+  }
+
+  fabricatorEject(row) {
+    return this.sendFabricatorMessage("eject", [row, -1, -1]);
   }
 
   sendUiConfig(data) {

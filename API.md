@@ -183,8 +183,15 @@ client.send(command);
 client.sendMessage(message, { afterReady? });
 client.sendRaw(message, { afterReady? });
 client.setOutfit(outfit);
+client.sendFabricatorMessage(cmd, args?);
 client.sendFabricatorCommand(itemId, count?, index?);
 client.craftAdd(itemId, count?, index?);
+client.craftSub(itemId, count?, index?);
+client.craftClearQueue();
+client.craftToggleRepeat();
+client.fabricatorLockResource(row);
+client.fabricatorUnlockResource(row);
+client.fabricatorEject(row);
 client.sendUiConfig(data);
 client.move(x?, y?, command?);
 client.aim(mx?, my?, command?);
@@ -212,6 +219,21 @@ client.materials(scope?);
 before sending. `sendMessage()` sends ordinary MsgPack websocket messages such
 as `type: 5` fabricator commands, `type: 7` outfits, and `type: 8` UI/config
 payloads.
+
+Fabricator helpers send the observed top-level `type: 5` command messages:
+
+```js
+client.craftAdd(248, 8);      // queue 8 Munitions Fabricators
+client.craftSub(248, 1, 0);   // remove 1 from queue index 0
+client.craftClearQueue();
+client.craftToggleRepeat();
+client.fabricatorLockResource(1);
+client.fabricatorUnlockResource(1);
+client.fabricatorEject(0);
+```
+
+`sendFabricatorCommand()` is the legacy `craft_add` wrapper. Use
+`sendFabricatorMessage(cmd, args)` for raw confirmed fabricator commands.
 
 ## Client Read API
 

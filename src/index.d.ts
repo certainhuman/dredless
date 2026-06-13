@@ -209,8 +209,15 @@ export class DredlessClient {
   sendMessage(message: unknown, options?: { afterReady?: boolean }): this;
   sendRaw(message: unknown, options?: { afterReady?: boolean }): this;
   setOutfit(outfit: unknown): this;
+  sendFabricatorMessage(cmd: string, args?: [number, number, number]): this;
   sendFabricatorCommand(itemId: number, count?: number, index?: number): this;
   craftAdd(itemId: number, count?: number, index?: number): this;
+  craftSub(itemId: number, count?: number, index?: number): this;
+  craftClearQueue(): this;
+  craftToggleRepeat(): this;
+  fabricatorLockResource(row: number): this;
+  fabricatorUnlockResource(row: number): this;
+  fabricatorEject(row: number): this;
   sendUiConfig(data: unknown): this;
   move(x?: number, y?: number, command?: Command): this;
   aim(mx?: number, my?: number, command?: Command): this;
