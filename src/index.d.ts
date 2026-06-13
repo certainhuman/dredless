@@ -219,6 +219,11 @@ export class DredlessClient {
   fabricatorUnlockResource(row: number): this;
   fabricatorEject(row: number): this;
   sendUiConfig(data: unknown): this;
+  sendNavigationUnitConfig(entity: number, config?: NavigationUnitConfig): this;
+  setNavigationDestination(entity: number, destination: number, config?: NavigationUnitConfig): this;
+  setNavigationAutoWarp(entity: number, config?: NavigationUnitConfig): this;
+  startWarp(entity: number, config?: NavigationUnitConfig): this;
+  cancelWarp(entity: number, config?: NavigationUnitConfig): this;
   move(x?: number, y?: number, command?: Command): this;
   aim(mx?: number, my?: number, command?: Command): this;
   action(flags?: Command, command?: Command): this;
@@ -284,6 +289,14 @@ export interface ClientSnapshot {
 export interface CommandAck {
   world: number;
   commandNumber: number;
+}
+
+export interface NavigationUnitConfig {
+  destination?: number;
+  page?: number;
+  warp?: boolean | "start" | "idle" | "cancel";
+  autoWarpOnShieldFailure?: boolean;
+  autoWarpOnNoCaptains?: boolean;
 }
 
 export interface InventorySlot {
@@ -898,6 +911,7 @@ export interface MachineSummary {
 export function decodeMsgpack(bytes: Uint8Array | ArrayBuffer | number[]): unknown;
 export function encodeMsgpack(value: unknown): Uint8Array;
 export function buildSignedCommandPacket(command: Command, sessionId: number): Uint8Array;
+export function buildNavigationUnitConfigData(entity: number, config: NavigationUnitConfig & { destination: number }): Uint8Array;
 export function decryptPayload(wireBytes: Uint8Array | ArrayBuffer | number[], worldId: number, seed: number): Uint8Array;
 export function decompressLz4Frame(bytes: Uint8Array | ArrayBuffer | number[]): Uint8Array;
 export function decodeModelData(bytes: Uint8Array | ArrayBuffer | number[]): unknown;

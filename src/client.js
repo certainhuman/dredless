@@ -6,6 +6,7 @@ import { fetchServers } from "./net/servers.js";
 import { Connection } from "./game/connection.js";
 import { WorldStore } from "./game/world.js";
 import { buildSignedCommandPacket } from "./protocol/commands.js";
+import { buildNavigationUnitConfigData } from "./protocol/ui-config.js";
 import { decodeMsgpack, encodeMsgpack, cloneCommand } from "./protocol/msgpack.js";
 import { toUint8Array } from "./protocol/binary.js";
 
@@ -129,6 +130,26 @@ export class DredlessClient extends EventBus {
 
   sendUiConfig(data) {
     return this.sendMessage({ type: 8, data });
+  }
+
+  sendNavigationUnitConfig(entity, config = {}) {
+    return this.sendUiConfig(buildNavigationUnitConfigData(entity, this.#navigationUnitConfigDefaults(entity, config)));
+  }
+
+  setNavigationDestination(entity, destination, config = {}) {
+    return this.sendNavigationUnitConfig(entity, { ...config, destination });
+  }
+
+  setNavigationAutoWarp(entity, config = {}) {
+    return this.sendNavigationUnitConfig(entity, { page: 1, ...config });
+  }
+
+  startWarp(entity, config = {}) {
+    return this.sendNavigationUnitConfig(entity, { page: 1, ...config, warp: "start" });
+  }
+
+  cancelWarp(entity, config = {}) {
+    return this.sendNavigationUnitConfig(entity, { page: 1, ...config, warp: "cancel" });
   }
 
   move(x = 0, y = 0, command = {}) {
@@ -484,6 +505,17 @@ export class DredlessClient extends EventBus {
       });
     }
     return headers;
+  }
+
+  #navigationUnitConfigDefaults(entity, config = {}) {
+    const summary = this.entity(entity)?.contents?.navigationUnit || null;
+    return {
+      destination: config.destination ?? summary?.destination,
+      page: config.page ?? 0,
+      warp: config.warp ?? "idle",
+      autoWarpOnShieldFailure: config.autoWarpOnShieldFailure ?? summary?.autoWarpOnShieldFailure ?? false,
+      autoWarpOnNoCaptains: config.autoWarpOnNoCaptains ?? summary?.autoWarpOnNoCaptains ?? false
+    };
   }
 
   #openSocket(WebSocket, url, headers) {

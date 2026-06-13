@@ -193,6 +193,11 @@ client.fabricatorLockResource(row);
 client.fabricatorUnlockResource(row);
 client.fabricatorEject(row);
 client.sendUiConfig(data);
+client.sendNavigationUnitConfig(entity, config?);
+client.setNavigationDestination(entity, destination, config?);
+client.setNavigationAutoWarp(entity, config?);
+client.startWarp(entity, config?);
+client.cancelWarp(entity, config?);
 client.move(x?, y?, command?);
 client.aim(mx?, my?, command?);
 client.action(flags?, command?);
@@ -234,6 +239,29 @@ client.fabricatorEject(0);
 
 `sendFabricatorCommand()` is the legacy `craft_add` wrapper. Use
 `sendFabricatorMessage(cmd, args)` for raw confirmed fabricator commands.
+
+Navigation-unit helpers send the observed top-level `type: 8` UI/config
+payload for `config_nav_unit`:
+
+```js
+const nav = client.machines().navigationUnits[0];
+
+client.setNavigationDestination(nav.entity, 40); // Raven
+client.setNavigationAutoWarp(nav.entity, {
+  destination: 40,
+  page: 1,
+  autoWarpOnShieldFailure: true,
+  autoWarpOnNoCaptains: false
+});
+client.startWarp(nav.entity);
+client.cancelWarp(nav.entity);
+```
+
+When the nav unit is already present in decoded state, omitted destination and
+auto-warp flags default from `entity.contents.navigationUnit`. Pass them
+explicitly when sending before the entity has been observed. `destination` is
+the normalized nav base id: `10` Hummingbird, `20` Finch, `30` Sparrow, `40`
+Raven, `50` Falcon, `60` Combat Arena.
 
 ## Client Read API
 

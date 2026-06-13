@@ -4,6 +4,7 @@ import test from "node:test";
 import { Blueprint, Item, Structure } from "dsa-shipshape";
 import { ModelState } from "../src/game/model.js";
 import { WorldState, WorldStore } from "../src/game/world.js";
+import { buildNavigationUnitConfigData } from "../src/protocol/ui-config.js";
 import {
   fixtureByName,
   loaderBlueprintFixtures,
@@ -82,6 +83,10 @@ function modelData(generation, ...sections) {
 
 function normalizeSlots(slots) {
   return slots == null ? null : slots.map((slot) => slot?.itemId ?? slot ?? null);
+}
+
+function hex(bytes) {
+  return Buffer.from(bytes).toString("hex");
 }
 
 function reviveLogValue(value) {
@@ -650,6 +655,56 @@ test("ModelState toggles navigation unit auto-warp flags from table 78 masks", (
   bothOn.apply(modelData(5, table78Section(162, 262, 16, [0])));
   assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnShieldFailure, true);
   assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnNoCaptains, true);
+});
+
+test("buildNavigationUnitConfigData matches official client nav command captures", () => {
+  const entity = 14;
+  const destination = NAV_RAVEN;
+
+  assert.equal(
+    hex(buildNavigationUnitConfigData(entity, { destination, page: 0 })),
+    "90000e8a0f636f6e6669675f6e61765f756e6974009028008e8d8d9191",
+    "change-nav-destination.jsonl"
+  );
+
+  assert.equal(
+    hex(buildNavigationUnitConfigData(entity, { destination, page: 1 })),
+    "90000e8a0f636f6e6669675f6e61765f756e6974009028018e8d8d9191",
+    "switch-nav-page.jsonl"
+  );
+
+  assert.equal(
+    hex(buildNavigationUnitConfigData(entity, {
+      destination,
+      page: 1,
+      autoWarpOnShieldFailure: true
+    })),
+    "90000e8a0f636f6e6669675f6e61765f756e6974009028018e8e8d9191",
+    "toggle-warp-on-shields-fail.jsonl"
+  );
+
+  assert.equal(
+    hex(buildNavigationUnitConfigData(entity, {
+      destination,
+      page: 1,
+      autoWarpOnShieldFailure: true,
+      autoWarpOnNoCaptains: true
+    })),
+    "90000e8a0f636f6e6669675f6e61765f756e6974009028018e8e8e9191",
+    "toggle-warp-on-no-captains.jsonl and cancel-warp.jsonl"
+  );
+
+  assert.equal(
+    hex(buildNavigationUnitConfigData(entity, {
+      destination,
+      page: 1,
+      warp: "start",
+      autoWarpOnShieldFailure: true,
+      autoWarpOnNoCaptains: true
+    })),
+    "90000e8a0f636f6e6669675f6e61765f756e6974009028018d8e8e9191",
+    "start-warp.jsonl"
+  );
 });
 
 test("navigation capture decodes layered overworld ids and nav base ids", () => {
