@@ -10,6 +10,7 @@ import {
   navigationDestinationFromEncodedValue,
   navigationZoneFromBaseId
 } from "./overworld.js";
+import { maybeSolveGeneratorMazeSeed } from "./generator-maze.js";
 import fs from "node:fs";
 
 const itemSchema = JSON.parse(fs.readFileSync(new URL("../../spec/item_schema.json", import.meta.url), "utf8"));
@@ -713,6 +714,8 @@ function summarizeShieldGenerator(entity, shieldRecord = null, itemHolderRecord 
   const storedItem = itemSummary(itemHolderRecord?.q20 ?? null, itemHolderRecord?.q24 ?? null);
   const boostState = boostRecord?.q24 ?? 0;
   const boostTimer = boostRecord?.q28 ?? 0;
+  const puzzleSeed = boostRecord?.q20 ?? null;
+  const puzzleSolution = maybeSolveGeneratorMazeSeed(puzzleSeed);
   return {
     entity,
     charge,
@@ -728,7 +731,8 @@ function summarizeShieldGenerator(entity, shieldRecord = null, itemHolderRecord 
     boostStateName: enumValueName(SHIELD_GENERATOR_BOOST_STATE_NAMES, boostState),
     boostTimer,
     boostActive: boostState !== 0 || boostTimer > 0,
-    puzzleSeed: boostRecord?.q20 ?? null,
+    puzzleSeed,
+    puzzleSolution,
     state: cloneRecord(shieldRecord || {}),
     itemState: cloneRecord(itemHolderRecord || {}),
     boostStateRaw: cloneRecord(boostRecord || {})

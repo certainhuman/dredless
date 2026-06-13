@@ -222,6 +222,7 @@ export class DredlessClient {
   setLauncherAngle(angle: number): this;
   setLauncherPower(power: number): this;
   sendUiConfig(data: unknown): this;
+  solveGeneratorPuzzle(entity: number, solution: string | number): this;
   inputSettings(): CurrentInputSettings;
   setInputSettings(settings?: InputSettings, options?: { send?: boolean }): this;
   setWrenchMode(mode: WrenchMode, options?: { send?: boolean }): this;
@@ -236,6 +237,8 @@ export class DredlessClient {
   aim(mx?: number, my?: number, command?: Command): this;
   action(flags?: Command, command?: Command): this;
   useEntity(entity: number, options?: { invSlot?: number; hold?: boolean }, command?: Command): this;
+  useHeldItem(options?: { invSlot?: number; hold?: boolean }, command?: Command): this;
+  placeHeldItem(options?: { invSlot?: number; hold?: boolean }, command?: Command): this;
   selectSlot(invSlot?: number, command?: Command): this;
   drag(source: number, target: number, split?: boolean, command?: Command): this;
   close(code?: number, reason?: string): this;
@@ -805,9 +808,37 @@ export interface ShieldGeneratorSummary {
   boostTimer: number;
   boostActive: boolean;
   puzzleSeed: number | null;
+  puzzleSolution: string | null;
   state: ModelRecord;
   itemState: ModelRecord;
   boostStateRaw: ModelRecord;
+}
+
+export interface GeneratorMazeCellWalls {
+  up: boolean;
+  down: boolean;
+  left: boolean;
+  right: boolean;
+}
+
+export interface GeneratorMazeCell {
+  x: number;
+  y: number;
+  value: number;
+  hex: string;
+  digit: number;
+  walls: GeneratorMazeCellWalls;
+  backtrackDirection: number;
+  marker: number;
+}
+
+export interface GeneratorMaze {
+  seed: number;
+  width: number;
+  height: number;
+  cells: GeneratorMazeCell[];
+  rows: GeneratorMazeCell[][];
+  solution: string;
 }
 
 export interface HelmSummary {
@@ -948,6 +979,10 @@ export function decodeMsgpack(bytes: Uint8Array | ArrayBuffer | number[]): unkno
 export function encodeMsgpack(value: unknown): Uint8Array;
 export function buildSignedCommandPacket(command: Command, sessionId: number): Uint8Array;
 export function buildNavigationUnitConfigData(entity: number, config: NavigationUnitConfig & { destination: number }): Uint8Array;
+export function buildGeneratorMazePuzzleData(entity: number, solution: string | number): Uint8Array;
+export function generateGeneratorMaze(seed: number): GeneratorMaze;
+export function solveGeneratorMazeSeed(seed: number): string;
+export function maybeSolveGeneratorMazeSeed(seed: number | null | undefined): string | null;
 export function decryptPayload(wireBytes: Uint8Array | ArrayBuffer | number[], worldId: number, seed: number): Uint8Array;
 export function decompressLz4Frame(bytes: Uint8Array | ArrayBuffer | number[]): Uint8Array;
 export function decodeModelData(bytes: Uint8Array | ArrayBuffer | number[]): unknown;

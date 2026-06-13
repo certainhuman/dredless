@@ -46,6 +46,11 @@
       "import": "./src/game/model.js",
       "default": "./src/game/model.js"
     },
+    "./game/generator-maze": {
+      "types": "./src/game/generator-maze.d.ts",
+      "import": "./src/game/generator-maze.js",
+      "default": "./src/game/generator-maze.js"
+    },
     "./game/model": {
       "types": "./src/game/model.d.ts",
       "import": "./src/game/model.js",

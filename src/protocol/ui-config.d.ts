@@ -7,7 +7,9 @@ export interface NavigationUnitConfig {
 }
 
 export function buildNavigationUnitConfigData(entity: number, config: NavigationUnitConfig): Uint8Array;
+export function buildGeneratorMazePuzzleData(entity: number, solution: string | number): Uint8Array;
 
+export const GENERATOR_MAZE_PUZZLE_COMMAND: "maze_puzzle";
 export const NAV_UNIT_COMMAND: "config_nav_unit";
 export const NAV_UNIT_FALSE: 0x8d;
 export const NAV_UNIT_TRUE: 0x8e;

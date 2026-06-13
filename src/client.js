@@ -6,7 +6,7 @@ import { fetchServers } from "./net/servers.js";
 import { Connection } from "./game/connection.js";
 import { WorldStore } from "./game/world.js";
 import { buildSignedCommandPacket } from "./protocol/commands.js";
-import { buildNavigationUnitConfigData } from "./protocol/ui-config.js";
+import { buildGeneratorMazePuzzleData, buildNavigationUnitConfigData } from "./protocol/ui-config.js";
 import { decodeMsgpack, encodeMsgpack, cloneCommand } from "./protocol/msgpack.js";
 import { toUint8Array } from "./protocol/binary.js";
 
@@ -148,6 +148,10 @@ export class DredlessClient extends EventBus {
     return this.sendMessage({ type: 8, data });
   }
 
+  solveGeneratorPuzzle(entity, solution) {
+    return this.sendUiConfig(buildGeneratorMazePuzzleData(entity, solution));
+  }
+
   inputSettings() {
     return {
       wrenchMode: this.#inputSettings.wrench_mode,
@@ -217,6 +221,20 @@ export class DredlessClient extends EventBus {
       act1: true,
       act1_held: Boolean(hold)
     });
+  }
+
+  useHeldItem({ invSlot = 0, hold = true } = {}, command = {}) {
+    return this.send({
+      ...command,
+      focus_ent: null,
+      inv_slot: invSlot,
+      act1: true,
+      act1_held: Boolean(hold)
+    });
+  }
+
+  placeHeldItem(options = {}, command = {}) {
+    return this.useHeldItem(options, command);
   }
 
   selectSlot(invSlot = 0, command = {}) {

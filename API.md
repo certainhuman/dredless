@@ -196,6 +196,7 @@ client.fabricatorEject(row);
 client.setLauncherAngle(angle);
 client.setLauncherPower(power);
 client.sendUiConfig(data);
+client.solveGeneratorPuzzle(entity, solution);
 client.inputSettings();
 client.setInputSettings(settings?, options?);
 client.setWrenchMode(mode, options?);
@@ -210,6 +211,8 @@ client.move(x?, y?, command?);
 client.aim(mx?, my?, command?);
 client.action(flags?, command?);
 client.useEntity(entity, options?, command?);
+client.useHeldItem(options?, command?);
+client.placeHeldItem(options?, command?);
 client.selectSlot(invSlot?, command?);
 client.drag(source, target, split?, command?);
 client.close(code?, reason?);
@@ -265,6 +268,37 @@ client.setLauncherPower(15);
 launcher UI value `0..30`. These commands target the currently open launcher
 panel; no entity id is present in the outgoing type `5` message.
 
+Shield generator puzzle submissions use a compact `type: 8` UI/config payload:
+
+```js
+client.useEntity(generator.entity);
+client.solveGeneratorPuzzle(generator.entity, generator.puzzleSolution);
+```
+
+`open-generator-puzzle.jsonl` confirms opening the puzzle is a normal entity
+use command on the generator; the server responds with a `config_ent_ui` side
+event and subsequent input frames keep `config_ent` set while the panel is open.
+`join-open-close-generator.jsonl` confirms the generator puzzle seed is already
+present in model data as `entity.contents.shieldGenerator.puzzleSeed`
+(`table75.q20`) before opening the panel; the open event does not send the
+solution. Dredless also exposes `entity.contents.shieldGenerator.puzzleSolution`
+and the named helper `solveGeneratorMazeSeed(seed)` so consumers do not need to
+implement the maze solver.
+If callers need the maze grid, use `generateGeneratorMaze(seed)`:
+
+```js
+const maze = generateGeneratorMaze(generator.puzzleSeed);
+console.log(maze.solution);
+console.log(maze.rows[0][0].walls);
+```
+
+The returned maze has `{ seed, width, height, rows, cells, solution }`. Each
+cell has `{ x, y, value, hex, digit, walls, backtrackDirection, marker }`.
+`solve-generator-puzzle.jsonl` and `fail-generator-puzzle.jsonl` confirm the
+submitted solution is encoded as command `maze_puzzle`. `load-core-into-generator.jsonl`
+confirms loading a Shield Core into a generator is also just `useEntity()` with
+the selected inventory slot.
+
 Input settings are persistent defaults included on every signed `type: 0`
 command. The official client does not send a separate settings packet for these
 controls; it changes the repeated `wrench_mode` and `turret_mode` fields:
@@ -305,6 +339,17 @@ client.useEntity(ejector.entity, { invSlot: 0 });
 client places the active hotbar item into a Cargo Ejector: `focus_ent` is the
 ejector entity, `inv_slot=0`, `act1=true`, and `act1_held=true`; the server
 then sends an inventory update clearing that slot.
+
+Using or placing the currently held hotbar item sends the same left-click flags
+without a focused entity:
+
+```js
+client.placeHeldItem({ invSlot: 0 }, { mx: 19.79, my: 4.79 });
+```
+
+`place-generator.jsonl` confirms placing a Shield Generator from hotbar slot `0`
+uses `focus_ent=null`, `inv_slot=0`, `act1=true`, and `act1_held=true`; the
+server log confirms placement and the inventory update clears slot `0`.
 
 Navigation-unit helpers send the observed top-level `type: 8` UI/config
 payload for `config_nav_unit`:

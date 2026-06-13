@@ -1,6 +1,7 @@
 import { encoder } from "../constants.js";
 
 const NAV_UNIT_COMMAND = "config_nav_unit";
+const GENERATOR_MAZE_PUZZLE_COMMAND = "maze_puzzle";
 const NAV_UNIT_STRING_TAG = 0x8a;
 const NAV_UNIT_HEADER_TAG = 0x90;
 const NAV_UNIT_TRUE = 0x8e;
@@ -33,6 +34,21 @@ function navWarpByte(value) {
   throw new TypeError(`warp must be true, false, "start", "idle", or "cancel"`);
 }
 
+function encodeUiCommandHeader(entity, commandName) {
+  const entityId = requireUint16(entity, "entity");
+  const command = encoder.encode(commandName);
+  if (command.byteLength > 255) throw new RangeError(`command name is too long`);
+  return [
+    NAV_UNIT_HEADER_TAG,
+    (entityId >> 8) & 0xff,
+    entityId & 0xff,
+    NAV_UNIT_STRING_TAG,
+    command.byteLength,
+    ...command,
+    0x00
+  ];
+}
+
 export function buildNavigationUnitConfigData(entity, {
   destination,
   page = 0,
@@ -40,19 +56,11 @@ export function buildNavigationUnitConfigData(entity, {
   autoWarpOnShieldFailure = false,
   autoWarpOnNoCaptains = false
 } = {}) {
-  const entityId = requireUint16(entity, "entity");
   const destinationId = requireByteInteger(destination, "destination");
   const pageIndex = requireByteInteger(page, "page");
-  const command = encoder.encode(NAV_UNIT_COMMAND);
 
   return Uint8Array.from([
-    NAV_UNIT_HEADER_TAG,
-    (entityId >> 8) & 0xff,
-    entityId & 0xff,
-    NAV_UNIT_STRING_TAG,
-    command.byteLength,
-    ...command,
-    0x00,
+    ...encodeUiCommandHeader(entity, NAV_UNIT_COMMAND),
     NAV_UNIT_HEADER_TAG,
     destinationId,
     pageIndex,
@@ -63,7 +71,25 @@ export function buildNavigationUnitConfigData(entity, {
   ]);
 }
 
+export function buildGeneratorMazePuzzleData(entity, solution) {
+  const value = String(solution);
+  if (!/^\d+$/.test(value)) throw new TypeError(`solution must contain only digits`);
+  const encoded = encoder.encode(value);
+  if (encoded.byteLength > 255) throw new RangeError(`solution is too long`);
+
+  return Uint8Array.from([
+    ...encodeUiCommandHeader(entity, GENERATOR_MAZE_PUZZLE_COMMAND),
+    NAV_UNIT_HEADER_TAG,
+    NAV_UNIT_STRING_TAG,
+    encoded.byteLength,
+    ...encoded,
+    NAV_UNIT_FALSE,
+    ...NAV_UNIT_TRAILER
+  ]);
+}
+
 export {
+  GENERATOR_MAZE_PUZZLE_COMMAND,
   NAV_UNIT_COMMAND,
   NAV_UNIT_FALSE,
   NAV_UNIT_TRUE

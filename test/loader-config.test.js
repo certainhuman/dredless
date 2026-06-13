@@ -3,8 +3,9 @@ import fs from "node:fs";
 import test from "node:test";
 import { Blueprint, Item, Structure } from "dsa-shipshape";
 import { ModelState } from "../src/game/model.js";
+import { generateGeneratorMaze, solveGeneratorMazeSeed } from "../src/game/generator-maze.js";
 import { WorldState, WorldStore } from "../src/game/world.js";
-import { buildNavigationUnitConfigData } from "../src/protocol/ui-config.js";
+import { buildGeneratorMazePuzzleData, buildNavigationUnitConfigData } from "../src/protocol/ui-config.js";
 import {
   fixtureByName,
   loaderBlueprintFixtures,
@@ -707,6 +708,66 @@ test("buildNavigationUnitConfigData matches official client nav command captures
   );
 });
 
+test("buildGeneratorMazePuzzleData matches official client generator captures", () => {
+  assert.equal(
+    hex(buildGeneratorMazePuzzleData(58, "132524")),
+    "90003a8a0b6d617a655f70757a7a6c6500908a063133323532348d9191",
+    "solve-generator-puzzle.jsonl"
+  );
+
+  assert.equal(
+    hex(buildGeneratorMazePuzzleData(60, "41243")),
+    "90003c8a0b6d617a655f70757a7a6c6500908a0534313234338d9191",
+    "fail-generator-puzzle.jsonl"
+  );
+});
+
+test("solveGeneratorMazeSeed matches official client maze solutions", () => {
+  assert.equal(solveGeneratorMazeSeed(29263270), "3652");
+  assert.equal(solveGeneratorMazeSeed(1912924178), "13452");
+  assert.equal(solveGeneratorMazeSeed(660008571), "121");
+  assert.equal(solveGeneratorMazeSeed(13697024), "31235125316");
+  assert.equal(solveGeneratorMazeSeed(508251904), "315");
+});
+
+test("generateGeneratorMaze exposes normalized cell rows", () => {
+  const maze = generateGeneratorMaze(1912924178);
+  assert.equal(maze.seed, 1912924178);
+  assert.equal(maze.width, 10);
+  assert.equal(maze.height, 10);
+  assert.equal(maze.solution, "13452");
+  assert.equal(maze.cells.length, 100);
+  assert.equal(maze.rows.length, 10);
+  assert.equal(maze.rows[0].length, 10);
+
+  const first = maze.rows[0][0];
+  assert.deepEqual(
+    {
+      x: first.x,
+      y: first.y,
+      value: first.value,
+      hex: first.hex,
+      digit: first.digit,
+      walls: first.walls,
+      backtrackDirection: first.backtrackDirection,
+      marker: first.marker
+    },
+    {
+      x: 0,
+      y: 0,
+      value: 0x1e,
+      hex: "1e",
+      digit: 1,
+      walls: { up: false, down: true, left: true, right: true },
+      backtrackDirection: 0,
+      marker: 0
+    }
+  );
+
+  assert.equal(maze.rows[9][9].hex, "2c");
+  assert.equal(maze.rows[9][9].digit, 2);
+});
+
 test("navigation capture decodes layered overworld ids and nav base ids", () => {
   const store = replayCapture("nav-sample.jsonl");
   const overworld = store.overworld();
@@ -753,6 +814,7 @@ test("ModelState exposes normalized shield generator charge, efficiency, and sto
     1,
     tableSection(43, empty, 1, fieldDelta(256)),
     tableSection(144, empty, 0, []),
+    tableSection(158, empty, 1, fieldDelta(1912924178)),
     tableSection(43, charged, 1, fieldDelta(256)),
     tableSection(144, charged, 3, [
       ...fieldDelta(4737),
@@ -776,6 +838,8 @@ test("ModelState exposes normalized shield generator charge, efficiency, and sto
   assert.equal(generator.boostStateName, "inactive");
   assert.equal(generator.boostTimer, 0);
   assert.equal(generator.boostActive, false);
+  assert.equal(generator.puzzleSeed, 1912924178);
+  assert.equal(generator.puzzleSolution, "13452");
 
   generator = model.entity(charged).contents.shieldGenerator;
   assert.equal(generator.charge, 4737);
