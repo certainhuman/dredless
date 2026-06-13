@@ -416,6 +416,7 @@ const COMMS_STATION_TYPE_ID = 217;
 const COMMS_STATION_MAX_CHARGES = 5;
 const THRUSTER_TYPE_IDS = new Set([230, 231]);
 const EXPANDO_BOX_TYPE_ID = 240;
+const ITEM_LAUNCHER_TYPE_ID = 243;
 const LOADER_TYPE_ID = 252;
 const NAVIGATION_UNIT_TYPE_ID = 261;
 
@@ -933,6 +934,23 @@ function summarizePusher(entity, pusherRecord, filterSlotsRecord = null) {
   };
 }
 
+function normalizeDegrees(value) {
+  if (!Number.isFinite(Number(value))) return null;
+  return ((Number(value) % 360) + 360) % 360;
+}
+
+function summarizeItemLauncher(entity, typeId, launcherRecord) {
+  if (typeId !== ITEM_LAUNCHER_TYPE_ID || !launcherRecord) return null;
+  const angleRadians = numberOrNull(launcherRecord.q32, 1000);
+  return {
+    entity,
+    angleRadians,
+    angleDegrees: angleRadians == null ? null : normalizeDegrees((angleRadians * 180) / Math.PI),
+    powerRaw: launcherRecord.q20 ?? null,
+    state: cloneRecord(launcherRecord)
+  };
+}
+
 function summarizeSign(entity, signRecord) {
   if (!signRecord) return null;
   const displayMode = signRecord.q20 ?? 0;
@@ -1159,9 +1177,10 @@ function entityLabel(entity) {
   if (entity?.fluidTank) return "Fluid Tank";
   if (entity?.cannon) return "Cannon";
   if (entity?.pusher) return "Pusher";
+  if (entity?.launcher) return "Item Launcher";
   if (entity?.loader) return "Loader";
   if (entity?.processor) return "Processor";
-  if (entity?.itemHolder && !entity?.processor && !entity?.cannon && !entity?.pusher && !entity?.loader && !entity?.fluidTank && !entity?.shieldGenerator && !entity?.shieldProjector) {
+  if (entity?.itemHolder && !entity?.processor && !entity?.cannon && !entity?.pusher && !entity?.launcher && !entity?.loader && !entity?.fluidTank && !entity?.shieldGenerator && !entity?.shieldProjector) {
     return entity.itemHolder.itemName || "Item Holder";
   }
   if (entity?.player) return "Player";
@@ -1177,7 +1196,7 @@ function entityCategory(entity) {
   if (entity?.mapMarker) return "map_marker";
   if (entity?.dockingSpring) return "docking_spring";
   if (entity?.hugeThruster) return "huge_thruster";
-  const hasMachineComponent = Boolean(entity?.fabricator || entity?.processor || entity?.cannon || entity?.pusher || entity?.loader || entity?.commsStation || entity?.fluidTank || entity?.shieldGenerator || entity?.shieldProjector);
+  const hasMachineComponent = Boolean(entity?.fabricator || entity?.processor || entity?.cannon || entity?.pusher || entity?.launcher || entity?.loader || entity?.commsStation || entity?.fluidTank || entity?.shieldGenerator || entity?.shieldProjector);
   const hasValidTransform = Boolean(
     entity?.transform &&
     Number.isFinite(entity.transform.x) &&
@@ -1189,14 +1208,14 @@ function entityCategory(entity) {
   if (entity?.typeId != null && !hasPhysicalComponent) return "metadata";
   if (entity?.markerTypeId != null) return "placed_entity";
   if (entity?.looseItemMarker && entity?.itemHolder?.itemId != null) return "loose_item";
-  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.pusher && !entity?.loader && !entity?.commsStation && !entity?.fluidTank && !entity?.shieldGenerator && !entity?.shieldProjector) {
+  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.pusher && !entity?.launcher && !entity?.loader && !entity?.commsStation && !entity?.fluidTank && !entity?.shieldGenerator && !entity?.shieldProjector) {
     if (entity.typeId != null && (!PLACED_ENTITY_TYPE_IDS.has(Number(entity.typeId)) || entity.typeId === entity.itemHolder.itemId)) return "loose_item";
     if (entity.typeId == null) return "untyped_holder";
   }
-  if (entity?.fabricator || entity?.cannon || entity?.pusher || entity?.loader || entity?.commsStation || entity?.fluidTank || entity?.shieldGenerator || entity?.shieldProjector) return "placed_entity";
+  if (entity?.fabricator || entity?.cannon || entity?.pusher || entity?.launcher || entity?.loader || entity?.commsStation || entity?.fluidTank || entity?.shieldGenerator || entity?.shieldProjector) return "placed_entity";
   if (entity?.typeId != null && PLACED_ENTITY_TYPE_IDS.has(Number(entity.typeId))) return "placed_entity";
   if (entity?.typeId != null && !hasPhysicalComponent) return "metadata";
-  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.pusher && !entity?.loader && !entity?.commsStation && !entity?.fluidTank && !entity?.shieldGenerator && !entity?.shieldProjector) return "untyped_holder";
+  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.pusher && !entity?.launcher && !entity?.loader && !entity?.commsStation && !entity?.fluidTank && !entity?.shieldGenerator && !entity?.shieldProjector) return "untyped_holder";
   return "entity";
 }
 
@@ -1357,6 +1376,7 @@ export class ModelState {
       cannons: machines.cannons.slice(),
       thrusters: machines.thrusters.slice(),
       pushers: machines.pushers.slice(),
+      launchers: machines.launchers.slice(),
       health: machines.health.slice(),
       loaders: machines.loaders.slice(),
       navigationUnits: machines.navigationUnits.slice(),
@@ -1704,6 +1724,7 @@ export class ModelState {
       cannons: [],
       thrusters: [],
       pushers: [],
+      launchers: [],
       health: [],
       loaders: [],
       navigationUnits: [],
@@ -1727,6 +1748,7 @@ export class ModelState {
       if (contents.cannon) machines.cannons.push(contents.cannon);
       if (contents.thruster) machines.thrusters.push(contents.thruster);
       if (contents.pusher) machines.pushers.push(contents.pusher);
+      if (contents.launcher) machines.launchers.push(contents.launcher);
       if (contents.health) machines.health.push(contents.health);
       if (contents.loader) machines.loaders.push(contents.loader);
       if (contents.navigationUnit) machines.navigationUnits.push(contents.navigationUnit);
@@ -1761,6 +1783,7 @@ export class ModelState {
     const processorRecord = this.record(49, entityId);
     const cannonRecord = this.record(54, entityId);
     const pusherRecord = this.record(72, entityId);
+    const launcherRecord = this.record(44, entityId);
     const loaderRecord = this.record(78, entityId);
     const loaderFilterRecord = this.record(76, entityId);
     const loaderFilterSlotsRecord = this.record(77, entityId);
@@ -1799,6 +1822,7 @@ export class ModelState {
     const cannon = summarizeCannon(entityId, cannonRecord, typeId);
     const thruster = summarizeThruster(entityId, typeId, thrusterRecord);
     const pusher = summarizePusher(entityId, pusherRecord, loaderFilterSlotsRecord);
+    const launcher = summarizeItemLauncher(entityId, typeId, launcherRecord);
     const loader = (typeId === LOADER_TYPE_ID || (typeId == null && (loaderRecord || loaderFilterRecord || loaderFilterSlotsRecord)))
       ? summarizeLoader(entityId, loaderRecord, loaderFilterRecord, loaderFilterSlotsRecord, this.#loaderConfig, typeId === LOADER_TYPE_ID)
       : null;
@@ -1834,10 +1858,10 @@ export class ModelState {
       rot: numberOrNull(transformRecord.q28, 127.324),
       flags: [transformRecord.q33, transformRecord.q34, transformRecord.q35].filter((value) => value != null)
     } : null;
-    const contents = mergeContents({ itemHolder }, { expandoBox }, { hoverOutline }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { blueprintPreview }, { health }, { fabricator }, { processor }, { cannon }, { thruster }, { pusher }, { loader }, { navigationUnit }, { commsStation }, { fluidTank }, { shieldGenerator }, { shieldProjector }, { helm }, { player }, { shipControl }, { sign }, { spawnPoint }, { door }, { shipSize });
-    const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, expandoBox, hoverOutline, itemCrate, hugeThruster, fabricator, processor, cannon, thruster, pusher, loader, navigationUnit, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
+    const contents = mergeContents({ itemHolder }, { expandoBox }, { hoverOutline }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { blueprintPreview }, { health }, { fabricator }, { processor }, { cannon }, { thruster }, { pusher }, { launcher }, { loader }, { navigationUnit }, { commsStation }, { fluidTank }, { shieldGenerator }, { shieldProjector }, { helm }, { player }, { shipControl }, { sign }, { spawnPoint }, { door }, { shipSize });
+    const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, expandoBox, hoverOutline, itemCrate, hugeThruster, fabricator, processor, cannon, thruster, pusher, launcher, loader, navigationUnit, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
     const typeName = entityNameFromType(typeId);
-    const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, mapMarker, dockingSpring, hugeThruster, blueprintPreview, fabricator, processor, cannon, pusher, loader, navigationUnit, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
+    const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, mapMarker, dockingSpring, hugeThruster, blueprintPreview, fabricator, processor, cannon, pusher, launcher, loader, navigationUnit, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
     const summary = {
       entity: entityId,
       category,
@@ -1863,6 +1887,7 @@ export class ModelState {
         cannon,
         thruster,
         pusher,
+        launcher,
         loader,
         navigationUnit,
         fluidTank,
@@ -1894,6 +1919,7 @@ export class ModelState {
         cannon ? "cannon" : null,
         thruster ? "thruster" : null,
         pusher ? "pusher" : null,
+        launcher ? "launcher" : null,
         loader ? "loader" : null,
         navigationUnit ? "navigation_unit" : null,
         commsStation ? "comms_station" : null,

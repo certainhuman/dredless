@@ -183,6 +183,7 @@ client.send(command);
 client.sendMessage(message, { afterReady? });
 client.sendRaw(message, { afterReady? });
 client.setOutfit(outfit);
+client.sendEntityCommand(cmd, args?);
 client.sendFabricatorMessage(cmd, args?);
 client.sendFabricatorCommand(itemId, count?, index?);
 client.craftAdd(itemId, count?, index?);
@@ -192,6 +193,8 @@ client.craftToggleRepeat();
 client.fabricatorLockResource(row);
 client.fabricatorUnlockResource(row);
 client.fabricatorEject(row);
+client.setLauncherAngle(angle);
+client.setLauncherPower(power);
 client.sendUiConfig(data);
 client.inputSettings();
 client.setInputSettings(settings?, options?);
@@ -206,6 +209,7 @@ client.cancelWarp(entity, config?);
 client.move(x?, y?, command?);
 client.aim(mx?, my?, command?);
 client.action(flags?, command?);
+client.useEntity(entity, options?, command?);
 client.selectSlot(invSlot?, command?);
 client.drag(source, target, split?, command?);
 client.close(code?, reason?);
@@ -227,10 +231,12 @@ client.materials(scope?);
 
 `send()` builds a signed `type: 0` input command and waits for the server `sid`
 before sending. `sendMessage()` sends ordinary MsgPack websocket messages such
-as `type: 5` fabricator commands, `type: 7` outfits, and `type: 8` UI/config
+as `type: 5` entity/PUI commands, `type: 7` outfits, and `type: 8` UI/config
 payloads.
 
-Fabricator helpers send the observed top-level `type: 5` command messages:
+`sendEntityCommand(cmd, args)` sends the observed top-level `type: 5` command
+message shape. Fabricator helpers are named wrappers around this generic entity
+command channel:
 
 ```js
 client.craftAdd(248, 8);      // queue 8 Munitions Fabricators
@@ -244,6 +250,20 @@ client.fabricatorEject(0);
 
 `sendFabricatorCommand()` is the legacy `craft_add` wrapper. Use
 `sendFabricatorMessage(cmd, args)` for raw confirmed fabricator commands.
+
+Item Launcher helpers also use the type `5` entity/PUI command channel. Open
+the launcher with a normal entity use first; the server replies with a PUI panel
+like `{ type:"launcher", power:30, angle:270 }`.
+
+```js
+client.useEntity(launcher.entity);
+client.setLauncherAngle(90);
+client.setLauncherPower(15);
+```
+
+`angle` is degrees and is rounded/wrapped into `0..359`. `power` is the
+launcher UI value `0..30`. These commands target the currently open launcher
+panel; no entity id is present in the outgoing type `5` message.
 
 Input settings are persistent defaults included on every signed `type: 0`
 command. The official client does not send a separate settings packet for these
@@ -273,6 +293,18 @@ Turret modes:
 By default `setWrenchMode()`, `setWrenchAction()`, `setTurretMode()`, and
 `setInputSettings()` also send one immediate input command carrying the updated
 defaults. Pass `{ send:false }` to only update future commands.
+
+Generic entity use sends a normal left-click type `0` command with the entity
+in `focus_ent`:
+
+```js
+client.useEntity(ejector.entity, { invSlot: 0 });
+```
+
+`place-16-standard-ammo-in-ejector.jsonl` confirms this is how the official
+client places the active hotbar item into a Cargo Ejector: `focus_ent` is the
+ejector entity, `inv_slot=0`, `act1=true`, and `act1_held=true`; the server
+then sends an inventory update clearing that slot.
 
 Navigation-unit helpers send the observed top-level `type: 8` UI/config
 payload for `config_nav_unit`:
@@ -660,6 +692,7 @@ Return shape:
   cannons,
   thrusters,
   pushers,
+  launchers,
   loaders,
   navigationUnits,
   commsStations,
@@ -726,6 +759,23 @@ Pusher shape:
   filterSlotsState
 }
 ```
+
+Launcher shape:
+
+```js
+{
+  entity,
+  angleRadians,
+  angleDegrees,
+  powerRaw,
+  state
+}
+```
+
+`angleDegrees` is decoded from persisted launcher model state. The live launcher
+PUI exposes power as a direct `0..30` value, but the persisted model field has
+only been identified as `powerRaw`; consumers that need to edit power should use
+`client.setLauncherPower(power)`.
 
 Navigation unit shape:
 

@@ -96,8 +96,12 @@ export class DredlessClient extends EventBus {
     return this.sendMessage({ type: 7, outfit });
   }
 
-  sendFabricatorMessage(cmd, args = [-1, -1, -1]) {
+  sendEntityCommand(cmd, args = [-1, -1, -1]) {
     return this.sendMessage({ type: 5, cmd, args });
+  }
+
+  sendFabricatorMessage(cmd, args = [-1, -1, -1]) {
+    return this.sendEntityCommand(cmd, args);
   }
 
   sendFabricatorCommand(itemId, count = 1, index = -1) {
@@ -130,6 +134,14 @@ export class DredlessClient extends EventBus {
 
   fabricatorEject(row) {
     return this.sendFabricatorMessage("eject", [row, -1, -1]);
+  }
+
+  setLauncherAngle(angle) {
+    return this.sendEntityCommand("angle", [normalizeDegrees(angle)]);
+  }
+
+  setLauncherPower(power) {
+    return this.sendEntityCommand("power", [normalizeLauncherPower(power)]);
   }
 
   sendUiConfig(data) {
@@ -195,6 +207,16 @@ export class DredlessClient extends EventBus {
 
   action(flags = {}, command = {}) {
     return this.send({ ...command, ...flags });
+  }
+
+  useEntity(entity, { invSlot = 0, hold = true } = {}, command = {}) {
+    return this.send({
+      ...command,
+      focus_ent: entity,
+      inv_slot: invSlot,
+      act1: true,
+      act1_held: Boolean(hold)
+    });
   }
 
   selectSlot(invSlot = 0, command = {}) {
@@ -610,6 +632,20 @@ function normalizeTurretMode(value) {
   return normalized;
 }
 
+function normalizeDegrees(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) throw new RangeError(`angle must be a finite number`);
+  return ((Math.round(number) % 360) + 360) % 360;
+}
+
+function normalizeLauncherPower(value) {
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < 0 || number > 30) {
+    throw new RangeError(`launcher power must be an integer between 0 and 30`);
+  }
+  return number;
+}
+
 function emptyMachineSummary() {
   return {
     itemHolders: [],
@@ -619,6 +655,7 @@ function emptyMachineSummary() {
     cannons: [],
     thrusters: [],
     pushers: [],
+    launchers: [],
     loaders: [],
     navigationUnits: [],
     commsStations: [],

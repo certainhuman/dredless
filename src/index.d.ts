@@ -209,6 +209,7 @@ export class DredlessClient {
   sendMessage(message: unknown, options?: { afterReady?: boolean }): this;
   sendRaw(message: unknown, options?: { afterReady?: boolean }): this;
   setOutfit(outfit: unknown): this;
+  sendEntityCommand(cmd: string, args?: unknown[]): this;
   sendFabricatorMessage(cmd: string, args?: [number, number, number]): this;
   sendFabricatorCommand(itemId: number, count?: number, index?: number): this;
   craftAdd(itemId: number, count?: number, index?: number): this;
@@ -218,6 +219,8 @@ export class DredlessClient {
   fabricatorLockResource(row: number): this;
   fabricatorUnlockResource(row: number): this;
   fabricatorEject(row: number): this;
+  setLauncherAngle(angle: number): this;
+  setLauncherPower(power: number): this;
   sendUiConfig(data: unknown): this;
   inputSettings(): CurrentInputSettings;
   setInputSettings(settings?: InputSettings, options?: { send?: boolean }): this;
@@ -232,6 +235,7 @@ export class DredlessClient {
   move(x?: number, y?: number, command?: Command): this;
   aim(mx?: number, my?: number, command?: Command): this;
   action(flags?: Command, command?: Command): this;
+  useEntity(entity: number, options?: { invSlot?: number; hold?: boolean }, command?: Command): this;
   selectSlot(invSlot?: number, command?: Command): this;
   drag(source: number, target: number, split?: boolean, command?: Command): this;
   close(code?: number, reason?: string): this;
@@ -364,6 +368,7 @@ export interface EntityContentsSummary {
   cannon?: CannonSummary;
   thruster?: ThrusterSummary;
   pusher?: PusherSummary;
+  launcher?: LauncherSummary;
   loader?: LoaderSummary;
   navigationUnit?: NavigationUnitSummary;
   commsStation?: CommsStationSummary;
@@ -711,6 +716,14 @@ export interface LoaderSummary {
   filterSlotsState: ModelRecord;
 }
 
+export interface LauncherSummary {
+  entity: number;
+  angleRadians: number | null;
+  angleDegrees: number | null;
+  powerRaw: number | null;
+  state: ModelRecord;
+}
+
 export interface NavigationUnitSummary {
   entity: number;
   destination: number;
@@ -921,6 +934,7 @@ export interface MachineSummary {
   cannons: CannonSummary[];
   thrusters: ThrusterSummary[];
   pushers: PusherSummary[];
+  launchers: LauncherSummary[];
   loaders: LoaderSummary[];
   navigationUnits: NavigationUnitSummary[];
   commsStations: CommsStationSummary[];
