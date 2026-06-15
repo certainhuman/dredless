@@ -206,6 +206,8 @@ client.setPusherFilteredMode(entity, filteredMode, config?);
 client.setPusherFilterInventory(entity, filterInventory, config?);
 client.setPusherFilterItems(entity, filterSlots?);
 client.sendLoaderConfig(entity, config?);
+client.sendLoaderFullConfig(entity, config?);
+client.copyLoaderConfig(entity, config?);
 client.setLoaderPickPlace(entity, pick, place, config?);
 client.setLoaderPriority(entity, priority, config?);
 client.setLoaderStack(entity, stack, config?);
@@ -329,12 +331,34 @@ client.sendLoaderConfig(loader.entity, {
 client.setLoaderCycle(loader.entity, 4);
 client.setLoaderFilterMode(loader.entity, "allow-filter");
 client.setLoaderFilterItems(loader.entity, [255, 0, 0]); // Fluid Tank in slot 0
+
+client.sendLoaderFullConfig(loader.entity, {
+  pick: "bottom-right",
+  place: "bottom-middle",
+  priority: "low",
+  stack: 11,
+  cycle: 8,
+  requireOutput: false,
+  waitForStack: false,
+  filterMode: "allow-filter",
+  filterSlots: [255, 0, 0]
+});
+
+client.copyLoaderConfig(loader.entity);
 ```
 
 Loader priority uses Dredless normalized values (`-1=low`, `0=normal`,
 `1=high`) or names. Loader cycle is in seconds; the outbound protocol encodes it
 as 20 Hz ticks. Loader filter modes are `0=allow-all`, `1=block-filter`,
 `2=allow-filter`, and `3=block-all`.
+`sendLoaderFullConfig()` matches the official client's config paste behavior:
+it sends `config_loader`, `filter_config`, and `filter_items` in one `type: 8`
+payload. Omitted fields default to the decoded loader state, then to the same
+official defaults as the single-section helpers.
+`copyLoaderConfig()` matches the official client's copy behavior: it sends the
+same full loader config sections with the copy action byte. It is useful when a
+consumer wants to drive the official server-side config clipboard flow; pass a
+config object to copy a supplied config instead of the currently decoded state.
 
 Shield generator puzzle submissions use a compact `type: 8` UI/config payload:
 

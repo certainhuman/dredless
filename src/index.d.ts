@@ -106,6 +106,11 @@ export interface LoaderConfig {
   waitForStack?: boolean;
 }
 
+export interface LoaderFullConfig extends LoaderConfig {
+  filterMode?: LoaderFilterMode;
+  filterSlots?: Array<number | null | undefined>;
+}
+
 export class Session {
   constructor(gameSession?: string | null, gameVersion?: string | null);
 
@@ -261,6 +266,8 @@ export class DredlessClient {
   setPusherFilterInventory(entity: number, filterInventory: boolean, config?: PusherConfig): this;
   setPusherFilterItems(entity: number, filterSlots?: Array<number | null | undefined>): this;
   sendLoaderConfig(entity: number, config?: LoaderConfig): this;
+  sendLoaderFullConfig(entity: number, config?: LoaderFullConfig): this;
+  copyLoaderConfig(entity: number, config?: LoaderFullConfig): this;
   setLoaderPickPlace(entity: number, pick: LoaderPosition, place: LoaderPosition, config?: LoaderConfig): this;
   setLoaderPriority(entity: number, priority: LoaderPriority, config?: LoaderConfig): this;
   setLoaderStack(entity: number, stack: number, config?: LoaderConfig): this;
@@ -1027,8 +1034,10 @@ export function buildSignedCommandPacket(command: Command, sessionId: number): U
 export function buildNavigationUnitConfigData(entity: number, config: NavigationUnitConfig & { destination: number }): Uint8Array;
 export function buildGeneratorMazePuzzleData(entity: number, solution: string | number): Uint8Array;
 export function buildLoaderConfigData(entity: number, config?: LoaderConfig): Uint8Array;
+export function buildLoaderCopyConfigData(entity: number, config?: LoaderFullConfig): Uint8Array;
 export function buildLoaderFilterConfigData(entity: number, filterMode?: LoaderFilterMode): Uint8Array;
 export function buildLoaderFilterItemsData(entity: number, filterSlots?: Array<number | null | undefined>): Uint8Array;
+export function buildLoaderFullConfigData(entity: number, config?: LoaderFullConfig): Uint8Array;
 export function buildPusherConfigData(entity: number, config?: PusherConfig): Uint8Array;
 export function buildPusherFilterItemsData(entity: number, filterSlots?: Array<number | null | undefined>): Uint8Array;
 export function generateGeneratorMaze(seed: number): GeneratorMaze;

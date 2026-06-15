@@ -16,6 +16,7 @@ const PUSHER_FILTER_INVENTORY_ON = 0x8d;
 const PUSHER_FILTER_INVENTORY_OFF = 0x8e;
 const LOADER_TRUE = 0x8d;
 const LOADER_FALSE = 0x8e;
+const UI_COMMAND_END = 0x91;
 
 function requireByteInteger(value, name) {
   const number = Number(value);
@@ -113,23 +114,75 @@ function encodeLoaderCycle(cycle) {
   if (seconds < 1) throw new RangeError(`cycle must be at least 1 second`);
   const ticks = Math.round(seconds * 20);
   if (ticks <= 0x3f) return [ticks];
-  if (ticks <= 0x7f) return [0x80, ticks];
+  if (ticks <= 0xff) return [0x80, ticks];
   if (ticks <= 0xffff) return [0x85, ticks & 0xff, (ticks >> 8) & 0xff];
   throw new RangeError(`cycle is too large`);
 }
 
-function encodeUiCommandHeader(entity, commandName) {
+function encodeUiCommandTarget(entity, action = 0) {
   const entityId = requireUint16(entity, "entity");
+  const actionId = requireByteInteger(action, "action");
+  if (actionId && entityId > 0xff) {
+    throw new RangeError(`copy/paste UI config currently requires an entity id below 256`);
+  }
+  return [
+    NAV_UNIT_HEADER_TAG,
+    actionId ? actionId : (entityId >> 8) & 0xff,
+    entityId & 0xff
+  ];
+}
+
+function encodeUiCommandSection(commandName) {
   const command = encoder.encode(commandName);
   if (command.byteLength > 255) throw new RangeError(`command name is too long`);
   return [
-    NAV_UNIT_HEADER_TAG,
-    (entityId >> 8) & 0xff,
-    entityId & 0xff,
     NAV_UNIT_STRING_TAG,
     command.byteLength,
     ...command,
     0x00
+  ];
+}
+
+function encodeUiCommandHeader(entity, commandName) {
+  return [
+    ...encodeUiCommandTarget(entity),
+    ...encodeUiCommandSection(commandName)
+  ];
+}
+
+function encodeLoaderConfigPayload({
+  pick = 0,
+  place = 2,
+  priority = 0,
+  stack = 16,
+  cycle = 1,
+  requireOutput = false,
+  waitForStack = false
+} = {}) {
+  return [
+    NAV_UNIT_HEADER_TAG,
+    requireLoaderPosition(pick, "pick"),
+    requireLoaderPosition(place, "place"),
+    requireLoaderPriority(priority, "priority"),
+    requireNonNegativeInteger(stack, "stack"),
+    ...encodeLoaderCycle(cycle),
+    requireOutput ? LOADER_TRUE : LOADER_FALSE,
+    waitForStack ? LOADER_TRUE : LOADER_FALSE
+  ];
+}
+
+function encodeLoaderFilterConfigPayload(filterMode = 0) {
+  return [
+    NAV_UNIT_HEADER_TAG,
+    requireLoaderFilterMode(filterMode, "filterMode")
+  ];
+}
+
+function encodeLoaderFilterItemsPayload(filterSlots = []) {
+  const slots = [0, 1, 2].map((index) => requireNonNegativeInteger(filterSlots[index] ?? 0, `filterSlots[${index}]`));
+  return [
+    NAV_UNIT_HEADER_TAG,
+    ...slots.flatMap((slot, index) => encodeCompactItemId(slot, `filterSlots[${index}]`))
   ];
 }
 
@@ -214,14 +267,7 @@ export function buildLoaderConfigData(entity, {
 } = {}) {
   return Uint8Array.from([
     ...encodeUiCommandHeader(entity, LOADER_CONFIG_COMMAND),
-    NAV_UNIT_HEADER_TAG,
-    requireLoaderPosition(pick, "pick"),
-    requireLoaderPosition(place, "place"),
-    requireLoaderPriority(priority, "priority"),
-    requireNonNegativeInteger(stack, "stack"),
-    ...encodeLoaderCycle(cycle),
-    requireOutput ? LOADER_TRUE : LOADER_FALSE,
-    waitForStack ? LOADER_TRUE : LOADER_FALSE,
+    ...encodeLoaderConfigPayload({ pick, place, priority, stack, cycle, requireOutput, waitForStack }),
     ...NAV_UNIT_TRAILER
   ]);
 }
@@ -229,20 +275,45 @@ export function buildLoaderConfigData(entity, {
 export function buildLoaderFilterConfigData(entity, filterMode = 0) {
   return Uint8Array.from([
     ...encodeUiCommandHeader(entity, LOADER_FILTER_CONFIG_COMMAND),
-    NAV_UNIT_HEADER_TAG,
-    requireLoaderFilterMode(filterMode, "filterMode"),
+    ...encodeLoaderFilterConfigPayload(filterMode),
     ...NAV_UNIT_TRAILER
   ]);
 }
 
 export function buildLoaderFilterItemsData(entity, filterSlots = []) {
-  const slots = [0, 1, 2].map((index) => requireNonNegativeInteger(filterSlots[index] ?? 0, `filterSlots[${index}]`));
   return Uint8Array.from([
     ...encodeUiCommandHeader(entity, LOADER_FILTER_ITEMS_COMMAND),
-    NAV_UNIT_HEADER_TAG,
-    ...slots.flatMap((slot, index) => encodeCompactItemId(slot, `filterSlots[${index}]`)),
+    ...encodeLoaderFilterItemsPayload(filterSlots),
     ...NAV_UNIT_TRAILER
   ]);
+}
+
+function buildLoaderFullConfigPayload(entity, action, {
+  filterMode = 0,
+  filterSlots = [],
+  ...config
+} = {}) {
+  return Uint8Array.from([
+    ...encodeUiCommandTarget(entity, action),
+    ...encodeUiCommandSection(LOADER_CONFIG_COMMAND),
+    ...encodeLoaderConfigPayload(config),
+    UI_COMMAND_END,
+    ...encodeUiCommandSection(LOADER_FILTER_CONFIG_COMMAND),
+    ...encodeLoaderFilterConfigPayload(filterMode),
+    UI_COMMAND_END,
+    ...encodeUiCommandSection(LOADER_FILTER_ITEMS_COMMAND),
+    ...encodeLoaderFilterItemsPayload(filterSlots),
+    UI_COMMAND_END,
+    UI_COMMAND_END
+  ]);
+}
+
+export function buildLoaderFullConfigData(entity, config = {}) {
+  return buildLoaderFullConfigPayload(entity, 2, config);
+}
+
+export function buildLoaderCopyConfigData(entity, config = {}) {
+  return buildLoaderFullConfigPayload(entity, 1, config);
 }
 
 export {

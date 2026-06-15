@@ -8,8 +8,10 @@ import { WorldState, WorldStore } from "../src/game/world.js";
 import {
   buildGeneratorMazePuzzleData,
   buildLoaderConfigData,
+  buildLoaderCopyConfigData,
   buildLoaderFilterConfigData,
   buildLoaderFilterItemsData,
+  buildLoaderFullConfigData,
   buildNavigationUnitConfigData,
   buildPusherConfigData,
   buildPusherFilterItemsData
@@ -862,6 +864,38 @@ test("buildLoaderConfigData matches official client loader command captures", ()
     hex(buildLoaderFilterItemsData(entity, [255, 0, 0])),
     "9000158a0c66696c7465725f6974656d73009085ff0000009191",
     "change-loader-filter-slot-0-to-fluid-tank.jsonl"
+  );
+
+  assert.equal(
+    hex(buildLoaderFullConfigData(entity, {
+      pick: "bottom-right",
+      place: "bottom-middle",
+      priority: "low",
+      stack: 11,
+      cycle: 8,
+      requireOutput: false,
+      waitForStack: false,
+      filterMode: "allow-filter",
+      filterSlots: [255, 0, 0]
+    })),
+    "9002158a0d636f6e6669675f6c6f6164657200900706000b80a08e8e918a0d66696c7465725f636f6e666967009002918a0c66696c7465725f6974656d73009085ff0000009191",
+    "pasting-config-to-loader.jsonl"
+  );
+
+  assert.equal(
+    hex(buildLoaderCopyConfigData(1, {
+      pick: "bottom-middle",
+      place: "bottom-left",
+      priority: "normal",
+      stack: 14,
+      cycle: 11,
+      requireOutput: false,
+      waitForStack: false,
+      filterMode: "block-all",
+      filterSlots: [0, 256, 0]
+    })),
+    "9001018a0d636f6e6669675f6c6f6164657200900605010e80dc8e8e918a0d66696c7465725f636f6e666967009003918a0c66696c7465725f6974656d73009000850001009191",
+    "copying-config-from-loader.jsonl"
   );
 });
 

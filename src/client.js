@@ -9,8 +9,10 @@ import { buildSignedCommandPacket } from "./protocol/commands.js";
 import {
   buildGeneratorMazePuzzleData,
   buildLoaderConfigData,
+  buildLoaderCopyConfigData,
   buildLoaderFilterConfigData,
   buildLoaderFilterItemsData,
+  buildLoaderFullConfigData,
   buildNavigationUnitConfigData,
   buildPusherConfigData,
   buildPusherFilterItemsData
@@ -194,6 +196,14 @@ export class DredlessClient extends EventBus {
 
   sendLoaderConfig(entity, config = {}) {
     return this.sendUiConfig(buildLoaderConfigData(entity, this.#loaderConfigDefaults(entity, config)));
+  }
+
+  sendLoaderFullConfig(entity, config = {}) {
+    return this.sendUiConfig(buildLoaderFullConfigData(entity, this.#loaderFullConfigDefaults(entity, config)));
+  }
+
+  copyLoaderConfig(entity, config = {}) {
+    return this.sendUiConfig(buildLoaderCopyConfigData(entity, this.#loaderFullConfigDefaults(entity, config)));
   }
 
   setLoaderPickPlace(entity, pick, place, config = {}) {
@@ -689,6 +699,15 @@ export class DredlessClient extends EventBus {
       cycle: config.cycle ?? summary?.cycle ?? 1,
       requireOutput: config.requireOutput ?? summary?.requireOutput ?? false,
       waitForStack: config.waitForStack ?? summary?.waitForStack ?? false
+    };
+  }
+
+  #loaderFullConfigDefaults(entity, config = {}) {
+    const summary = this.entity(entity)?.contents?.loader || null;
+    return {
+      ...this.#loaderConfigDefaults(entity, config),
+      filterMode: config.filterMode ?? summary?.filterMode ?? 0,
+      filterSlots: config.filterSlots ?? summary?.filterSlots ?? []
     };
   }
 
