@@ -208,6 +208,7 @@ client.setPusherFilterItems(entity, filterSlots?);
 client.sendLoaderConfig(entity, config?);
 client.sendLoaderFullConfig(entity, config?);
 client.copyLoaderConfig(entity, config?);
+client.sendLoaderClipboardConfig(config?);
 client.setLoaderPickPlace(entity, pick, place, config?);
 client.setLoaderPriority(entity, priority, config?);
 client.setLoaderStack(entity, stack, config?);
@@ -345,6 +346,15 @@ client.sendLoaderFullConfig(loader.entity, {
 });
 
 client.copyLoaderConfig(loader.entity);
+client.sendLoaderClipboardConfig({
+  pick: "bottom-left",
+  place: "top-right",
+  priority: "normal",
+  stack: 14,
+  cycle: 11,
+  requireOutput: false,
+  waitForStack: false
+});
 ```
 
 Loader priority uses Dredless normalized values (`-1=low`, `0=normal`,
@@ -356,9 +366,13 @@ it sends `config_loader`, `filter_config`, and `filter_items` in one `type: 8`
 payload. Omitted fields default to the decoded loader state, then to the same
 official defaults as the single-section helpers.
 `copyLoaderConfig()` matches the official client's copy behavior: it sends the
-same full loader config sections with the copy action byte. It is useful when a
-consumer wants to drive the official server-side config clipboard flow; pass a
-config object to copy a supplied config instead of the currently decoded state.
+same full loader config sections with the copy action byte, but the wire target
+is the server-side loader clipboard rather than the source loader entity. It is
+useful when a consumer wants to drive the official server-side config clipboard
+flow; pass a config object to copy supplied values over the decoded source state.
+`sendLoaderClipboardConfig()` sends the single `config_loader` clipboard-edit
+packet observed when editing pick/place and other base loader settings in the
+clipboard UI.
 
 Shield generator puzzle submissions use a compact `type: 8` UI/config payload:
 

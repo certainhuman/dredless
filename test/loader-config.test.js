@@ -7,6 +7,7 @@ import { generateGeneratorMaze, solveGeneratorMazeSeed } from "../src/game/gener
 import { WorldState, WorldStore } from "../src/game/world.js";
 import {
   buildGeneratorMazePuzzleData,
+  buildLoaderClipboardConfigData,
   buildLoaderConfigData,
   buildLoaderCopyConfigData,
   buildLoaderFilterConfigData,
@@ -883,7 +884,7 @@ test("buildLoaderConfigData matches official client loader command captures", ()
   );
 
   assert.equal(
-    hex(buildLoaderCopyConfigData(1, {
+    hex(buildLoaderCopyConfigData({
       pick: "bottom-middle",
       place: "bottom-left",
       priority: "normal",
@@ -896,6 +897,20 @@ test("buildLoaderConfigData matches official client loader command captures", ()
     })),
     "9001018a0d636f6e6669675f6c6f6164657200900605010e80dc8e8e918a0d66696c7465725f636f6e666967009003918a0c66696c7465725f6974656d73009000850001009191",
     "copying-config-from-loader.jsonl"
+  );
+
+  assert.equal(
+    hex(buildLoaderClipboardConfigData({
+      pick: "bottom-left",
+      place: "top-right",
+      priority: "normal",
+      stack: 14,
+      cycle: 11,
+      requireOutput: false,
+      waitForStack: false
+    })),
+    "9001018a0d636f6e6669675f6c6f6164657200900502010e80dc8e8e9191",
+    "edit-loader-clipboard-pick-bottom-left-place-top-right .jsonl"
   );
 });
 

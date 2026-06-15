@@ -312,8 +312,17 @@ export function buildLoaderFullConfigData(entity, config = {}) {
   return buildLoaderFullConfigPayload(entity, 2, config);
 }
 
-export function buildLoaderCopyConfigData(entity, config = {}) {
-  return buildLoaderFullConfigPayload(entity, 1, config);
+export function buildLoaderCopyConfigData(config = {}) {
+  return buildLoaderFullConfigPayload(1, 1, config);
+}
+
+export function buildLoaderClipboardConfigData(config = {}) {
+  return Uint8Array.from([
+    ...encodeUiCommandTarget(1, 1),
+    ...encodeUiCommandSection(LOADER_CONFIG_COMMAND),
+    ...encodeLoaderConfigPayload(config),
+    ...NAV_UNIT_TRAILER
+  ]);
 }
 
 export {

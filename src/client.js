@@ -8,6 +8,7 @@ import { WorldStore } from "./game/world.js";
 import { buildSignedCommandPacket } from "./protocol/commands.js";
 import {
   buildGeneratorMazePuzzleData,
+  buildLoaderClipboardConfigData,
   buildLoaderConfigData,
   buildLoaderCopyConfigData,
   buildLoaderFilterConfigData,
@@ -203,7 +204,11 @@ export class DredlessClient extends EventBus {
   }
 
   copyLoaderConfig(entity, config = {}) {
-    return this.sendUiConfig(buildLoaderCopyConfigData(entity, this.#loaderFullConfigDefaults(entity, config)));
+    return this.sendUiConfig(buildLoaderCopyConfigData(this.#loaderFullConfigDefaults(entity, config)));
+  }
+
+  sendLoaderClipboardConfig(config = {}) {
+    return this.sendUiConfig(buildLoaderClipboardConfigData(config));
   }
 
   setLoaderPickPlace(entity, pick, place, config = {}) {

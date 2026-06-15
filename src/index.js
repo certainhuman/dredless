@@ -8,6 +8,7 @@ export { decodeMsgpack, encodeMsgpack } from "./protocol/msgpack.js";
 export { buildSignedCommandPacket } from "./protocol/commands.js";
 export {
   buildGeneratorMazePuzzleData,
+  buildLoaderClipboardConfigData,
   buildLoaderConfigData,
   buildLoaderCopyConfigData,
   buildLoaderFilterConfigData,

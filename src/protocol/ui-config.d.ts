@@ -42,8 +42,9 @@ export interface LoaderFullConfig extends LoaderConfig {
 
 export function buildNavigationUnitConfigData(entity: number, config: NavigationUnitConfig): Uint8Array;
 export function buildGeneratorMazePuzzleData(entity: number, solution: string | number): Uint8Array;
+export function buildLoaderClipboardConfigData(config?: LoaderConfig): Uint8Array;
 export function buildLoaderConfigData(entity: number, config?: LoaderConfig): Uint8Array;
-export function buildLoaderCopyConfigData(entity: number, config?: LoaderFullConfig): Uint8Array;
+export function buildLoaderCopyConfigData(config?: LoaderFullConfig): Uint8Array;
 export function buildLoaderFilterConfigData(entity: number, filterMode?: LoaderFilterMode): Uint8Array;
 export function buildLoaderFilterItemsData(entity: number, filterSlots?: Array<number | null | undefined>): Uint8Array;
 export function buildLoaderFullConfigData(entity: number, config?: LoaderFullConfig): Uint8Array;

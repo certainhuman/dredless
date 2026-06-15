@@ -268,6 +268,7 @@ export class DredlessClient {
   sendLoaderConfig(entity: number, config?: LoaderConfig): this;
   sendLoaderFullConfig(entity: number, config?: LoaderFullConfig): this;
   copyLoaderConfig(entity: number, config?: LoaderFullConfig): this;
+  sendLoaderClipboardConfig(config?: LoaderConfig): this;
   setLoaderPickPlace(entity: number, pick: LoaderPosition, place: LoaderPosition, config?: LoaderConfig): this;
   setLoaderPriority(entity: number, priority: LoaderPriority, config?: LoaderConfig): this;
   setLoaderStack(entity: number, stack: number, config?: LoaderConfig): this;
@@ -1033,8 +1034,9 @@ export function encodeMsgpack(value: unknown): Uint8Array;
 export function buildSignedCommandPacket(command: Command, sessionId: number): Uint8Array;
 export function buildNavigationUnitConfigData(entity: number, config: NavigationUnitConfig & { destination: number }): Uint8Array;
 export function buildGeneratorMazePuzzleData(entity: number, solution: string | number): Uint8Array;
+export function buildLoaderClipboardConfigData(config?: LoaderConfig): Uint8Array;
 export function buildLoaderConfigData(entity: number, config?: LoaderConfig): Uint8Array;
-export function buildLoaderCopyConfigData(entity: number, config?: LoaderFullConfig): Uint8Array;
+export function buildLoaderCopyConfigData(config?: LoaderFullConfig): Uint8Array;
 export function buildLoaderFilterConfigData(entity: number, filterMode?: LoaderFilterMode): Uint8Array;
 export function buildLoaderFilterItemsData(entity: number, filterSlots?: Array<number | null | undefined>): Uint8Array;
 export function buildLoaderFullConfigData(entity: number, config?: LoaderFullConfig): Uint8Array;
