@@ -5,7 +5,15 @@ import { Blueprint, Item, Structure } from "dsa-shipshape";
 import { ModelState } from "../src/game/model.js";
 import { generateGeneratorMaze, solveGeneratorMazeSeed } from "../src/game/generator-maze.js";
 import { WorldState, WorldStore } from "../src/game/world.js";
-import { buildGeneratorMazePuzzleData, buildNavigationUnitConfigData, buildPusherConfigData, buildPusherFilterItemsData } from "../src/protocol/ui-config.js";
+import {
+  buildGeneratorMazePuzzleData,
+  buildLoaderConfigData,
+  buildLoaderFilterConfigData,
+  buildLoaderFilterItemsData,
+  buildNavigationUnitConfigData,
+  buildPusherConfigData,
+  buildPusherFilterItemsData
+} from "../src/protocol/ui-config.js";
 import {
   fixtureByName,
   loaderBlueprintFixtures,
@@ -768,6 +776,92 @@ test("buildPusherConfigData matches official client pusher command captures", ()
     hex(buildPusherFilterItemsData(entity, [100, 0, 0])),
     "90001c8a0c66696c7465725f6974656d730090846400009191",
     "add-wrench-to-pusher-filter-slot-1.jsonl"
+  );
+});
+
+test("buildLoaderConfigData matches official client loader command captures", () => {
+  const entity = 21;
+
+  assert.equal(
+    hex(buildLoaderConfigData(entity, {
+      pick: "top-left",
+      place: "top-right",
+      priority: "normal",
+      stack: 16,
+      cycle: 1,
+      requireOutput: false,
+      waitForStack: false
+    })),
+    "9000158a0d636f6e6669675f6c6f61646572009000020110148e8e9191",
+    "change-loader-pick-top-left-place-top-right.jsonl"
+  );
+
+  assert.equal(
+    hex(buildLoaderConfigData(entity, {
+      pick: "top-left",
+      place: "top-right",
+      priority: "normal",
+      stack: 16,
+      cycle: 1,
+      requireOutput: true,
+      waitForStack: false
+    })),
+    "9000158a0d636f6e6669675f6c6f61646572009000020110148d8e9191",
+    "enable-loader-require-output-inventory.jsonl"
+  );
+
+  assert.equal(
+    hex(buildLoaderConfigData(entity, {
+      pick: "top-left",
+      place: "top-right",
+      priority: "high",
+      stack: 16,
+      cycle: 4,
+      requireOutput: false,
+      waitForStack: false
+    })),
+    "9000158a0d636f6e6669675f6c6f6164657200900002021080508e8e9191",
+    "disable-loader-wait-for-stack-limit.jsonl"
+  );
+
+  assert.equal(
+    hex(buildLoaderConfigData(entity, {
+      pick: "top-left",
+      place: "top-right",
+      priority: "high",
+      stack: 13,
+      cycle: 4,
+      requireOutput: false,
+      waitForStack: false
+    })),
+    "9000158a0d636f6e6669675f6c6f6164657200900002020d80508e8e9191",
+    "changing-loader-stack-limit-to-13.jsonl"
+  );
+
+  assert.equal(
+    hex(buildLoaderConfigData(entity, {
+      pick: "top-left",
+      place: "top-right",
+      priority: "high",
+      stack: 16,
+      cycle: 4,
+      requireOutput: false,
+      waitForStack: true
+    })),
+    "9000158a0d636f6e6669675f6c6f6164657200900002021080508e8d9191",
+    "enable-loader-wait-for-stack-limit.jsonl"
+  );
+
+  assert.equal(
+    hex(buildLoaderFilterConfigData(entity, "allow-filter")),
+    "9000158a0d66696c7465725f636f6e6669670090029191",
+    "change-loader-filter-to-allow-filter.jsonl"
+  );
+
+  assert.equal(
+    hex(buildLoaderFilterItemsData(entity, [255, 0, 0])),
+    "9000158a0c66696c7465725f6974656d73009085ff0000009191",
+    "change-loader-filter-slot-0-to-fluid-tank.jsonl"
   );
 });
 

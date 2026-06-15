@@ -205,6 +205,15 @@ client.setPusherMode(entity, mode, config?);
 client.setPusherFilteredMode(entity, filteredMode, config?);
 client.setPusherFilterInventory(entity, filterInventory, config?);
 client.setPusherFilterItems(entity, filterSlots?);
+client.sendLoaderConfig(entity, config?);
+client.setLoaderPickPlace(entity, pick, place, config?);
+client.setLoaderPriority(entity, priority, config?);
+client.setLoaderStack(entity, stack, config?);
+client.setLoaderCycle(entity, cycle, config?);
+client.setLoaderRequireOutput(entity, requireOutput, config?);
+client.setLoaderWaitForStack(entity, waitForStack, config?);
+client.setLoaderFilterMode(entity, filterMode);
+client.setLoaderFilterItems(entity, filterSlots?);
 client.inputSettings();
 client.setInputSettings(settings?, options?);
 client.setWrenchMode(mode, options?);
@@ -299,6 +308,33 @@ client.setPusherFilterItems(pusher.entity, [100, 0, 0]); // Wrench in slot 0
 Pusher modes are `0`/`"push"`, `1`/`"pull"`, and
 `2`/`"do-nothing"`. `setPusherFilterItems()` accepts three item ids; `0`,
 `null`, or omitted slots mean empty.
+
+Loader helpers use compact `type: 8` UI/config payloads and include the target
+entity id. `sendLoaderConfig(entity, config)` sends the full loader config;
+omitted fields default to the currently decoded loader state, then to official
+defaults: pick `top-left`, place `top-right`, priority `normal`, stack `16`,
+cycle `1`, require-output off, and wait-for-stack off.
+
+```js
+client.sendLoaderConfig(loader.entity, {
+  pick: "top-left",
+  place: "top-right",
+  priority: "high",
+  stack: 16,
+  cycle: 4,
+  requireOutput: true,
+  waitForStack: false
+});
+
+client.setLoaderCycle(loader.entity, 4);
+client.setLoaderFilterMode(loader.entity, "allow-filter");
+client.setLoaderFilterItems(loader.entity, [255, 0, 0]); // Fluid Tank in slot 0
+```
+
+Loader priority uses Dredless normalized values (`-1=low`, `0=normal`,
+`1=high`) or names. Loader cycle is in seconds; the outbound protocol encodes it
+as 20 Hz ticks. Loader filter modes are `0=allow-all`, `1=block-filter`,
+`2=allow-filter`, and `3=block-all`.
 
 Shield generator puzzle submissions use a compact `type: 8` UI/config payload:
 

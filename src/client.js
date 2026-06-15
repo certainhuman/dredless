@@ -6,7 +6,15 @@ import { fetchServers } from "./net/servers.js";
 import { Connection } from "./game/connection.js";
 import { WorldStore } from "./game/world.js";
 import { buildSignedCommandPacket } from "./protocol/commands.js";
-import { buildGeneratorMazePuzzleData, buildNavigationUnitConfigData, buildPusherConfigData, buildPusherFilterItemsData } from "./protocol/ui-config.js";
+import {
+  buildGeneratorMazePuzzleData,
+  buildLoaderConfigData,
+  buildLoaderFilterConfigData,
+  buildLoaderFilterItemsData,
+  buildNavigationUnitConfigData,
+  buildPusherConfigData,
+  buildPusherFilterItemsData
+} from "./protocol/ui-config.js";
 import { decodeMsgpack, encodeMsgpack, cloneCommand } from "./protocol/msgpack.js";
 import { toUint8Array } from "./protocol/binary.js";
 
@@ -182,6 +190,42 @@ export class DredlessClient extends EventBus {
 
   setPusherFilterItems(entity, filterSlots = []) {
     return this.sendUiConfig(buildPusherFilterItemsData(entity, filterSlots));
+  }
+
+  sendLoaderConfig(entity, config = {}) {
+    return this.sendUiConfig(buildLoaderConfigData(entity, this.#loaderConfigDefaults(entity, config)));
+  }
+
+  setLoaderPickPlace(entity, pick, place, config = {}) {
+    return this.sendLoaderConfig(entity, { ...config, pick, place });
+  }
+
+  setLoaderPriority(entity, priority, config = {}) {
+    return this.sendLoaderConfig(entity, { ...config, priority });
+  }
+
+  setLoaderStack(entity, stack, config = {}) {
+    return this.sendLoaderConfig(entity, { ...config, stack });
+  }
+
+  setLoaderCycle(entity, cycle, config = {}) {
+    return this.sendLoaderConfig(entity, { ...config, cycle });
+  }
+
+  setLoaderRequireOutput(entity, requireOutput, config = {}) {
+    return this.sendLoaderConfig(entity, { ...config, requireOutput });
+  }
+
+  setLoaderWaitForStack(entity, waitForStack, config = {}) {
+    return this.sendLoaderConfig(entity, { ...config, waitForStack });
+  }
+
+  setLoaderFilterMode(entity, filterMode) {
+    return this.sendUiConfig(buildLoaderFilterConfigData(entity, filterMode));
+  }
+
+  setLoaderFilterItems(entity, filterSlots = []) {
+    return this.sendUiConfig(buildLoaderFilterItemsData(entity, filterSlots));
   }
 
   inputSettings() {
@@ -632,6 +676,19 @@ export class DredlessClient extends EventBus {
       speed: config.speed ?? summary?.speed ?? 20,
       filterInventory: config.filterInventory ?? summary?.filterInventory ?? false,
       length: config.length ?? summary?.length ?? 1000
+    };
+  }
+
+  #loaderConfigDefaults(entity, config = {}) {
+    const summary = this.entity(entity)?.contents?.loader || null;
+    return {
+      pick: config.pick ?? summary?.pick ?? 0,
+      place: config.place ?? summary?.place ?? 2,
+      priority: config.priority ?? summary?.priority ?? 0,
+      stack: config.stack ?? summary?.stack ?? 16,
+      cycle: config.cycle ?? summary?.cycle ?? 1,
+      requireOutput: config.requireOutput ?? summary?.requireOutput ?? false,
+      waitForStack: config.waitForStack ?? summary?.waitForStack ?? false
     };
   }
 

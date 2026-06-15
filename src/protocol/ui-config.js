@@ -2,6 +2,9 @@ import { encoder } from "../constants.js";
 
 const NAV_UNIT_COMMAND = "config_nav_unit";
 const GENERATOR_MAZE_PUZZLE_COMMAND = "maze_puzzle";
+const LOADER_CONFIG_COMMAND = "config_loader";
+const LOADER_FILTER_CONFIG_COMMAND = "filter_config";
+const LOADER_FILTER_ITEMS_COMMAND = "filter_items";
 const PUSHER_CONFIG_COMMAND = "config_pusher";
 const PUSHER_FILTER_ITEMS_COMMAND = "filter_items";
 const NAV_UNIT_STRING_TAG = 0x8a;
@@ -11,6 +14,8 @@ const NAV_UNIT_FALSE = 0x8d;
 const NAV_UNIT_TRAILER = [0x91, 0x91];
 const PUSHER_FILTER_INVENTORY_ON = 0x8d;
 const PUSHER_FILTER_INVENTORY_OFF = 0x8e;
+const LOADER_TRUE = 0x8d;
+const LOADER_FALSE = 0x8e;
 
 function requireByteInteger(value, name) {
   const number = Number(value);
@@ -46,6 +51,30 @@ function requirePusherMode(value, name) {
   return number;
 }
 
+function requireLoaderPosition(value, name) {
+  const number = typeof value === "string" ? LOADER_POSITION_VALUES.get(value) : Number(value);
+  if (number == null || !Number.isInteger(number) || number < 0 || number > 7) {
+    throw new RangeError(`${name} must be a loader position 0..7 or position name`);
+  }
+  return number;
+}
+
+function requireLoaderPriority(value, name) {
+  const number = typeof value === "string" ? LOADER_PRIORITY_VALUES.get(value) : Number(value);
+  if (number == null || !Number.isInteger(number) || number < -1 || number > 1) {
+    throw new RangeError(`${name} must be -1, 0, 1, "low", "normal", or "high"`);
+  }
+  return number + 1;
+}
+
+function requireLoaderFilterMode(value, name) {
+  const number = typeof value === "string" ? LOADER_FILTER_MODE_VALUES.get(value) : Number(value);
+  if (number == null || !Number.isInteger(number) || number < 0 || number > 3) {
+    throw new RangeError(`${name} must be 0..3 or a loader filter mode name`);
+  }
+  return number;
+}
+
 function requireFiniteNumber(value, name) {
   const number = Number(value);
   if (!Number.isFinite(number)) throw new RangeError(`${name} must be a finite number`);
@@ -68,9 +97,25 @@ function encodeCompactNumber(value, name) {
   }
   if (number < 0) throw new RangeError(`${name} must be non-negative`);
   if (number <= 0x1f) return [number];
-  if (number <= 0xff) return [0x84, number];
+  if (number <= 0x7f) return [0x84, number];
   if (number <= 0xffff) return [0x85, number & 0xff, (number >> 8) & 0xff];
   throw new RangeError(`${name} must be 65535 or lower`);
+}
+
+function encodeCompactItemId(value, name) {
+  const number = requireNonNegativeInteger(value, name);
+  if (number === 0) return [0];
+  return encodeCompactNumber(number, name);
+}
+
+function encodeLoaderCycle(cycle) {
+  const seconds = requireFiniteNumber(cycle, "cycle");
+  if (seconds < 1) throw new RangeError(`cycle must be at least 1 second`);
+  const ticks = Math.round(seconds * 20);
+  if (ticks <= 0x3f) return [ticks];
+  if (ticks <= 0x7f) return [0x80, ticks];
+  if (ticks <= 0xffff) return [0x85, ticks & 0xff, (ticks >> 8) & 0xff];
+  throw new RangeError(`cycle is too large`);
 }
 
 function encodeUiCommandHeader(entity, commandName) {
@@ -153,13 +198,60 @@ export function buildPusherFilterItemsData(entity, filterSlots = []) {
   return Uint8Array.from([
     ...encodeUiCommandHeader(entity, PUSHER_FILTER_ITEMS_COMMAND),
     NAV_UNIT_HEADER_TAG,
-    ...slots.flatMap((slot, index) => encodeCompactNumber(slot, `filterSlots[${index}]`)),
+    ...slots.flatMap((slot, index) => encodeCompactItemId(slot, `filterSlots[${index}]`)),
+    ...NAV_UNIT_TRAILER
+  ]);
+}
+
+export function buildLoaderConfigData(entity, {
+  pick = 0,
+  place = 2,
+  priority = 0,
+  stack = 16,
+  cycle = 1,
+  requireOutput = false,
+  waitForStack = false
+} = {}) {
+  return Uint8Array.from([
+    ...encodeUiCommandHeader(entity, LOADER_CONFIG_COMMAND),
+    NAV_UNIT_HEADER_TAG,
+    requireLoaderPosition(pick, "pick"),
+    requireLoaderPosition(place, "place"),
+    requireLoaderPriority(priority, "priority"),
+    requireNonNegativeInteger(stack, "stack"),
+    ...encodeLoaderCycle(cycle),
+    requireOutput ? LOADER_TRUE : LOADER_FALSE,
+    waitForStack ? LOADER_TRUE : LOADER_FALSE,
+    ...NAV_UNIT_TRAILER
+  ]);
+}
+
+export function buildLoaderFilterConfigData(entity, filterMode = 0) {
+  return Uint8Array.from([
+    ...encodeUiCommandHeader(entity, LOADER_FILTER_CONFIG_COMMAND),
+    NAV_UNIT_HEADER_TAG,
+    requireLoaderFilterMode(filterMode, "filterMode"),
+    ...NAV_UNIT_TRAILER
+  ]);
+}
+
+export function buildLoaderFilterItemsData(entity, filterSlots = []) {
+  const slots = [0, 1, 2].map((index) => requireNonNegativeInteger(filterSlots[index] ?? 0, `filterSlots[${index}]`));
+  return Uint8Array.from([
+    ...encodeUiCommandHeader(entity, LOADER_FILTER_ITEMS_COMMAND),
+    NAV_UNIT_HEADER_TAG,
+    ...slots.flatMap((slot, index) => encodeCompactItemId(slot, `filterSlots[${index}]`)),
     ...NAV_UNIT_TRAILER
   ]);
 }
 
 export {
   GENERATOR_MAZE_PUZZLE_COMMAND,
+  LOADER_CONFIG_COMMAND,
+  LOADER_FALSE,
+  LOADER_FILTER_CONFIG_COMMAND,
+  LOADER_FILTER_ITEMS_COMMAND,
+  LOADER_TRUE,
   NAV_UNIT_COMMAND,
   NAV_UNIT_FALSE,
   NAV_UNIT_TRUE,
@@ -173,4 +265,45 @@ const PUSHER_MODE_VALUES = new Map([
   ["do-nothing", 2],
   ["doNothing", 2],
   ["none", 2]
+]);
+
+const LOADER_POSITION_VALUES = new Map([
+  ["top-left", 0],
+  ["topLeft", 0],
+  ["top-middle", 1],
+  ["topMiddle", 1],
+  ["top-right", 2],
+  ["topRight", 2],
+  ["middle-left", 3],
+  ["middleLeft", 3],
+  ["center-left", 3],
+  ["centerLeft", 3],
+  ["middle-right", 4],
+  ["middleRight", 4],
+  ["center-right", 4],
+  ["centerRight", 4],
+  ["bottom-left", 5],
+  ["bottomLeft", 5],
+  ["bottom-middle", 6],
+  ["bottomMiddle", 6],
+  ["bottom-right", 7],
+  ["bottomRight", 7]
+]);
+
+const LOADER_PRIORITY_VALUES = new Map([
+  ["low", -1],
+  ["normal", 0],
+  ["medium", 0],
+  ["high", 1]
+]);
+
+const LOADER_FILTER_MODE_VALUES = new Map([
+  ["allow-all", 0],
+  ["allowAll", 0],
+  ["block-filter", 1],
+  ["blockFilter", 1],
+  ["allow-filter", 2],
+  ["allowFilter", 2],
+  ["block-all", 3],
+  ["blockAll", 3]
 ]);

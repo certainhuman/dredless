@@ -78,6 +78,14 @@ export interface Command {
 }
 
 export type PusherMode = 0 | 1 | 2 | "push" | "pull" | "do-nothing" | "doNothing" | "none";
+export type LoaderPosition =
+  0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+  "top-left" | "topLeft" | "top-middle" | "topMiddle" | "top-right" | "topRight" |
+  "middle-left" | "middleLeft" | "center-left" | "centerLeft" |
+  "middle-right" | "middleRight" | "center-right" | "centerRight" |
+  "bottom-left" | "bottomLeft" | "bottom-middle" | "bottomMiddle" | "bottom-right" | "bottomRight";
+export type LoaderPriority = -1 | 0 | 1 | "low" | "normal" | "medium" | "high";
+export type LoaderFilterMode = 0 | 1 | 2 | 3 | "allow-all" | "allowAll" | "block-filter" | "blockFilter" | "allow-filter" | "allowFilter" | "block-all" | "blockAll";
 
 export interface PusherConfig {
   mode?: PusherMode;
@@ -86,6 +94,16 @@ export interface PusherConfig {
   speed?: number;
   filterInventory?: boolean;
   length?: number;
+}
+
+export interface LoaderConfig {
+  pick?: LoaderPosition;
+  place?: LoaderPosition;
+  priority?: LoaderPriority;
+  stack?: number;
+  cycle?: number;
+  requireOutput?: boolean;
+  waitForStack?: boolean;
 }
 
 export class Session {
@@ -242,6 +260,15 @@ export class DredlessClient {
   setPusherFilteredMode(entity: number, filteredMode: PusherMode, config?: PusherConfig): this;
   setPusherFilterInventory(entity: number, filterInventory: boolean, config?: PusherConfig): this;
   setPusherFilterItems(entity: number, filterSlots?: Array<number | null | undefined>): this;
+  sendLoaderConfig(entity: number, config?: LoaderConfig): this;
+  setLoaderPickPlace(entity: number, pick: LoaderPosition, place: LoaderPosition, config?: LoaderConfig): this;
+  setLoaderPriority(entity: number, priority: LoaderPriority, config?: LoaderConfig): this;
+  setLoaderStack(entity: number, stack: number, config?: LoaderConfig): this;
+  setLoaderCycle(entity: number, cycle: number, config?: LoaderConfig): this;
+  setLoaderRequireOutput(entity: number, requireOutput: boolean, config?: LoaderConfig): this;
+  setLoaderWaitForStack(entity: number, waitForStack: boolean, config?: LoaderConfig): this;
+  setLoaderFilterMode(entity: number, filterMode: LoaderFilterMode): this;
+  setLoaderFilterItems(entity: number, filterSlots?: Array<number | null | undefined>): this;
   inputSettings(): CurrentInputSettings;
   setInputSettings(settings?: InputSettings, options?: { send?: boolean }): this;
   setWrenchMode(mode: WrenchMode, options?: { send?: boolean }): this;
@@ -999,6 +1026,9 @@ export function encodeMsgpack(value: unknown): Uint8Array;
 export function buildSignedCommandPacket(command: Command, sessionId: number): Uint8Array;
 export function buildNavigationUnitConfigData(entity: number, config: NavigationUnitConfig & { destination: number }): Uint8Array;
 export function buildGeneratorMazePuzzleData(entity: number, solution: string | number): Uint8Array;
+export function buildLoaderConfigData(entity: number, config?: LoaderConfig): Uint8Array;
+export function buildLoaderFilterConfigData(entity: number, filterMode?: LoaderFilterMode): Uint8Array;
+export function buildLoaderFilterItemsData(entity: number, filterSlots?: Array<number | null | undefined>): Uint8Array;
 export function buildPusherConfigData(entity: number, config?: PusherConfig): Uint8Array;
 export function buildPusherFilterItemsData(entity: number, filterSlots?: Array<number | null | undefined>): Uint8Array;
 export function generateGeneratorMaze(seed: number): GeneratorMaze;
