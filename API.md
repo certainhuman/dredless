@@ -184,6 +184,7 @@ await client.waitUntilReady();
 client.send(command);
 client.sendMessage(message, { afterReady? });
 client.sendRaw(message, { afterReady? });
+client.sendBlueprintPlacement(placement);
 client.setOutfit(outfit);
 client.sendShipManagement(act, arg?);
 client.setShipPrivacy(privacy);
@@ -255,6 +256,7 @@ client.action(flags?, command?);
 client.useEntity(entity, options?, command?);
 client.useHeldItem(options?, command?);
 client.placeHeldItem(options?, command?);
+client.placeBlueprint(placement, options?, command?);
 client.rotateHeldItem(options?, command?);
 client.selectSlot(invSlot?, command?);
 client.drag(source, target, split?, command?);
@@ -593,6 +595,39 @@ client.placeHeldItem({ invSlot: 2 }, { mx: 28.26, my: 5.26 });
 `focus_ent=null`, `inv_slot=2`, `act_alt=true`, and `act_alt_held=true`.
 `place-vertical-door.jsonl` and `place-horizontal-door.jsonl` confirm final door
 placement uses the same held-item placement command as other package items.
+
+Blueprint placement sends one ordinary MsgPack message before the signed
+held-item click:
+
+```js
+client.sendBlueprintPlacement({
+  x: 28,
+  y: 18,
+  width: 3,
+  height: 3,
+  source: "DSA:m8DAzDxhAgMDU8NL9olAmhFKM4DoiRMB"
+});
+client.placeHeldItem({ invSlot: 2 }, { mx: 28.71, my: 18.36 });
+```
+
+Use `placeBlueprint()` to send both packets in the same order:
+
+```js
+client.placeBlueprint(
+  {
+    x: 29,
+    y: 17,
+    width: 3,
+    height: 2,
+    source: "DSA:m8DAzDRhAgMDY8ML5olAmgFET5wIAA=="
+  },
+  { invSlot: 2, mx: 29.36, my: 17.61 }
+);
+```
+
+The official client uses top-level message `type:9` with `{ x, y, w, h,
+source }`, then sends the normal signed left-click command with `focus_ent=null`
+and the active hotbar slot in `inv_slot`.
 
 Inventory movement uses the signed type `0` `drag` field. `drag()` is the
 low-level wrapper; `moveInventoryItem()` is the same operation with an options

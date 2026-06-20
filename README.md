@@ -14,6 +14,7 @@ client.send({ x: 1, y: 0 });
 client.craftAdd(150, 1);
 client.equipItem(0, "feet");
 client.setSignText("Dock here", "when-near");
+client.placeBlueprint({ x: 28, y: 18, width: 3, height: 3, source: "DSA:..." }, { invSlot: 2 });
 
 client.on("inventory", (inventory) => console.log(inventory.hotbar));
 client.on("model", ({ world }) => console.log(world.model.transforms()));

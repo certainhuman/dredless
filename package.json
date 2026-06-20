@@ -61,6 +61,11 @@
       "import": "./src/protocol/msgpack.js",
       "default": "./src/protocol/msgpack.js"
     },
+    "./protocol/blueprint": {
+      "types": "./src/protocol/blueprint.d.ts",
+      "import": "./src/protocol/blueprint.js",
+      "default": "./src/protocol/blueprint.js"
+    },
     "./protocol/comms": {
       "types": "./src/protocol/comms.d.ts",
       "import": "./src/protocol/comms.js",

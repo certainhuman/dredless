@@ -5,6 +5,7 @@ import { cookieHeader } from "./net/cookies.js";
 import { fetchServers } from "./net/servers.js";
 import { Connection } from "./game/connection.js";
 import { WorldStore } from "./game/world.js";
+import { buildBlueprintPlacementMessage } from "./protocol/blueprint.js";
 import { buildCommsMessage, normalizeCommsEvent } from "./protocol/comms.js";
 import { buildSignedCommandPacket } from "./protocol/commands.js";
 import {
@@ -130,6 +131,10 @@ export class DredlessClient extends EventBus {
 
   sendRaw(message, options = {}) {
     return this.sendMessage(message, options);
+  }
+
+  sendBlueprintPlacement(placement) {
+    return this.sendMessage(buildBlueprintPlacementMessage(placement));
   }
 
   setOutfit(outfit) {
@@ -435,6 +440,19 @@ export class DredlessClient extends EventBus {
 
   placeHeldItem(options = {}, command = {}) {
     return this.useHeldItem(options, command);
+  }
+
+  placeBlueprint(placement, { invSlot = 0, hold = true, mx = null, my = null } = {}, command = {}) {
+    const message = buildBlueprintPlacementMessage(placement);
+    this.sendMessage(message);
+    return this.placeHeldItem(
+      { invSlot, hold },
+      {
+        ...command,
+        mx: mx ?? message.x,
+        my: my ?? message.y
+      }
+    );
   }
 
   rotateHeldItem({ invSlot = 0, hold = true } = {}, command = {}) {

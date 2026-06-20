@@ -49,6 +49,25 @@ export interface DragPayload {
   split?: boolean;
 }
 
+export interface BlueprintPlacement {
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  w?: number;
+  h?: number;
+  source: string;
+}
+
+export interface BlueprintPlacementMessage {
+  type: 9;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  source: string;
+}
+
 export interface Command {
   type?: number;
   n?: number | null;
@@ -291,6 +310,7 @@ export class DredlessClient {
   send(command: Command): this;
   sendMessage(message: unknown, options?: { afterReady?: boolean }): this;
   sendRaw(message: unknown, options?: { afterReady?: boolean }): this;
+  sendBlueprintPlacement(placement: BlueprintPlacement): this;
   setOutfit(outfit: unknown): this;
   sendShipManagement(act: string, arg?: unknown): this;
   setShipPrivacy(privacy: ShipPrivacy): this;
@@ -362,6 +382,11 @@ export class DredlessClient {
   useEntity(entity: number, options?: { invSlot?: number; hold?: boolean }, command?: Command): this;
   useHeldItem(options?: { invSlot?: number; hold?: boolean }, command?: Command): this;
   placeHeldItem(options?: { invSlot?: number; hold?: boolean }, command?: Command): this;
+  placeBlueprint(
+    placement: BlueprintPlacement,
+    options?: { invSlot?: number; hold?: boolean; mx?: number; my?: number },
+    command?: Command
+  ): this;
   rotateHeldItem(options?: { invSlot?: number; hold?: boolean }, command?: Command): this;
   selectSlot(invSlot?: number, command?: Command): this;
   drag(source: number, target: number, split?: boolean, command?: Command): this;
@@ -1182,6 +1207,7 @@ export function start(server: ServerRef, ship?: ShipRef, session?: Session | nul
 export function newShip(server: ServerRef, name?: string, color?: string, session?: Session | null): Promise<DredlessClient>;
 export function invite(server: ServerRef, code: string, session?: Session | null): Promise<DredlessClient>;
 export function startInvite(server: ServerRef, code: string, session?: Session | null): Promise<DredlessClient>;
+export function buildBlueprintPlacementMessage(placement: BlueprintPlacement): BlueprintPlacementMessage;
 
 export interface DredlessNamespace {
   Session: typeof Session;
