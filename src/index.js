@@ -42,7 +42,9 @@ export {
   buildLoaderFilterConfigData,
   buildLoaderFilterItemsData,
   buildLoaderFullConfigData,
+  buildNavigationUnitClipboardConfigData,
   buildNavigationUnitConfigData,
+  buildNavigationUnitPasteConfigData,
   buildPusherConfigData,
   buildPusherFilterItemsData
 } from "./protocol/ui-config.js";

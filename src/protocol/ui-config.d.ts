@@ -15,7 +15,7 @@ export type LoaderPosition =
   "bottom-left" | "bottomLeft" | "bottom-middle" | "bottomMiddle" | "bottom-right" | "bottomRight";
 export type LoaderPriority = -1 | 0 | 1 | "low" | "normal" | "medium" | "high";
 export type LoaderFilterMode = 0 | 1 | 2 | 3 | "allow-all" | "allowAll" | "block-filter" | "blockFilter" | "allow-filter" | "allowFilter" | "block-all" | "blockAll";
-export type ClipboardTarget = number | "loader" | "loader-config" | "loaderConfig" | "expando" | "expando-box" | "expandoBox" | "generator" | "shield-generator" | "shieldGenerator";
+export type ClipboardTarget = number | "loader" | "loader-config" | "loaderConfig" | "expando" | "expando-box" | "expandoBox" | "generator" | "shield-generator" | "shieldGenerator" | "navigation" | "navigation-unit" | "navigationUnit" | "nav" | "nav-unit" | "navUnit";
 export type FixedAngleDirection = 0 | 1 | 2 | 3 | "right" | "up" | "left" | "down";
 
 export interface PusherConfig {
@@ -43,6 +43,8 @@ export interface LoaderFullConfig extends LoaderConfig {
 }
 
 export function buildNavigationUnitConfigData(entity: number, config: NavigationUnitConfig): Uint8Array;
+export function buildNavigationUnitClipboardConfigData(config: NavigationUnitConfig): Uint8Array;
+export function buildNavigationUnitPasteConfigData(entity: number, config: NavigationUnitConfig): Uint8Array;
 export function buildGeneratorMazePuzzleData(entity: number, solution: string | number): Uint8Array;
 export function buildClipboardConfigData(target: ClipboardTarget, commandName: string, values?: Iterable<number>): Uint8Array;
 export function buildClipboardFixedAngleData(target: ClipboardTarget, direction: FixedAngleDirection): Uint8Array;

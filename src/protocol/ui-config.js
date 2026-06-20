@@ -88,7 +88,13 @@ const CLIPBOARD_TARGET_VALUES = new Map([
   ["expandoBox", 3],
   ["generator", 4],
   ["shield-generator", 4],
-  ["shieldGenerator", 4]
+  ["shieldGenerator", 4],
+  ["navigation", 6],
+  ["navigation-unit", 6],
+  ["navigationUnit", 6],
+  ["nav", 6],
+  ["nav-unit", 6],
+  ["navUnit", 6]
 ]);
 
 const FIXED_ANGLE_VALUES = new Map([
@@ -239,19 +245,28 @@ export function buildNavigationUnitConfigData(entity, {
   autoWarpOnShieldFailure = false,
   autoWarpOnNoCaptains = false
 } = {}) {
-  const destinationId = requireByteInteger(destination, "destination");
-  const pageIndex = requireByteInteger(page, "page");
-
   return Uint8Array.from([
     ...encodeUiCommandHeader(entity, NAV_UNIT_COMMAND),
-    NAV_UNIT_HEADER_TAG,
-    destinationId,
-    pageIndex,
-    navWarpByte(warp),
-    navConfigBool(autoWarpOnShieldFailure),
-    navConfigBool(autoWarpOnNoCaptains),
+    ...encodeNavigationUnitConfigPayload({ destination, page, warp, autoWarpOnShieldFailure, autoWarpOnNoCaptains }),
     ...NAV_UNIT_TRAILER
   ]);
+}
+
+function encodeNavigationUnitConfigPayload({
+  destination,
+  page = 0,
+  warp = "idle",
+  autoWarpOnShieldFailure = false,
+  autoWarpOnNoCaptains = false
+} = {}) {
+  return [
+    NAV_UNIT_HEADER_TAG,
+    requireByteInteger(destination, "destination"),
+    requireByteInteger(page, "page"),
+    navWarpByte(warp),
+    navConfigBool(autoWarpOnShieldFailure),
+    navConfigBool(autoWarpOnNoCaptains)
+  ];
 }
 
 export function buildGeneratorMazePuzzleData(entity, solution) {
@@ -367,6 +382,24 @@ export function buildLoaderClipboardConfigData(config = {}) {
     ...encodeUiCommandTarget(1, CLIPBOARD_ACTION),
     ...encodeUiCommandSection(LOADER_CONFIG_COMMAND),
     ...encodeLoaderConfigPayload(config),
+    ...NAV_UNIT_TRAILER
+  ]);
+}
+
+export function buildNavigationUnitClipboardConfigData(config = {}) {
+  return Uint8Array.from([
+    ...encodeUiCommandTarget(6, CLIPBOARD_ACTION),
+    ...encodeUiCommandSection(NAV_UNIT_COMMAND),
+    ...encodeNavigationUnitConfigPayload(config),
+    ...NAV_UNIT_TRAILER
+  ]);
+}
+
+export function buildNavigationUnitPasteConfigData(entity, config = {}) {
+  return Uint8Array.from([
+    ...encodeUiCommandTarget(entity, 2),
+    ...encodeUiCommandSection(NAV_UNIT_COMMAND),
+    ...encodeNavigationUnitConfigPayload(config),
     ...NAV_UNIT_TRAILER
   ]);
 }

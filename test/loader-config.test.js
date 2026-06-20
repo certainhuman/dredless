@@ -15,7 +15,9 @@ import {
   buildLoaderFilterConfigData,
   buildLoaderFilterItemsData,
   buildLoaderFullConfigData,
+  buildNavigationUnitClipboardConfigData,
   buildNavigationUnitConfigData,
+  buildNavigationUnitPasteConfigData,
   buildPusherConfigData,
   buildPusherFilterItemsData
 } from "../src/protocol/ui-config.js";
@@ -718,6 +720,28 @@ test("buildNavigationUnitConfigData matches official client nav command captures
     })),
     "90000e8a0f636f6e6669675f6e61765f756e6974009028018d8e8e9191",
     "start-warp.jsonl"
+  );
+
+  assert.equal(
+    hex(buildNavigationUnitClipboardConfigData({
+      destination: NAV_HUMMINGBIRD,
+      page: 1,
+      autoWarpOnShieldFailure: false,
+      autoWarpOnNoCaptains: false
+    })),
+    "9001068a0f636f6e6669675f6e61765f756e697400900a018e8d8d9191",
+    "copy-nav-unit-config.jsonl"
+  );
+
+  assert.equal(
+    hex(buildNavigationUnitPasteConfigData(51, {
+      destination: NAV_HUMMINGBIRD,
+      page: 1,
+      autoWarpOnShieldFailure: false,
+      autoWarpOnNoCaptains: false
+    })),
+    "9002338a0f636f6e6669675f6e61765f756e697400900a018e8d8d9191",
+    "paste-nav-unit-config.jsonl"
   );
 });
 

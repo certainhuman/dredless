@@ -236,6 +236,8 @@ client.setTurretMode(mode, options?);
 client.sendNavigationUnitConfig(entity, config?);
 client.setNavigationDestination(entity, destination, config?);
 client.setNavigationAutoWarp(entity, config?);
+client.copyNavigationUnitConfig(entity, config?);
+client.pasteNavigationUnitConfig(entity, config?);
 client.startWarp(entity, config?);
 client.cancelWarp(entity, config?);
 client.move(x?, y?, command?);
@@ -584,6 +586,8 @@ client.setNavigationAutoWarp(nav.entity, {
   autoWarpOnShieldFailure: true,
   autoWarpOnNoCaptains: false
 });
+client.copyNavigationUnitConfig(nav.entity);
+client.pasteNavigationUnitConfig(nav.entity);
 client.startWarp(nav.entity);
 client.cancelWarp(nav.entity);
 ```
@@ -593,6 +597,10 @@ auto-warp flags default from `entity.contents.navigationUnit`. Pass them
 explicitly when sending before the entity has been observed. `destination` is
 the normalized nav base id: `10` Hummingbird, `20` Finch, `30` Sparrow, `40`
 Raven, `50` Falcon, `60` Combat Arena.
+
+`copyNavigationUnitConfig()` writes the server-side nav clipboard target (`6`)
+using UI/config action `1`. `pasteNavigationUnitConfig()` applies copied nav
+config to the target nav unit with UI/config action `2`.
 
 ## Client Read API
 

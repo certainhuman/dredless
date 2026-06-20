@@ -31,7 +31,9 @@ import {
   buildLoaderFilterConfigData,
   buildLoaderFilterItemsData,
   buildLoaderFullConfigData,
+  buildNavigationUnitClipboardConfigData,
   buildNavigationUnitConfigData,
+  buildNavigationUnitPasteConfigData,
   buildPusherConfigData,
   buildPusherFilterItemsData
 } from "./protocol/ui-config.js";
@@ -329,6 +331,14 @@ export class DredlessClient extends EventBus {
 
   sendNavigationUnitConfig(entity, config = {}) {
     return this.sendUiConfig(buildNavigationUnitConfigData(entity, this.#navigationUnitConfigDefaults(entity, config)));
+  }
+
+  copyNavigationUnitConfig(entity, config = {}) {
+    return this.sendUiConfig(buildNavigationUnitClipboardConfigData(this.#navigationUnitConfigDefaults(entity, config)));
+  }
+
+  pasteNavigationUnitConfig(entity, config = {}) {
+    return this.sendUiConfig(buildNavigationUnitPasteConfigData(entity, this.#navigationUnitConfigDefaults(entity, config)));
   }
 
   setNavigationDestination(entity, destination, config = {}) {
