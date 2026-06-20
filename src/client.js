@@ -354,16 +354,36 @@ export class DredlessClient extends EventBus {
       wrenchMode: this.#inputSettings.wrench_mode,
       wrenchModeName: wrenchModeName(this.#inputSettings.wrench_mode),
       turretMode: this.#inputSettings.turret_mode,
-      turretModeName: turretModeName(this.#inputSettings.turret_mode)
+      turretModeName: turretModeName(this.#inputSettings.turret_mode),
+      viewWidth: this.#inputSettings.vx ?? null,
+      viewHeight: this.#inputSettings.vy ?? null,
+      screenWidth: this.#inputSettings.scr_w ?? null,
+      screenHeight: this.#inputSettings.scr_h ?? null
     };
   }
 
   setInputSettings(settings = {}, { send = true } = {}) {
     const wrench = settings.wrenchMode ?? settings.wrench_mode;
     const turret = settings.turretMode ?? settings.turret_mode;
+    const viewWidth = settings.viewWidth ?? settings.vx;
+    const viewHeight = settings.viewHeight ?? settings.vy;
+    const screenWidth = settings.screenWidth ?? settings.scr_w;
+    const screenHeight = settings.screenHeight ?? settings.scr_h;
     if (wrench != null) this.#inputSettings.wrench_mode = normalizeWrenchMode(wrench);
     if (turret != null) this.#inputSettings.turret_mode = normalizeTurretMode(turret);
+    if (viewWidth != null) this.#inputSettings.vx = normalizePositiveFinite(viewWidth, "viewWidth");
+    if (viewHeight != null) this.#inputSettings.vy = normalizePositiveFinite(viewHeight, "viewHeight");
+    if (screenWidth != null) this.#inputSettings.scr_w = normalizePositiveInteger(screenWidth, "screenWidth");
+    if (screenHeight != null) this.#inputSettings.scr_h = normalizePositiveInteger(screenHeight, "screenHeight");
     return send ? this.send({}) : this;
+  }
+
+  setView(width, height, options = {}) {
+    return this.setInputSettings({ viewWidth: width, viewHeight: height }, options);
+  }
+
+  setScreenSize(width, height, options = {}) {
+    return this.setInputSettings({ screenWidth: width, screenHeight: height }, options);
   }
 
   setWrenchMode(mode, options = {}) {
@@ -944,6 +964,18 @@ function normalizeTurretMode(value) {
     throw new RangeError(`Unknown turret mode: ${value}`);
   }
   return normalized;
+}
+
+function normalizePositiveFinite(value, name) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) throw new RangeError(`${name} must be a positive finite number`);
+  return number;
+}
+
+function normalizePositiveInteger(value, name) {
+  const number = Number(value);
+  if (!Number.isInteger(number) || number <= 0) throw new RangeError(`${name} must be a positive integer`);
+  return number;
 }
 
 function normalizeDegrees(value) {

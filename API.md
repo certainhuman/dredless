@@ -240,6 +240,8 @@ client.pasteCargoHatchConfig(entity, config?);
 client.copyCargoHatchConfig(entity, config?);
 client.inputSettings();
 client.setInputSettings(settings?, options?);
+client.setView(width, height, options?);
+client.setScreenSize(width, height, options?);
 client.setWrenchMode(mode, options?);
 client.setWrenchAction(mode, options?);
 client.setTurretMode(mode, options?);
@@ -533,11 +535,13 @@ the selected inventory slot.
 
 Input settings are persistent defaults included on every signed `type: 0`
 command. The official client does not send a separate settings packet for these
-controls; it changes the repeated `wrench_mode` and `turret_mode` fields:
+controls; it changes repeated fields on normal input commands:
 
 ```js
 client.setWrenchMode("grab-all-items");
 client.setTurretMode("volley-fire");
+client.setScreenSize(2840, 1634);
+client.setView(1282.395, 737.829);
 client.inputSettings();
 ```
 
@@ -556,9 +560,31 @@ Turret modes:
 1 // volley-fire
 ```
 
-By default `setWrenchMode()`, `setWrenchAction()`, `setTurretMode()`, and
-`setInputSettings()` also send one immediate input command carrying the updated
-defaults. Pass `{ send:false }` to only update future commands.
+View/zoom settings:
+
+```js
+client.setView(width, height);          // sends vx/vy in ship-tile units
+client.setScreenSize(width, height);    // sends scr_w/scr_h in pixels
+client.setInputSettings({
+  viewWidth: 17.75,
+  viewHeight: 10.2125,
+  screenWidth: 2840,
+  screenHeight: 1634
+});
+```
+
+`starting-zoomed-in-and-zooming-out.jsonl` confirms zooming out only changes
+the repeated signed command view fields: `vx/vy` grow from `17.75/10.2125` to
+`1282.395/737.829`, while `scr_w/scr_h` remain `2840/1634`. No separate zoom
+message is sent. `shrinking-window.jsonl`, `moving-window-to-1080p-monitor.jsonl`,
+and `making-browser-window-fill-screen-on-1080p-monitor.jsonl` confirm browser
+resizes are also ordinary input commands: `scr_w/scr_h` update to the new pixel
+size, and `vx/vy` then settle to the same zoom scale for the new aspect/size.
+
+By default `setWrenchMode()`, `setWrenchAction()`, `setTurretMode()`,
+`setView()`, `setScreenSize()`, and `setInputSettings()` also send one
+immediate input command carrying the updated defaults. Pass `{ send:false }` to
+only update future commands.
 
 Generic entity use sends a normal left-click type `0` command with the entity
 in `focus_ent`:

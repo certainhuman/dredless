@@ -40,3 +40,32 @@ test("held item rotation command fields match door rotation capture", () => {
   assert.equal(command.act_alt, true);
   assert.equal(command.act_alt_held, true);
 });
+
+test("view dimensions encode zoom state on signed input commands", () => {
+  const command = buildCommandDefaults({
+    vx: 1282.3951416015625,
+    vy: 737.8287963867188,
+    scr_w: 2840,
+    scr_h: 1634
+  });
+
+  assert.equal(command.type, 0);
+  assert.equal(command.vx, 1282.3951416015625);
+  assert.equal(command.vy, 737.8287963867188);
+  assert.equal(command.scr_w, 2840);
+  assert.equal(command.scr_h, 1634);
+});
+
+test("screen dimensions encode browser viewport size on signed input commands", () => {
+  const command = buildCommandDefaults({
+    vx: 14.75,
+    vy: 8.619000434875488,
+    scr_w: 1672,
+    scr_h: 977
+  });
+
+  assert.equal(command.vx, 14.75);
+  assert.equal(command.vy, 8.619000434875488);
+  assert.equal(command.scr_w, 1672);
+  assert.equal(command.scr_h, 977);
+});

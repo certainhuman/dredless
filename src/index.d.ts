@@ -366,6 +366,8 @@ export class DredlessClient {
   copyCargoHatchConfig(entity: number, config?: Pick<LoaderFullConfig, "filterMode" | "filterSlots">): this;
   inputSettings(): CurrentInputSettings;
   setInputSettings(settings?: InputSettings, options?: { send?: boolean }): this;
+  setView(width: number, height: number, options?: { send?: boolean }): this;
+  setScreenSize(width: number, height: number, options?: { send?: boolean }): this;
   setWrenchMode(mode: WrenchMode, options?: { send?: boolean }): this;
   setWrenchAction(mode: WrenchMode, options?: { send?: boolean }): this;
   setTurretMode(mode: TurretMode, options?: { send?: boolean }): this;
@@ -473,6 +475,14 @@ export interface InputSettings {
   wrench_mode?: WrenchMode;
   turretMode?: TurretMode;
   turret_mode?: TurretMode;
+  viewWidth?: number;
+  viewHeight?: number;
+  screenWidth?: number;
+  screenHeight?: number;
+  vx?: number;
+  vy?: number;
+  scr_w?: number;
+  scr_h?: number;
 }
 
 export interface CurrentInputSettings {
@@ -480,6 +490,10 @@ export interface CurrentInputSettings {
   wrenchModeName: "drop-all-items" | "grab-primary-items" | "grab-all-items" | null;
   turretMode: 0 | 1;
   turretModeName: "continuous-fire" | "volley-fire" | null;
+  viewWidth: number | null;
+  viewHeight: number | null;
+  screenWidth: number | null;
+  screenHeight: number | null;
 }
 
 export interface InventorySlot {
