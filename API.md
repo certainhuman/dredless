@@ -213,6 +213,10 @@ client.sendLoaderConfig(entity, config?);
 client.sendLoaderFullConfig(entity, config?);
 client.copyLoaderConfig(entity, config?);
 client.sendLoaderClipboardConfig(config?);
+client.sendClipboardConfig(target, commandName, values?);
+client.setClipboardFixedAngle(target, direction);
+client.setGeneratorClipboardDirection(direction);
+client.setExpandoClipboardAngle(angle);
 client.setLoaderPickPlace(entity, pick, place, config?);
 client.setLoaderPriority(entity, priority, config?);
 client.setLoaderStack(entity, stack, config?);
@@ -413,6 +417,23 @@ flow; pass a config object to copy supplied values over the decoded source state
 `sendLoaderClipboardConfig()` sends the single `config_loader` clipboard-edit
 packet observed when editing pick/place and other base loader settings in the
 clipboard UI.
+
+Other copied-config clipboard edits use the same shared action `1` header:
+`90 01 TARGET`. Observed targets are `1=loader`, `3=expando`, and
+`4=generator/shield-generator`.
+
+```js
+client.setGeneratorClipboardDirection("right");
+client.setGeneratorClipboardDirection("up");
+client.setGeneratorClipboardDirection("left");
+client.setGeneratorClipboardDirection("down");
+client.setExpandoClipboardAngle(115);
+client.sendClipboardConfig("expando", "angle", [115]);
+```
+
+Generator clipboard direction uses command `angle_fixed` with values
+`0=right`, `1=up`, `2=left`, `3=down`. Expando clipboard angle uses command
+`angle` and compact degree encoding.
 
 Shield generator puzzle submissions use a compact `type: 8` UI/config payload:
 

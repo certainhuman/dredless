@@ -7,6 +7,8 @@ import { generateGeneratorMaze, solveGeneratorMazeSeed } from "../src/game/gener
 import { WorldState, WorldStore } from "../src/game/world.js";
 import {
   buildGeneratorMazePuzzleData,
+  buildGeneratorClipboardDirectionData,
+  buildExpandoClipboardAngleData,
   buildLoaderClipboardConfigData,
   buildLoaderConfigData,
   buildLoaderCopyConfigData,
@@ -911,6 +913,34 @@ test("buildLoaderConfigData matches official client loader command captures", ()
     })),
     "9001018a0d636f6e6669675f6c6f6164657200900502010e80dc8e8e9191",
     "edit-loader-clipboard-pick-bottom-left-place-top-right .jsonl"
+  );
+});
+
+test("clipboard config helpers match official client generator and expando captures", () => {
+  assert.equal(
+    hex(buildGeneratorClipboardDirectionData("right")),
+    "9001048a0b616e676c655f66697865640090009191",
+    "change-generator-clipboard-direction-to-right.jsonl"
+  );
+  assert.equal(
+    hex(buildGeneratorClipboardDirectionData("up")),
+    "9001048a0b616e676c655f66697865640090019191",
+    "change-generator-clipboard-direction-to-up.jsonl"
+  );
+  assert.equal(
+    hex(buildGeneratorClipboardDirectionData("left")),
+    "9001048a0b616e676c655f66697865640090029191",
+    "change-generator-clipboard-direction-to-left.jsonl"
+  );
+  assert.equal(
+    hex(buildGeneratorClipboardDirectionData("down")),
+    "9001048a0b616e676c655f66697865640090039191",
+    "change-generator-clipboard-direction-to-down.jsonl"
+  );
+  assert.equal(
+    hex(buildExpandoClipboardAngleData(115)),
+    "9001038a05616e676c65009084739191",
+    "change-expando-clipboard-angle-to-115.jsonl"
   );
 });
 

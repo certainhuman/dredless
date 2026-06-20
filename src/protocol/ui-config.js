@@ -2,6 +2,8 @@ import { encoder } from "../constants.js";
 
 const NAV_UNIT_COMMAND = "config_nav_unit";
 const GENERATOR_MAZE_PUZZLE_COMMAND = "maze_puzzle";
+const CLIPBOARD_ANGLE_COMMAND = "angle";
+const CLIPBOARD_FIXED_ANGLE_COMMAND = "angle_fixed";
 const LOADER_CONFIG_COMMAND = "config_loader";
 const LOADER_FILTER_CONFIG_COMMAND = "filter_config";
 const LOADER_FILTER_ITEMS_COMMAND = "filter_items";
@@ -17,6 +19,7 @@ const PUSHER_FILTER_INVENTORY_OFF = 0x8e;
 const LOADER_TRUE = 0x8d;
 const LOADER_FALSE = 0x8e;
 const UI_COMMAND_END = 0x91;
+const CLIPBOARD_ACTION = 1;
 
 function requireByteInteger(value, name) {
   const number = Number(value);
@@ -72,6 +75,49 @@ function requireLoaderFilterMode(value, name) {
   const number = typeof value === "string" ? LOADER_FILTER_MODE_VALUES.get(value) : Number(value);
   if (number == null || !Number.isInteger(number) || number < 0 || number > 3) {
     throw new RangeError(`${name} must be 0..3 or a loader filter mode name`);
+  }
+  return number;
+}
+
+const CLIPBOARD_TARGET_VALUES = new Map([
+  ["loader", 1],
+  ["loader-config", 1],
+  ["loaderConfig", 1],
+  ["expando", 3],
+  ["expando-box", 3],
+  ["expandoBox", 3],
+  ["generator", 4],
+  ["shield-generator", 4],
+  ["shieldGenerator", 4]
+]);
+
+const FIXED_ANGLE_VALUES = new Map([
+  ["right", 0],
+  ["up", 1],
+  ["left", 2],
+  ["down", 3]
+]);
+
+function requireClipboardTarget(value, name = "target") {
+  const number = typeof value === "string" ? CLIPBOARD_TARGET_VALUES.get(value) : Number(value);
+  if (number == null || !Number.isInteger(number) || number < 0 || number > 255) {
+    throw new RangeError(`${name} must be a clipboard target byte or known target name`);
+  }
+  return number;
+}
+
+function requireFixedAngle(value, name = "direction") {
+  const number = typeof value === "string" ? FIXED_ANGLE_VALUES.get(value) : Number(value);
+  if (number == null || !Number.isInteger(number) || number < 0 || number > 3) {
+    throw new RangeError(`${name} must be 0..3 or "right", "up", "left", or "down"`);
+  }
+  return number;
+}
+
+function requireAngleDegrees(value, name = "angle") {
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < 0 || number > 359) {
+    throw new RangeError(`${name} must be an integer degree value between 0 and 359`);
   }
   return number;
 }
@@ -318,14 +364,42 @@ export function buildLoaderCopyConfigData(config = {}) {
 
 export function buildLoaderClipboardConfigData(config = {}) {
   return Uint8Array.from([
-    ...encodeUiCommandTarget(1, 1),
+    ...encodeUiCommandTarget(1, CLIPBOARD_ACTION),
     ...encodeUiCommandSection(LOADER_CONFIG_COMMAND),
     ...encodeLoaderConfigPayload(config),
     ...NAV_UNIT_TRAILER
   ]);
 }
 
+export function buildClipboardConfigData(target, commandName, values = []) {
+  if (typeof commandName !== "string" || !commandName) throw new TypeError(`commandName must be a non-empty string`);
+  return Uint8Array.from([
+    ...encodeUiCommandTarget(requireClipboardTarget(target), CLIPBOARD_ACTION),
+    ...encodeUiCommandSection(commandName),
+    NAV_UNIT_HEADER_TAG,
+    ...values,
+    ...NAV_UNIT_TRAILER
+  ]);
+}
+
+export function buildClipboardFixedAngleData(target, direction) {
+  return buildClipboardConfigData(target, CLIPBOARD_FIXED_ANGLE_COMMAND, [requireFixedAngle(direction)]);
+}
+
+export function buildGeneratorClipboardDirectionData(direction) {
+  return buildClipboardFixedAngleData("generator", direction);
+}
+
+export function buildExpandoClipboardAngleData(angle) {
+  return buildClipboardConfigData("expando", CLIPBOARD_ANGLE_COMMAND, encodeCompactNumber(requireAngleDegrees(angle), "angle"));
+}
+
 export {
+  CLIPBOARD_ACTION,
+  CLIPBOARD_ANGLE_COMMAND,
+  CLIPBOARD_FIXED_ANGLE_COMMAND,
+  CLIPBOARD_TARGET_VALUES,
+  FIXED_ANGLE_VALUES,
   GENERATOR_MAZE_PUZZLE_COMMAND,
   LOADER_CONFIG_COMMAND,
   LOADER_FALSE,

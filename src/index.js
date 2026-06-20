@@ -26,6 +26,10 @@ export {
   signDisplayModeName
 } from "./protocol/sign.js";
 export {
+  buildClipboardConfigData,
+  buildClipboardFixedAngleData,
+  buildExpandoClipboardAngleData,
+  buildGeneratorClipboardDirectionData,
   buildGeneratorMazePuzzleData,
   buildLoaderClipboardConfigData,
   buildLoaderConfigData,

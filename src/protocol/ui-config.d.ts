@@ -15,6 +15,8 @@ export type LoaderPosition =
   "bottom-left" | "bottomLeft" | "bottom-middle" | "bottomMiddle" | "bottom-right" | "bottomRight";
 export type LoaderPriority = -1 | 0 | 1 | "low" | "normal" | "medium" | "high";
 export type LoaderFilterMode = 0 | 1 | 2 | 3 | "allow-all" | "allowAll" | "block-filter" | "blockFilter" | "allow-filter" | "allowFilter" | "block-all" | "blockAll";
+export type ClipboardTarget = number | "loader" | "loader-config" | "loaderConfig" | "expando" | "expando-box" | "expandoBox" | "generator" | "shield-generator" | "shieldGenerator";
+export type FixedAngleDirection = 0 | 1 | 2 | 3 | "right" | "up" | "left" | "down";
 
 export interface PusherConfig {
   mode?: PusherMode;
@@ -42,6 +44,10 @@ export interface LoaderFullConfig extends LoaderConfig {
 
 export function buildNavigationUnitConfigData(entity: number, config: NavigationUnitConfig): Uint8Array;
 export function buildGeneratorMazePuzzleData(entity: number, solution: string | number): Uint8Array;
+export function buildClipboardConfigData(target: ClipboardTarget, commandName: string, values?: Iterable<number>): Uint8Array;
+export function buildClipboardFixedAngleData(target: ClipboardTarget, direction: FixedAngleDirection): Uint8Array;
+export function buildGeneratorClipboardDirectionData(direction: FixedAngleDirection): Uint8Array;
+export function buildExpandoClipboardAngleData(angle: number): Uint8Array;
 export function buildLoaderClipboardConfigData(config?: LoaderConfig): Uint8Array;
 export function buildLoaderConfigData(entity: number, config?: LoaderConfig): Uint8Array;
 export function buildLoaderCopyConfigData(config?: LoaderFullConfig): Uint8Array;
@@ -51,6 +57,11 @@ export function buildLoaderFullConfigData(entity: number, config?: LoaderFullCon
 export function buildPusherConfigData(entity: number, config?: PusherConfig): Uint8Array;
 export function buildPusherFilterItemsData(entity: number, filterSlots?: Array<number | null | undefined>): Uint8Array;
 
+export const CLIPBOARD_ACTION: 1;
+export const CLIPBOARD_ANGLE_COMMAND: "angle";
+export const CLIPBOARD_FIXED_ANGLE_COMMAND: "angle_fixed";
+export const CLIPBOARD_TARGET_VALUES: Map<string, number>;
+export const FIXED_ANGLE_VALUES: Map<string, 0 | 1 | 2 | 3>;
 export const GENERATOR_MAZE_PUZZLE_COMMAND: "maze_puzzle";
 export const LOADER_CONFIG_COMMAND: "config_loader";
 export const LOADER_FALSE: 0x8e;

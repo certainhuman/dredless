@@ -19,6 +19,10 @@ import {
 } from "./protocol/ship-management.js";
 import { buildSignTextMessage } from "./protocol/sign.js";
 import {
+  buildClipboardConfigData,
+  buildClipboardFixedAngleData,
+  buildExpandoClipboardAngleData,
+  buildGeneratorClipboardDirectionData,
   buildGeneratorMazePuzzleData,
   buildLoaderClipboardConfigData,
   buildLoaderConfigData,
@@ -237,6 +241,22 @@ export class DredlessClient extends EventBus {
 
   sendLoaderClipboardConfig(config = {}) {
     return this.sendUiConfig(buildLoaderClipboardConfigData(config));
+  }
+
+  sendClipboardConfig(target, commandName, values = []) {
+    return this.sendUiConfig(buildClipboardConfigData(target, commandName, values));
+  }
+
+  setClipboardFixedAngle(target, direction) {
+    return this.sendUiConfig(buildClipboardFixedAngleData(target, direction));
+  }
+
+  setGeneratorClipboardDirection(direction) {
+    return this.sendUiConfig(buildGeneratorClipboardDirectionData(direction));
+  }
+
+  setExpandoClipboardAngle(angle) {
+    return this.sendUiConfig(buildExpandoClipboardAngleData(angle));
   }
 
   setLoaderPickPlace(entity, pick, place, config = {}) {
