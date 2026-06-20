@@ -167,6 +167,8 @@ client.lastPacket
 client.cpuLoad
 client.inventory
 client.puiPanels
+client.commsPanels
+client.currentCommsPanel
 client.chat
 client.motd
 client.sessionMessages
@@ -187,6 +189,7 @@ client.sendShipManagement(act, arg?);
 client.setShipPrivacy(privacy);
 client.recoverStarterItem(itemId);
 client.sendEntityCommand(cmd, args?);
+client.sendCommsMessage(message);
 client.sendFabricatorMessage(cmd, args?);
 client.sendFabricatorCommand(itemId, count?, index?);
 client.craftAdd(itemId, count?, index?);
@@ -285,6 +288,24 @@ client.fabricatorEject(0);
 
 `sendFabricatorCommand()` is the legacy `craft_add` wrapper. Use
 `sendFabricatorMessage(cmd, args)` for raw confirmed fabricator commands.
+
+Comms station messages use their own top-level message shape:
+
+```js
+client.useEntity(comms.entity);
+client.sendCommsMessage("my message");
+client.action({ exit: true });
+```
+
+Opening a comms station is a normal signed entity-use input command. The server
+responds with a side event `{ type:"comms", ent_id, msgs_text }`, not a `pui`
+event. Sending a message emits `{ type:3, msg }`; the server then sends a type
+`13` comms bubble packet and a `comms` side-event update. Closing uses the
+normal signed `exit=true` input command and a `{ type:"comms", ent_id:null }`
+side event. Dredless stores normalized open comms panels in
+`client.commsPanels`, the active panel in `client.currentCommsPanel`, and emits
+`client.on("comms", fn)` with flattened message text. When the comms history has
+multiple rows, each `msgs_text` row becomes one `messages[]` entry.
 
 Ship-management helpers send observed top-level `type: 4` messages. These are
 not signed input commands and do not use the entity/PUI command channel:
@@ -1542,6 +1563,7 @@ client.on("tiles", fn);
 client.on("model", fn);
 client.on("inventory", fn);
 client.on("pui", fn);
+client.on("comms", fn);
 client.on("tip_warn", fn);
 client.on("sfx", fn);
 client.on("chat", fn);
@@ -1575,6 +1597,9 @@ Helm entity summaries include `occupied` when the model stream identifies the
 specific helm currently being used.
 Comms station summaries include current `charges`, `maxCharges`, `chargeRatio`,
 and `occupied` when a player is using the station.
+Open comms UI state is exposed separately as `client.currentCommsPanel` and
+`client.commsPanels`; message rows include both `raw` rich text and flattened
+plain `text`.
 Comms bubble packets are stored on each world as recent `commsBubbles`, with
 source entity, message text, color, and display duration.
 Player summaries include display `name`, held item, ship `teamRank`, account

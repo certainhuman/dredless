@@ -5,6 +5,11 @@ export { WorldStore, WorldState } from "./game/world.js";
 export { ModelState, decodeModelData } from "./game/model.js";
 export { generateGeneratorMaze, solveGeneratorMazeSeed, maybeSolveGeneratorMazeSeed } from "./game/generator-maze.js";
 export { decodeMsgpack, encodeMsgpack } from "./protocol/msgpack.js";
+export {
+  buildCommsMessage,
+  flattenRichText,
+  normalizeCommsEvent
+} from "./protocol/comms.js";
 export { buildSignedCommandPacket } from "./protocol/commands.js";
 export {
   buildEquipItemCommand,

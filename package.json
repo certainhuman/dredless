@@ -61,6 +61,11 @@
       "import": "./src/protocol/msgpack.js",
       "default": "./src/protocol/msgpack.js"
     },
+    "./protocol/comms": {
+      "types": "./src/protocol/comms.d.ts",
+      "import": "./src/protocol/comms.js",
+      "default": "./src/protocol/comms.js"
+    },
     "./protocol/commands": {
       "types": "./src/protocol/commands.d.ts",
       "import": "./src/protocol/commands.js",

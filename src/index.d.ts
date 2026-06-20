@@ -92,6 +92,28 @@ export interface SignTextMessage {
   args: [string, 0 | 1 | 2];
 }
 
+export interface CommsMessage {
+  type: 3;
+  msg: string;
+}
+
+export interface NormalizedCommsMessage {
+  raw: unknown;
+  text: string;
+}
+
+export interface CommsEvent {
+  type: "comms";
+  filter?: number;
+  ent_id: number | null;
+  entity: number | null;
+  msgs_text: unknown[];
+  rawMessages: unknown[];
+  messages: NormalizedCommsMessage[];
+  update?: boolean;
+  world?: number | null;
+}
+
 export interface InventoryDragCommand {
   drag: {
     source: number;
@@ -250,6 +272,8 @@ export class DredlessClient {
   cpuLoad: number | null;
   inventory: InventoryState | null;
   puiPanels: Map<number, PuiEvent>;
+  commsPanels: Map<number, CommsEvent>;
+  currentCommsPanel: CommsEvent | null;
   warnings: unknown[];
   effects: unknown[];
   chat: unknown[];
@@ -272,6 +296,7 @@ export class DredlessClient {
   setShipPrivacy(privacy: ShipPrivacy): this;
   recoverStarterItem(itemId: number): this;
   sendEntityCommand(cmd: string, args?: unknown[]): this;
+  sendCommsMessage(message?: string): this;
   sendFabricatorMessage(cmd: string, args?: [number, number, number]): this;
   sendFabricatorCommand(itemId: number, count?: number, index?: number): this;
   craftAdd(itemId: number, count?: number, index?: number): this;
@@ -376,6 +401,8 @@ export interface ClientSnapshot {
   cpuLoad: number | null;
   inventory: InventoryState | null;
   puiPanels: PuiEvent[];
+  commsPanels: CommsEvent[];
+  currentCommsPanel: CommsEvent | null;
   warnings: unknown[];
   effects: unknown[];
   chat: unknown[];
@@ -1070,6 +1097,9 @@ export interface MachineSummary {
 
 export function decodeMsgpack(bytes: Uint8Array | ArrayBuffer | number[]): unknown;
 export function encodeMsgpack(value: unknown): Uint8Array;
+export function buildCommsMessage(message?: string): CommsMessage;
+export function normalizeCommsEvent(event: unknown): CommsEvent;
+export function flattenRichText(value: unknown): string;
 export function buildSignedCommandPacket(command: Command, sessionId: number): Uint8Array;
 export function buildInventoryDragCommand(source: number, target: number, split?: boolean): InventoryDragCommand;
 export function buildEquipItemCommand(source: number, slot: EquipmentSlot, split?: boolean): InventoryDragCommand;

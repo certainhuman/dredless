@@ -5,6 +5,7 @@ import { cookieHeader } from "./net/cookies.js";
 import { fetchServers } from "./net/servers.js";
 import { Connection } from "./game/connection.js";
 import { WorldStore } from "./game/world.js";
+import { buildCommsMessage, normalizeCommsEvent } from "./protocol/comms.js";
 import { buildSignedCommandPacket } from "./protocol/commands.js";
 import {
   buildEquipItemCommand,
@@ -60,6 +61,8 @@ export class DredlessClient extends EventBus {
     this.cpuLoad = null;
     this.inventory = null;
     this.puiPanels = new Map();
+    this.commsPanels = new Map();
+    this.currentCommsPanel = null;
     this.warnings = [];
     this.effects = [];
     this.chat = [];
@@ -137,6 +140,10 @@ export class DredlessClient extends EventBus {
 
   sendEntityCommand(cmd, args = [-1, -1, -1]) {
     return this.sendMessage({ type: 5, cmd, args });
+  }
+
+  sendCommsMessage(message = "") {
+    return this.sendMessage(buildCommsMessage(message));
   }
 
   sendFabricatorMessage(cmd, args = [-1, -1, -1]) {
@@ -431,6 +438,8 @@ export class DredlessClient extends EventBus {
       cpuLoad: this.cpuLoad,
       inventory: this.inventory,
       puiPanels: [...this.puiPanels.values()],
+      commsPanels: [...this.commsPanels.values()],
+      currentCommsPanel: this.currentCommsPanel,
       warnings: this.warnings.slice(-50),
       effects: this.effects.slice(-50),
       chat: this.chat.slice(-50),
@@ -680,6 +689,18 @@ export class DredlessClient extends EventBus {
       const panel = { ...event, world: world?.id ?? null };
       if (event.ent_id != null) this.puiPanels.set(event.ent_id, panel);
       this.emit("pui", panel, world);
+      return;
+    }
+    if (event.type === "comms") {
+      const panel = { ...normalizeCommsEvent(event), world: world?.id ?? null };
+      if (panel.entity == null) {
+        this.currentCommsPanel = null;
+        this.commsPanels.clear();
+      } else {
+        this.currentCommsPanel = panel;
+        this.commsPanels.set(panel.entity, panel);
+      }
+      this.emit("comms", panel, world);
       return;
     }
     if (event.type === "tip_warn") {
