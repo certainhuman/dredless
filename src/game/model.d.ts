@@ -23,6 +23,7 @@ export {
   type HelmSummary,
   type PlayerSummary,
   type ShipControlSummary,
+  type ShipWorldMetadataSummary,
   type ShipShieldSummary,
   type ShipWarpSummary,
   type MachineSummary

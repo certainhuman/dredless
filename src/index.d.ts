@@ -37,6 +37,45 @@ export type ShipPrivacy = 0 | 1 | boolean | "public" | "private";
 export type SignDisplayMode = 0 | 1 | 2 | "always" | "when-near" | "whenNear" | "near" | "on-hover" | "onHover" | "hover";
 export type EquipmentSlot = 19 | 20 | 21 | "back" | "hand" | "hands" | "foot" | "feet";
 export type ReadWorldScope = "ship" | "current" | "overworld" | number;
+
+export interface ShipConfigEvent {
+  type: "config";
+  privacy: number | null;
+  privacyName: "public" | "private" | null;
+  inviteKey: string | null;
+  teamId: number | null;
+  patronPerks: unknown[];
+}
+
+export interface CaptainSubrankEvent {
+  type: "captain_subrank";
+  subrank: number | null;
+  enableCheats: boolean;
+}
+
+export interface PlayerListEntry {
+  refId: number | null;
+  removed: boolean;
+  discrim: string | null;
+  discrimColor: number | null;
+  teamRank: number | null;
+  captainRank: number | null;
+  isCaptain: boolean;
+  isShipOwner: boolean;
+  time: number | null;
+  items: unknown[];
+  aliasDiscrims: unknown[];
+  extraAliases: unknown;
+  onlineCount: number | null;
+}
+
+export interface PlayerListEvent {
+  type: "player_list";
+  ownerCaptainRank: number | null;
+  shipOwners: PlayerListEntry[];
+  players: PlayerListEntry[];
+}
+
 export interface ShipReadOptions {
   includeWorld?: boolean;
   includeTiles?: boolean;
@@ -298,6 +337,9 @@ export class DredlessClient {
   chat: unknown[];
   motd: unknown[];
   sessionMessages: unknown[];
+  shipConfig: ShipConfigEvent | null;
+  captainSubrank: CaptainSubrankEvent | null;
+  playerList: PlayerListEvent | null;
   outfits: Map<number, unknown>;
   commandAcks: Map<number, number>;
   lastCommandAck: CommandAck | null;
@@ -313,6 +355,7 @@ export class DredlessClient {
   sendBlueprintPlacement(placement: BlueprintPlacement): this;
   setOutfit(outfit: unknown): this;
   sendShipManagement(act: string, arg?: unknown): this;
+  requestPlayerList(): this;
   setShipPrivacy(privacy: ShipPrivacy): this;
   recoverStarterItem(itemId: number): this;
   sendEntityCommand(cmd: string, args?: unknown[]): this;
@@ -446,6 +489,9 @@ export interface ClientSnapshot {
   chat: unknown[];
   motd: unknown[];
   sessionMessages: unknown[];
+  shipConfig: ShipConfigEvent | null;
+  captainSubrank: CaptainSubrankEvent | null;
+  playerList: PlayerListEvent | null;
   outfits: { sid: number; outfit: unknown }[];
   commandAcks: CommandAck[];
   lastCommandAck: CommandAck | null;
@@ -688,6 +734,7 @@ export interface WorldSnapshot {
   id: number;
   is_overworld: boolean | null;
   overworldZone: OverworldZoneSummary | null;
+  shipMetadata: ShipWorldMetadataSummary | null;
   tileset: Tileset | null;
   seed: number | null;
   block_w: number | null;
@@ -718,6 +765,22 @@ export interface OverworldZoneSummary {
   key: string;
   name: string;
   displayName: string;
+}
+
+export interface ShipWorldMetadataSummary {
+  name: string | null;
+  color: number | null;
+  colorCss: string | null;
+  width: number | null;
+  height: number | null;
+  lockdownTimerSeconds: number | null;
+  lockdownCountdownSeconds: number | null;
+  onlineShipOwnerCount: number | null;
+  requiredShipOwnerCount: number | null;
+  allShipOwnersOnline: boolean | null;
+  lockdownEngaged: boolean | null;
+  lockdownState: ModelRecord;
+  shipState: ModelRecord;
 }
 
 export interface WorldUpdate {
@@ -762,6 +825,7 @@ export class ModelState {
   fabricators(): FabricatorSummary[];
   players(): PlayerSummary[];
   shipControls(): ShipControlSummary[];
+  shipMetadata(): ShipWorldMetadataSummary | null;
   machines(): MachineSummary;
 }
 
@@ -1173,7 +1237,11 @@ export function normalizeInventoryEvent(event: unknown): InventoryState;
 export function buildShipManagementMessage(act: string, arg?: unknown): ShipManagementMessage;
 export function buildShipPrivacyMessage(privacy: ShipPrivacy): ShipManagementMessage;
 export function buildStarterRecoveryMessage(itemId: number): ShipManagementMessage;
+export function buildPlayerListMessage(): ShipManagementMessage;
 export function normalizePrivacy(privacy: ShipPrivacy): 0 | 1;
+export function normalizeShipConfigEvent(event: unknown): ShipConfigEvent;
+export function normalizeCaptainSubrankEvent(event: unknown): CaptainSubrankEvent;
+export function normalizePlayerListEvent(event: unknown): PlayerListEvent;
 export function buildSignTextMessage(text?: string, mode?: SignDisplayMode): SignTextMessage;
 export function normalizeSignDisplayMode(mode?: SignDisplayMode): 0 | 1 | 2;
 export function signDisplayModeName(mode: number): "always" | "when-near" | "on-hover" | null;

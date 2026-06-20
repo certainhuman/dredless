@@ -6,6 +6,7 @@ export {
   type TileDefinition,
   type Tileset,
   type OverworldZoneSummary,
+  type ShipWorldMetadataSummary,
   type WorldSnapshot,
   type WorldUpdate,
   type CommsBubbleSummary,

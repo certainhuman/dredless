@@ -287,6 +287,7 @@ export class WorldState {
       id: this.id,
       is_overworld: this.isOverworld,
       overworldZone,
+      shipMetadata: this.model.shipMetadata(),
       tileset: this.tileset,
       seed: this.seed,
       block_w: this.blockWidth,

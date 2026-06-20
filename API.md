@@ -172,6 +172,9 @@ client.currentCommsPanel
 client.chat
 client.motd
 client.sessionMessages
+client.shipConfig
+client.captainSubrank
+client.playerList
 client.commandAcks
 client.lastCommandAck
 client.decodeErrors
@@ -187,6 +190,7 @@ client.sendRaw(message, { afterReady? });
 client.sendBlueprintPlacement(placement);
 client.setOutfit(outfit);
 client.sendShipManagement(act, arg?);
+client.requestPlayerList();
 client.setShipPrivacy(privacy);
 client.recoverStarterItem(itemId);
 client.sendEntityCommand(cmd, args?);
@@ -329,6 +333,7 @@ not signed input commands and do not use the entity/PUI command channel:
 client.setShipPrivacy("public");
 client.setShipPrivacy("private");
 client.recoverStarterItem(216); // Helm (Starter, Packaged)
+client.requestPlayerList();
 client.sendShipManagement("set_privacy", 1);
 ```
 
@@ -336,6 +341,28 @@ Privacy values accept `0`/`"public"`/`false` and `1`/`"private"`/`true`.
 Starter recovery responses arrive as session packets:
 `{ type:"starter_recovery_response", fail_reason }`. Privacy changes produce a
 session `config` packet containing the new `config.privacy` and `invite_key`.
+`client.shipConfig` stores the latest normalized config as
+`{ privacy, privacyName, inviteKey, teamId, patronPerks }`.
+
+Opening or refreshing the official ship-management player-list page sends
+`{ type:4, act:"player_list", arg:null }`; Dredless exposes that as
+`requestPlayerList()`. The server responds with a type `25` session packet whose
+submessage is `type:"player_list"`. Dredless normalizes and stores it in
+`client.playerList`, emits `client.on("player-list", fn)`, and preserves removed
+rows as entries with `removed:true`. Player rows include `captainRank` when the
+player is a captain. Lower numeric captain ranks have higher authority:
+`captainRank:1` is the original creator rank, captains promoted by them are
+rank `2`, and so on. The normalized player list derives
+`ownerCaptainRank` as the lowest current captain rank and marks every current
+captain at that rank with `isShipOwner:true`; those are the ship owners whose
+presence is required before the lockdown-release countdown can begin.
+
+The official privacy/invite-code page did not send a websocket command in
+`change-management-menu-to-page-with-ship-privacy-and-invite-code.jsonl`; it
+appears to render from the latest `config` session submessage. Captain subrank
+session packets are normalized into `client.captainSubrank` and emitted as
+`"captain-subrank"`. `captainSubrank.subrank` uses the same lower-is-stronger
+rank scale as player-list `captainRank`.
 
 Item Launcher helpers also use the type `5` entity/PUI command channel. Open
 the launcher with a normal entity use first; the server replies with a PUI panel
@@ -1711,6 +1738,15 @@ tileset definition, metadata, entity summaries, block occupancy summaries,
 machine/player/control lists, and raw per-entity component records.
 `includeTiles` includes tile arrays;
 `includeModel` includes decoded model table records.
+Loaded ship-world snapshots also include `shipMetadata` when the ship metadata
+records have arrived. In `lockdown-counting-down-to-25.jsonl`, the official
+client's lockdown status line near the server/zone readout is backed by this
+model metadata: `lockdownCountdownSeconds` starts at `30` and counts down once
+per second to `25` over the captured interval. `shipMetadata` also includes the
+ship name, RGB color, ship dimensions, `onlineShipOwnerCount`, and
+`requiredShipOwnerCount`. Captures where an owner is offline keep the timer at
+`30` with only the required owner count present; captures with one of two owners
+online show `onlineShipOwnerCount:1` and `requiredShipOwnerCount:2`.
 Tile entries include material names, known shape names, solid/open flags, and
 HP fractions when the official tileset defines them. `client.shipEntity()`
 resolves the loaded ship world's `parent_world`/`parent_ent` link back to the

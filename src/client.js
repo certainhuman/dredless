@@ -15,9 +15,13 @@ import {
   normalizeInventoryEvent
 } from "./protocol/inventory.js";
 import {
+  buildPlayerListMessage,
   buildShipManagementMessage,
   buildShipPrivacyMessage,
-  buildStarterRecoveryMessage
+  buildStarterRecoveryMessage,
+  normalizeCaptainSubrankEvent,
+  normalizePlayerListEvent,
+  normalizeShipConfigEvent
 } from "./protocol/ship-management.js";
 import { buildSignTextMessage } from "./protocol/sign.js";
 import {
@@ -79,6 +83,9 @@ export class DredlessClient extends EventBus {
     this.chat = [];
     this.motd = [];
     this.sessionMessages = [];
+    this.shipConfig = null;
+    this.captainSubrank = null;
+    this.playerList = null;
     this.outfits = new Map();
     this.commandAcks = new Map();
     this.lastCommandAck = null;
@@ -143,6 +150,10 @@ export class DredlessClient extends EventBus {
 
   sendShipManagement(act, arg = null) {
     return this.sendMessage(buildShipManagementMessage(act, arg));
+  }
+
+  requestPlayerList() {
+    return this.sendMessage(buildPlayerListMessage());
   }
 
   setShipPrivacy(privacy) {
@@ -537,6 +548,9 @@ export class DredlessClient extends EventBus {
       chat: this.chat.slice(-50),
       motd: this.motd.slice(-20),
       sessionMessages: this.sessionMessages.slice(-50),
+      shipConfig: this.shipConfig,
+      captainSubrank: this.captainSubrank,
+      playerList: this.playerList,
       outfits: [...this.outfits.entries()].map(([sid, outfit]) => ({ sid, outfit })),
       commandAcks: [...this.commandAcks.entries()].map(([world, commandNumber]) => ({ world, commandNumber })),
       lastCommandAck: this.lastCommandAck,
@@ -758,6 +772,7 @@ export class DredlessClient extends EventBus {
         break;
       case 25:
         this.#pushLimited(this.sessionMessages, packet);
+        this.#handleSessionSubmessage(packet);
         this.emit("session", packet);
         break;
       case 26:
@@ -767,6 +782,25 @@ export class DredlessClient extends EventBus {
       default:
         this.emit("event", packet);
         break;
+    }
+  }
+
+  #handleSessionSubmessage(packet) {
+    const submessage = packet?.submessage;
+    if (!submessage || typeof submessage !== "object") return;
+    if (submessage.type === "config") {
+      this.shipConfig = normalizeShipConfigEvent(submessage);
+      this.emit("ship-config", this.shipConfig, packet);
+      return;
+    }
+    if (submessage.type === "captain_subrank") {
+      this.captainSubrank = normalizeCaptainSubrankEvent(submessage);
+      this.emit("captain-subrank", this.captainSubrank, packet);
+      return;
+    }
+    if (submessage.type === "player_list") {
+      this.playerList = normalizePlayerListEvent(submessage);
+      this.emit("player-list", this.playerList, packet);
     }
   }
 

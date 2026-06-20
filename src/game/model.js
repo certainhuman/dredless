@@ -528,6 +528,13 @@ function cloneRecord(record) {
   return out;
 }
 
+function firstRecord(records, predicate = null) {
+  for (const record of records.values()) {
+    if (!predicate || predicate(record)) return record;
+  }
+  return null;
+}
+
 const TABLE_78_FIELD_BITS = [
   ["q20", 1],
   ["q24", 2],
@@ -792,6 +799,29 @@ function summarizeShipSize(entity, record) {
     rawWidth: record.q20 ?? null,
     rawHeight: record.q24 ?? null,
     state: cloneRecord(record)
+  };
+}
+
+function summarizeShipWorldMetadata(lockdownRecord, shipRecord) {
+  if (!lockdownRecord && !shipRecord) return null;
+  const color = shipRecord?.q24 == null ? null : Number(shipRecord.q24);
+  const lockdownCountdownSeconds = typeof lockdownRecord?.q20 === "number" ? lockdownRecord.q20 : null;
+  const onlineShipOwnerCount = typeof lockdownRecord?.q24 === "number" ? lockdownRecord.q24 : null;
+  const requiredShipOwnerCount = typeof lockdownRecord?.q28 === "number" ? lockdownRecord.q28 : null;
+  return {
+    name: decodeText(shipRecord?.blob20),
+    color: Number.isFinite(color) ? color : null,
+    colorCss: Number.isFinite(color) ? colorToCss(color) : null,
+    width: typeof shipRecord?.q32 === "number" ? shipRecord.q32 : null,
+    height: typeof shipRecord?.q36 === "number" ? shipRecord.q36 : null,
+    lockdownTimerSeconds: lockdownCountdownSeconds,
+    lockdownCountdownSeconds,
+    onlineShipOwnerCount,
+    requiredShipOwnerCount,
+    allShipOwnersOnline: onlineShipOwnerCount == null || requiredShipOwnerCount == null ? null : onlineShipOwnerCount >= requiredShipOwnerCount,
+    lockdownEngaged: lockdownCountdownSeconds == null ? null : lockdownCountdownSeconds > 0,
+    lockdownState: cloneRecord(lockdownRecord || {}),
+    shipState: cloneRecord(shipRecord || {})
   };
 }
 
@@ -1386,6 +1416,13 @@ export class ModelState {
 
   shipControls() {
     return this.#derivedState().shipControls.slice();
+  }
+
+  shipMetadata() {
+    if (this.isOverworld) return null;
+    const lockdownRecord = firstRecord(this.table(11));
+    const shipRecord = firstRecord(this.table(16), (record) => record?.blob20 && typeof record?.q32 === "number" && typeof record?.q36 === "number");
+    return summarizeShipWorldMetadata(lockdownRecord, shipRecord);
   }
 
   machines() {
