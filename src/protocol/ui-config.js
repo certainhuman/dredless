@@ -83,6 +83,9 @@ const CLIPBOARD_TARGET_VALUES = new Map([
   ["loader", 1],
   ["loader-config", 1],
   ["loaderConfig", 1],
+  ["hatch", 0],
+  ["cargo-hatch", 0],
+  ["cargoHatch", 0],
   ["expando", 3],
   ["expando-box", 3],
   ["expandoBox", 3],
@@ -349,6 +352,14 @@ export function buildLoaderFilterItemsData(entity, filterSlots = []) {
   ]);
 }
 
+export function buildCargoHatchFilterConfigData(entity, filterMode = 0) {
+  return buildLoaderFilterConfigData(entity, filterMode);
+}
+
+export function buildCargoHatchFilterItemsData(entity, filterSlots = []) {
+  return buildLoaderFilterItemsData(entity, filterSlots);
+}
+
 function buildLoaderFullConfigPayload(entity, action, {
   filterMode = 0,
   filterSlots = [],
@@ -369,12 +380,36 @@ function buildLoaderFullConfigPayload(entity, action, {
   ]);
 }
 
+function buildFilterOnlyConfigPayload(entity, action, {
+  filterMode = 0,
+  filterSlots = []
+} = {}) {
+  return Uint8Array.from([
+    ...encodeUiCommandTarget(entity, action),
+    ...encodeUiCommandSection(LOADER_FILTER_CONFIG_COMMAND),
+    ...encodeLoaderFilterConfigPayload(filterMode),
+    UI_COMMAND_END,
+    ...encodeUiCommandSection(LOADER_FILTER_ITEMS_COMMAND),
+    ...encodeLoaderFilterItemsPayload(filterSlots),
+    UI_COMMAND_END,
+    UI_COMMAND_END
+  ]);
+}
+
 export function buildLoaderFullConfigData(entity, config = {}) {
   return buildLoaderFullConfigPayload(entity, 2, config);
 }
 
 export function buildLoaderCopyConfigData(config = {}) {
   return buildLoaderFullConfigPayload(1, 1, config);
+}
+
+export function buildCargoHatchFullConfigData(entity, config = {}) {
+  return buildFilterOnlyConfigPayload(entity, 2, config);
+}
+
+export function buildCargoHatchCopyConfigData(config = {}) {
+  return buildFilterOnlyConfigPayload(0, 1, config);
 }
 
 export function buildLoaderClipboardConfigData(config = {}) {

@@ -31,6 +31,10 @@ export {
   signDisplayModeName
 } from "./protocol/sign.js";
 export {
+  buildCargoHatchCopyConfigData,
+  buildCargoHatchFilterConfigData,
+  buildCargoHatchFilterItemsData,
+  buildCargoHatchFullConfigData,
   buildClipboardConfigData,
   buildClipboardFixedAngleData,
   buildExpandoClipboardAngleData,

@@ -12,6 +12,7 @@ export {
   type ThrusterSummary,
   type PusherSummary,
   type LoaderSummary,
+  type CargoHatchSummary,
   type CommsStationSummary,
   type CommsBubbleSummary,
   type SignSummary,

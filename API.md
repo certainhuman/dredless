@@ -228,6 +228,11 @@ client.setLoaderRequireOutput(entity, requireOutput, config?);
 client.setLoaderWaitForStack(entity, waitForStack, config?);
 client.setLoaderFilterMode(entity, filterMode);
 client.setLoaderFilterItems(entity, filterSlots?);
+client.setCargoHatchFilterMode(entity, filterMode);
+client.setCargoHatchFilterItems(entity, filterSlots?);
+client.sendCargoHatchFullConfig(entity, config?);
+client.pasteCargoHatchConfig(entity, config?);
+client.copyCargoHatchConfig(entity, config?);
 client.inputSettings();
 client.setInputSettings(settings?, options?);
 client.setWrenchMode(mode, options?);
@@ -441,9 +446,26 @@ flow; pass a config object to copy supplied values over the decoded source state
 packet observed when editing pick/place and other base loader settings in the
 clipboard UI.
 
+Cargo Hatch config uses the same `filter_config` and `filter_items` sections as
+loader filtering, but has no base `config_loader` section:
+
+```js
+client.setCargoHatchFilterMode(hatch.entity, "allow-filter");
+client.setCargoHatchFilterItems(hatch.entity, [0, 0, 152]); // Flak Ammo in slot 2
+client.pasteCargoHatchConfig(hatch.entity, {
+  filterMode: "allow-filter",
+  filterSlots: [0, 0, 152]
+});
+client.copyCargoHatchConfig(hatch.entity);
+```
+
+`pasteCargoHatchConfig()` sends both filter sections with paste action `2`.
+`copyCargoHatchConfig()` writes the server-side cargo-hatch clipboard target
+(`0`) with copy action `1`.
+
 Other copied-config clipboard edits use the same shared action `1` header:
-`90 01 TARGET`. Observed targets are `1=loader`, `3=expando`, and
-`4=generator/shield-generator`.
+`90 01 TARGET`. Observed targets are `0=cargo-hatch`, `1=loader`,
+`3=expando`, `4=generator/shield-generator`, and `6=navigation-unit`.
 
 ```js
 client.setGeneratorClipboardDirection("right");
@@ -967,12 +989,28 @@ Return shape:
   pushers,
   launchers,
   loaders,
+  cargoHatches,
   navigationUnits,
   commsStations,
   fluidTanks,
   shieldGenerators,
   shieldProjectors,
   expandoBoxes
+}
+```
+
+Cargo hatch shape:
+
+```js
+{
+  entity,
+  typeId,
+  typeName,
+  filterMode,      // 0 allow-all, 1 block-filter, 2 allow-filter, 3 block-all
+  filterModeName,
+  filterSlots,     // [slot0, slot1, slot2], null means not observed
+  filterState,
+  filterSlotsState
 }
 ```
 

@@ -20,6 +20,10 @@ import {
 } from "./protocol/ship-management.js";
 import { buildSignTextMessage } from "./protocol/sign.js";
 import {
+  buildCargoHatchCopyConfigData,
+  buildCargoHatchFilterConfigData,
+  buildCargoHatchFilterItemsData,
+  buildCargoHatchFullConfigData,
   buildClipboardConfigData,
   buildClipboardFixedAngleData,
   buildExpandoClipboardAngleData,
@@ -298,6 +302,26 @@ export class DredlessClient extends EventBus {
 
   setLoaderFilterItems(entity, filterSlots = []) {
     return this.sendUiConfig(buildLoaderFilterItemsData(entity, filterSlots));
+  }
+
+  setCargoHatchFilterMode(entity, filterMode) {
+    return this.sendUiConfig(buildCargoHatchFilterConfigData(entity, filterMode));
+  }
+
+  setCargoHatchFilterItems(entity, filterSlots = []) {
+    return this.sendUiConfig(buildCargoHatchFilterItemsData(entity, filterSlots));
+  }
+
+  sendCargoHatchFullConfig(entity, config = {}) {
+    return this.sendUiConfig(buildCargoHatchFullConfigData(entity, this.#cargoHatchConfigDefaults(entity, config)));
+  }
+
+  pasteCargoHatchConfig(entity, config = {}) {
+    return this.sendCargoHatchFullConfig(entity, config);
+  }
+
+  copyCargoHatchConfig(entity, config = {}) {
+    return this.sendUiConfig(buildCargoHatchCopyConfigData(this.#cargoHatchConfigDefaults(entity, config)));
   }
 
   inputSettings() {
@@ -812,6 +836,14 @@ export class DredlessClient extends EventBus {
     const summary = this.entity(entity)?.contents?.loader || null;
     return {
       ...this.#loaderConfigDefaults(entity, config),
+      filterMode: config.filterMode ?? summary?.filterMode ?? 0,
+      filterSlots: config.filterSlots ?? summary?.filterSlots ?? []
+    };
+  }
+
+  #cargoHatchConfigDefaults(entity, config = {}) {
+    const summary = this.entity(entity)?.contents?.cargoHatch || null;
+    return {
       filterMode: config.filterMode ?? summary?.filterMode ?? 0,
       filterSlots: config.filterSlots ?? summary?.filterSlots ?? []
     };

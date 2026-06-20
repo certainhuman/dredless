@@ -415,6 +415,7 @@ const PLACED_ENTITY_TYPE_IDS = new Set([
 const HELM_TYPE_IDS = new Set([215, 216]);
 const COMMS_STATION_TYPE_ID = 217;
 const COMMS_STATION_MAX_CHARGES = 5;
+const CARGO_HATCH_TYPE_IDS = new Set([221, 222]);
 const THRUSTER_TYPE_IDS = new Set([230, 231]);
 const EXPANDO_BOX_TYPE_ID = 240;
 const ITEM_LAUNCHER_TYPE_ID = 243;
@@ -918,6 +919,21 @@ function summarizeLoader(entity, loaderRecord, loaderFilterRecord = null, filter
   };
 }
 
+function summarizeCargoHatch(entity, typeId, filterRecord = null, filterSlotsRecord = null) {
+  if (!CARGO_HATCH_TYPE_IDS.has(typeId)) return null;
+  const filterMode = filterRecord?.q20 ?? 0;
+  return {
+    entity,
+    typeId,
+    typeName: entityNameFromType(typeId),
+    filterMode,
+    filterModeName: enumValueName(LOADER_FILTER_MODE_NAMES, filterMode),
+    filterSlots: filterSlotsRecord ? [filterSlotsRecord.q20 ?? null, filterSlotsRecord.q24 ?? null, filterSlotsRecord.q28 ?? null] : null,
+    filterState: cloneRecord(filterRecord || {}),
+    filterSlotsState: cloneRecord(filterSlotsRecord || {})
+  };
+}
+
 function summarizePusher(entity, pusherRecord, filterSlotsRecord = null) {
   if (!pusherRecord) return null;
   const mode = pusherRecord.q20 == null ? 2 : pusherRecord.q20 + 2;
@@ -1183,6 +1199,7 @@ function entityLabel(entity) {
   if (entity?.pusher) return "Pusher";
   if (entity?.launcher) return "Item Launcher";
   if (entity?.loader) return "Loader";
+  if (entity?.cargoHatch) return entity.cargoHatch.typeName || "Cargo Hatch";
   if (entity?.processor) return "Processor";
   if (entity?.itemHolder && !entity?.processor && !entity?.cannon && !entity?.pusher && !entity?.launcher && !entity?.loader && !entity?.fluidTank && !entity?.shieldGenerator && !entity?.shieldProjector) {
     return entity.itemHolder.itemName || "Item Holder";
@@ -1200,7 +1217,7 @@ function entityCategory(entity) {
   if (entity?.mapMarker) return "map_marker";
   if (entity?.dockingSpring) return "docking_spring";
   if (entity?.hugeThruster) return "huge_thruster";
-  const hasMachineComponent = Boolean(entity?.fabricator || entity?.processor || entity?.cannon || entity?.pusher || entity?.launcher || entity?.loader || entity?.commsStation || entity?.fluidTank || entity?.shieldGenerator || entity?.shieldProjector);
+  const hasMachineComponent = Boolean(entity?.fabricator || entity?.processor || entity?.cannon || entity?.pusher || entity?.launcher || entity?.loader || entity?.cargoHatch || entity?.commsStation || entity?.fluidTank || entity?.shieldGenerator || entity?.shieldProjector);
   const hasValidTransform = Boolean(
     entity?.transform &&
     Number.isFinite(entity.transform.x) &&
@@ -1212,14 +1229,14 @@ function entityCategory(entity) {
   if (entity?.typeId != null && !hasPhysicalComponent) return "metadata";
   if (entity?.markerTypeId != null) return "placed_entity";
   if (entity?.looseItemMarker && entity?.itemHolder?.itemId != null) return "loose_item";
-  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.pusher && !entity?.launcher && !entity?.loader && !entity?.commsStation && !entity?.fluidTank && !entity?.shieldGenerator && !entity?.shieldProjector) {
+  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.pusher && !entity?.launcher && !entity?.loader && !entity?.cargoHatch && !entity?.commsStation && !entity?.fluidTank && !entity?.shieldGenerator && !entity?.shieldProjector) {
     if (entity.typeId != null && (!PLACED_ENTITY_TYPE_IDS.has(Number(entity.typeId)) || entity.typeId === entity.itemHolder.itemId)) return "loose_item";
     if (entity.typeId == null) return "untyped_holder";
   }
-  if (entity?.fabricator || entity?.cannon || entity?.pusher || entity?.launcher || entity?.loader || entity?.commsStation || entity?.fluidTank || entity?.shieldGenerator || entity?.shieldProjector) return "placed_entity";
+  if (entity?.fabricator || entity?.cannon || entity?.pusher || entity?.launcher || entity?.loader || entity?.cargoHatch || entity?.commsStation || entity?.fluidTank || entity?.shieldGenerator || entity?.shieldProjector) return "placed_entity";
   if (entity?.typeId != null && PLACED_ENTITY_TYPE_IDS.has(Number(entity.typeId))) return "placed_entity";
   if (entity?.typeId != null && !hasPhysicalComponent) return "metadata";
-  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.pusher && !entity?.launcher && !entity?.loader && !entity?.commsStation && !entity?.fluidTank && !entity?.shieldGenerator && !entity?.shieldProjector) return "untyped_holder";
+  if (entity?.itemHolder?.itemId != null && !entity?.processor && !entity?.cannon && !entity?.pusher && !entity?.launcher && !entity?.loader && !entity?.cargoHatch && !entity?.commsStation && !entity?.fluidTank && !entity?.shieldGenerator && !entity?.shieldProjector) return "untyped_holder";
   return "entity";
 }
 
@@ -1383,6 +1400,7 @@ export class ModelState {
       launchers: machines.launchers.slice(),
       health: machines.health.slice(),
       loaders: machines.loaders.slice(),
+      cargoHatches: machines.cargoHatches.slice(),
       navigationUnits: machines.navigationUnits.slice(),
       fluidTanks: machines.fluidTanks.slice(),
       shieldGenerators: machines.shieldGenerators.slice(),
@@ -1731,6 +1749,7 @@ export class ModelState {
       launchers: [],
       health: [],
       loaders: [],
+      cargoHatches: [],
       navigationUnits: [],
       commsStations: [],
       fluidTanks: [],
@@ -1755,6 +1774,7 @@ export class ModelState {
       if (contents.launcher) machines.launchers.push(contents.launcher);
       if (contents.health) machines.health.push(contents.health);
       if (contents.loader) machines.loaders.push(contents.loader);
+      if (contents.cargoHatch) machines.cargoHatches.push(contents.cargoHatch);
       if (contents.navigationUnit) machines.navigationUnits.push(contents.navigationUnit);
       if (contents.commsStation) machines.commsStations.push(contents.commsStation);
       if (contents.fluidTank) machines.fluidTanks.push(contents.fluidTank);
@@ -1830,6 +1850,7 @@ export class ModelState {
     const loader = (typeId === LOADER_TYPE_ID || (typeId == null && (loaderRecord || loaderFilterRecord || loaderFilterSlotsRecord)))
       ? summarizeLoader(entityId, loaderRecord, loaderFilterRecord, loaderFilterSlotsRecord, this.#loaderConfig, typeId === LOADER_TYPE_ID)
       : null;
+    const cargoHatch = summarizeCargoHatch(entityId, typeId, loaderFilterRecord, loaderFilterSlotsRecord);
     const navigationUnit = summarizeNavigationUnit(entityId, typeId, loaderRecord, this.#navigationUnitAutoWarp.get(entityId));
     const fluidTank = fluidTankRecord ? { entity: entityId, amount: fluidTankRecord.q24 ?? null, state: cloneRecord(fluidTankRecord) } : null;
     const shieldGenerator = typeId === 256 ? summarizeShieldGenerator(entityId, shieldRecord, itemHolderRecord, shieldGeneratorBoostRecord) : null;
@@ -1862,10 +1883,10 @@ export class ModelState {
       rot: numberOrNull(transformRecord.q28, 127.324),
       flags: [transformRecord.q33, transformRecord.q34, transformRecord.q35].filter((value) => value != null)
     } : null;
-    const contents = mergeContents({ itemHolder }, { expandoBox }, { hoverOutline }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { blueprintPreview }, { health }, { fabricator }, { processor }, { cannon }, { thruster }, { pusher }, { launcher }, { loader }, { navigationUnit }, { commsStation }, { fluidTank }, { shieldGenerator }, { shieldProjector }, { helm }, { player }, { shipControl }, { sign }, { spawnPoint }, { door }, { shipSize });
-    const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, expandoBox, hoverOutline, itemCrate, hugeThruster, fabricator, processor, cannon, thruster, pusher, launcher, loader, navigationUnit, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
+    const contents = mergeContents({ itemHolder }, { expandoBox }, { hoverOutline }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { blueprintPreview }, { health }, { fabricator }, { processor }, { cannon }, { thruster }, { pusher }, { launcher }, { loader }, { cargoHatch }, { navigationUnit }, { commsStation }, { fluidTank }, { shieldGenerator }, { shieldProjector }, { helm }, { player }, { shipControl }, { sign }, { spawnPoint }, { door }, { shipSize });
+    const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, expandoBox, hoverOutline, itemCrate, hugeThruster, fabricator, processor, cannon, thruster, pusher, launcher, loader, cargoHatch, navigationUnit, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
     const typeName = entityNameFromType(typeId);
-    const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, mapMarker, dockingSpring, hugeThruster, blueprintPreview, fabricator, processor, cannon, pusher, launcher, loader, navigationUnit, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
+    const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, mapMarker, dockingSpring, hugeThruster, blueprintPreview, fabricator, processor, cannon, pusher, launcher, loader, cargoHatch, navigationUnit, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
     const summary = {
       entity: entityId,
       category,
@@ -1893,6 +1914,7 @@ export class ModelState {
         pusher,
         launcher,
         loader,
+        cargoHatch,
         navigationUnit,
         fluidTank,
         shieldGenerator,
@@ -1925,6 +1947,7 @@ export class ModelState {
         pusher ? "pusher" : null,
         launcher ? "launcher" : null,
         loader ? "loader" : null,
+        cargoHatch ? "cargo_hatch" : null,
         navigationUnit ? "navigation_unit" : null,
         commsStation ? "comms_station" : null,
         fluidTank ? "fluid_tank" : null,

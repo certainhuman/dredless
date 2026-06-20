@@ -131,7 +131,7 @@ export type LoaderPosition =
   "bottom-left" | "bottomLeft" | "bottom-middle" | "bottomMiddle" | "bottom-right" | "bottomRight";
 export type LoaderPriority = -1 | 0 | 1 | "low" | "normal" | "medium" | "high";
 export type LoaderFilterMode = 0 | 1 | 2 | 3 | "allow-all" | "allowAll" | "block-filter" | "blockFilter" | "allow-filter" | "allowFilter" | "block-all" | "blockAll";
-export type ClipboardTarget = number | "loader" | "loader-config" | "loaderConfig" | "expando" | "expando-box" | "expandoBox" | "generator" | "shield-generator" | "shieldGenerator" | "navigation" | "navigation-unit" | "navigationUnit" | "nav" | "nav-unit" | "navUnit";
+export type ClipboardTarget = number | "loader" | "loader-config" | "loaderConfig" | "hatch" | "cargo-hatch" | "cargoHatch" | "expando" | "expando-box" | "expandoBox" | "generator" | "shield-generator" | "shieldGenerator" | "navigation" | "navigation-unit" | "navigationUnit" | "nav" | "nav-unit" | "navUnit";
 export type FixedAngleDirection = 0 | 1 | 2 | 3 | "right" | "up" | "left" | "down";
 
 export interface PusherConfig {
@@ -335,6 +335,11 @@ export class DredlessClient {
   setLoaderWaitForStack(entity: number, waitForStack: boolean, config?: LoaderConfig): this;
   setLoaderFilterMode(entity: number, filterMode: LoaderFilterMode): this;
   setLoaderFilterItems(entity: number, filterSlots?: Array<number | null | undefined>): this;
+  setCargoHatchFilterMode(entity: number, filterMode: LoaderFilterMode): this;
+  setCargoHatchFilterItems(entity: number, filterSlots?: Array<number | null | undefined>): this;
+  sendCargoHatchFullConfig(entity: number, config?: Pick<LoaderFullConfig, "filterMode" | "filterSlots">): this;
+  pasteCargoHatchConfig(entity: number, config?: Pick<LoaderFullConfig, "filterMode" | "filterSlots">): this;
+  copyCargoHatchConfig(entity: number, config?: Pick<LoaderFullConfig, "filterMode" | "filterSlots">): this;
   inputSettings(): CurrentInputSettings;
   setInputSettings(settings?: InputSettings, options?: { send?: boolean }): this;
   setWrenchMode(mode: WrenchMode, options?: { send?: boolean }): this;
@@ -495,6 +500,7 @@ export interface EntityContentsSummary {
   pusher?: PusherSummary;
   launcher?: LauncherSummary;
   loader?: LoaderSummary;
+  cargoHatch?: CargoHatchSummary;
   navigationUnit?: NavigationUnitSummary;
   commsStation?: CommsStationSummary;
   fluidTank?: { entity: number; amount: number | null; state: ModelRecord };
@@ -841,6 +847,17 @@ export interface LoaderSummary {
   filterSlotsState: ModelRecord;
 }
 
+export interface CargoHatchSummary {
+  entity: number;
+  typeId: number;
+  typeName: string | null;
+  filterMode: number;
+  filterModeName: string | null;
+  filterSlots: (number | null)[] | null;
+  filterState: ModelRecord;
+  filterSlotsState: ModelRecord;
+}
+
 export interface LauncherSummary {
   entity: number;
   angleRadians: number | null;
@@ -1089,6 +1106,7 @@ export interface MachineSummary {
   pushers: PusherSummary[];
   launchers: LauncherSummary[];
   loaders: LoaderSummary[];
+  cargoHatches: CargoHatchSummary[];
   navigationUnits: NavigationUnitSummary[];
   commsStations: CommsStationSummary[];
   fluidTanks: { entity: number; amount: number | null; state: ModelRecord }[];
@@ -1120,6 +1138,10 @@ export function buildNavigationUnitConfigData(entity: number, config: Navigation
 export function buildNavigationUnitClipboardConfigData(config: NavigationUnitConfig & { destination: number }): Uint8Array;
 export function buildNavigationUnitPasteConfigData(entity: number, config: NavigationUnitConfig & { destination: number }): Uint8Array;
 export function buildGeneratorMazePuzzleData(entity: number, solution: string | number): Uint8Array;
+export function buildCargoHatchFilterConfigData(entity: number, filterMode?: LoaderFilterMode): Uint8Array;
+export function buildCargoHatchFilterItemsData(entity: number, filterSlots?: Array<number | null | undefined>): Uint8Array;
+export function buildCargoHatchFullConfigData(entity: number, config?: Pick<LoaderFullConfig, "filterMode" | "filterSlots">): Uint8Array;
+export function buildCargoHatchCopyConfigData(config?: Pick<LoaderFullConfig, "filterMode" | "filterSlots">): Uint8Array;
 export function buildClipboardConfigData(target: ClipboardTarget, commandName: string, values?: Iterable<number>): Uint8Array;
 export function buildClipboardFixedAngleData(target: ClipboardTarget, direction: FixedAngleDirection): Uint8Array;
 export function buildGeneratorClipboardDirectionData(direction: FixedAngleDirection): Uint8Array;

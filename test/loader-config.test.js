@@ -6,9 +6,13 @@ import { ModelState } from "../src/game/model.js";
 import { generateGeneratorMaze, solveGeneratorMazeSeed } from "../src/game/generator-maze.js";
 import { WorldState, WorldStore } from "../src/game/world.js";
 import {
-  buildGeneratorMazePuzzleData,
-  buildGeneratorClipboardDirectionData,
+  buildCargoHatchCopyConfigData,
+  buildCargoHatchFilterConfigData,
+  buildCargoHatchFilterItemsData,
+  buildCargoHatchFullConfigData,
   buildExpandoClipboardAngleData,
+  buildGeneratorClipboardDirectionData,
+  buildGeneratorMazePuzzleData,
   buildLoaderClipboardConfigData,
   buildLoaderConfigData,
   buildLoaderCopyConfigData,
@@ -419,15 +423,20 @@ test("ModelState does not classify cargo hatch filter tables as loader config", 
   model.apply(modelData(
     1,
     tableSection(43, hatch, 1, fieldDelta(221)),
-    tableSection(160, hatch, 0, []),
-    tableSection(161, hatch, 0, [])
+    tableSection(160, hatch, 1, fieldDelta(2)),
+    tableSection(161, hatch, 4, fieldDelta(152))
   ), { full: true });
 
   const entity = model.entity(hatch);
   assert.equal(entity.typeId, 221);
   assert.equal(entity.typeName, "Cargo Hatch (Packaged)");
   assert.equal(entity.contents?.loader, undefined);
+  assert.equal(entity.contents?.cargoHatch?.filterMode, 2);
+  assert.equal(entity.contents?.cargoHatch?.filterModeName, "allow-filter");
+  assert.deepEqual(entity.contents?.cargoHatch?.filterSlots, [null, null, 152]);
+  assert.equal(model.machines().cargoHatches.length, 1);
   assert.equal(entity.kind.includes("loader"), false);
+  assert.equal(entity.kind.includes("cargo_hatch"), true);
 });
 
 test("ModelState does not classify navigation unit table 78 state as loader config", () => {
@@ -937,6 +946,32 @@ test("buildLoaderConfigData matches official client loader command captures", ()
     })),
     "9001018a0d636f6e6669675f6c6f6164657200900502010e80dc8e8e9191",
     "edit-loader-clipboard-pick-bottom-left-place-top-right .jsonl"
+  );
+});
+
+test("buildCargoHatch config helpers match official client hatch command captures", () => {
+  assert.equal(
+    hex(buildCargoHatchFilterConfigData(55, "allow-filter")),
+    "9000378a0d66696c7465725f636f6e6669670090029191",
+    "change-filter-mode-to-allow-filter.jsonl"
+  );
+
+  assert.equal(
+    hex(buildCargoHatchFilterItemsData(55, [0, 0, 152])),
+    "9000378a0c66696c7465725f6974656d73009000008598009191",
+    "change-filter-slot-2-to-flak-ammo.jsonl"
+  );
+
+  assert.equal(
+    hex(buildCargoHatchCopyConfigData({ filterMode: "allow-filter", filterSlots: [0, 0, 152] })),
+    "9001008a0d66696c7465725f636f6e666967009002918a0c66696c7465725f6974656d73009000008598009191",
+    "copy-cargo-hatch-configs.jsonl"
+  );
+
+  assert.equal(
+    hex(buildCargoHatchFullConfigData(55, { filterMode: "allow-filter", filterSlots: [0, 0, 152] })),
+    "9002378a0d66696c7465725f636f6e666967009002918a0c66696c7465725f6974656d73009000008598009191",
+    "paste-cargo-hatch-configs.jsonl"
   );
 });
 
