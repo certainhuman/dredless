@@ -183,6 +183,9 @@ client.send(command);
 client.sendMessage(message, { afterReady? });
 client.sendRaw(message, { afterReady? });
 client.setOutfit(outfit);
+client.sendShipManagement(act, arg?);
+client.setShipPrivacy(privacy);
+client.recoverStarterItem(itemId);
 client.sendEntityCommand(cmd, args?);
 client.sendFabricatorMessage(cmd, args?);
 client.sendFabricatorCommand(itemId, count?, index?);
@@ -233,6 +236,7 @@ client.action(flags?, command?);
 client.useEntity(entity, options?, command?);
 client.useHeldItem(options?, command?);
 client.placeHeldItem(options?, command?);
+client.rotateHeldItem(options?, command?);
 client.selectSlot(invSlot?, command?);
 client.drag(source, target, split?, command?);
 client.close(code?, reason?);
@@ -273,6 +277,21 @@ client.fabricatorEject(0);
 
 `sendFabricatorCommand()` is the legacy `craft_add` wrapper. Use
 `sendFabricatorMessage(cmd, args)` for raw confirmed fabricator commands.
+
+Ship-management helpers send observed top-level `type: 4` messages. These are
+not signed input commands and do not use the entity/PUI command channel:
+
+```js
+client.setShipPrivacy("public");
+client.setShipPrivacy("private");
+client.recoverStarterItem(216); // Helm (Starter, Packaged)
+client.sendShipManagement("set_privacy", 1);
+```
+
+Privacy values accept `0`/`"public"`/`false` and `1`/`"private"`/`true`.
+Starter recovery responses arrive as session packets:
+`{ type:"starter_recovery_response", fail_reason }`. Privacy changes produce a
+session `config` packet containing the new `config.privacy` and `invite_key`.
 
 Item Launcher helpers also use the type `5` entity/PUI command channel. Open
 the launcher with a normal entity use first; the server replies with a PUI panel
@@ -456,6 +475,19 @@ client.placeHeldItem({ invSlot: 0 }, { mx: 19.79, my: 4.79 });
 `place-generator.jsonl` confirms placing a Shield Generator from hotbar slot `0`
 uses `focus_ent=null`, `inv_slot=0`, `act1=true`, and `act1_held=true`; the
 server log confirms placement and the inventory update clears slot `0`.
+
+Rotating the held placement preview, such as rotating a Door (Packaged) before
+placing it, sends the alternate action flags:
+
+```js
+client.rotateHeldItem({ invSlot: 2 }, { mx: 28.77, my: 5.82 });
+client.placeHeldItem({ invSlot: 2 }, { mx: 28.26, my: 5.26 });
+```
+
+`rotate-door-placement-to-horizontal.jsonl` confirms rotation is `type:0` with
+`focus_ent=null`, `inv_slot=2`, `act_alt=true`, and `act_alt_held=true`.
+`place-vertical-door.jsonl` and `place-horizontal-door.jsonl` confirm final door
+placement uses the same held-item placement command as other package items.
 
 Navigation-unit helpers send the observed top-level `type: 8` UI/config
 payload for `config_nav_unit`:

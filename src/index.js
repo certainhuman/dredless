@@ -7,6 +7,12 @@ export { generateGeneratorMaze, solveGeneratorMazeSeed, maybeSolveGeneratorMazeS
 export { decodeMsgpack, encodeMsgpack } from "./protocol/msgpack.js";
 export { buildSignedCommandPacket } from "./protocol/commands.js";
 export {
+  buildShipManagementMessage,
+  buildShipPrivacyMessage,
+  buildStarterRecoveryMessage,
+  normalizePrivacy
+} from "./protocol/ship-management.js";
+export {
   buildGeneratorMazePuzzleData,
   buildLoaderClipboardConfigData,
   buildLoaderConfigData,

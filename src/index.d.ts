@@ -33,6 +33,7 @@ export type ShipSpec =
 
 export type ServerRef = number | Server;
 export type ShipRef = number | string | Ship | ShipSpec | null;
+export type ShipPrivacy = 0 | 1 | boolean | "public" | "private";
 export type ReadWorldScope = "ship" | "current" | "overworld" | number;
 export interface ShipReadOptions {
   includeWorld?: boolean;
@@ -75,6 +76,12 @@ export interface Command {
   inv_slot?: number;
   blur?: boolean;
   drag?: DragPayload | null;
+}
+
+export interface ShipManagementMessage {
+  type: 4;
+  act: string;
+  arg: unknown;
 }
 
 export type PusherMode = 0 | 1 | 2 | "push" | "pull" | "do-nothing" | "doNothing" | "none";
@@ -243,6 +250,9 @@ export class DredlessClient {
   sendMessage(message: unknown, options?: { afterReady?: boolean }): this;
   sendRaw(message: unknown, options?: { afterReady?: boolean }): this;
   setOutfit(outfit: unknown): this;
+  sendShipManagement(act: string, arg?: unknown): this;
+  setShipPrivacy(privacy: ShipPrivacy): this;
+  recoverStarterItem(itemId: number): this;
   sendEntityCommand(cmd: string, args?: unknown[]): this;
   sendFabricatorMessage(cmd: string, args?: [number, number, number]): this;
   sendFabricatorCommand(itemId: number, count?: number, index?: number): this;
@@ -293,6 +303,7 @@ export class DredlessClient {
   useEntity(entity: number, options?: { invSlot?: number; hold?: boolean }, command?: Command): this;
   useHeldItem(options?: { invSlot?: number; hold?: boolean }, command?: Command): this;
   placeHeldItem(options?: { invSlot?: number; hold?: boolean }, command?: Command): this;
+  rotateHeldItem(options?: { invSlot?: number; hold?: boolean }, command?: Command): this;
   selectSlot(invSlot?: number, command?: Command): this;
   drag(source: number, target: number, split?: boolean, command?: Command): this;
   close(code?: number, reason?: string): this;
@@ -1032,6 +1043,10 @@ export interface MachineSummary {
 export function decodeMsgpack(bytes: Uint8Array | ArrayBuffer | number[]): unknown;
 export function encodeMsgpack(value: unknown): Uint8Array;
 export function buildSignedCommandPacket(command: Command, sessionId: number): Uint8Array;
+export function buildShipManagementMessage(act: string, arg?: unknown): ShipManagementMessage;
+export function buildShipPrivacyMessage(privacy: ShipPrivacy): ShipManagementMessage;
+export function buildStarterRecoveryMessage(itemId: number): ShipManagementMessage;
+export function normalizePrivacy(privacy: ShipPrivacy): 0 | 1;
 export function buildNavigationUnitConfigData(entity: number, config: NavigationUnitConfig & { destination: number }): Uint8Array;
 export function buildGeneratorMazePuzzleData(entity: number, solution: string | number): Uint8Array;
 export function buildLoaderClipboardConfigData(config?: LoaderConfig): Uint8Array;

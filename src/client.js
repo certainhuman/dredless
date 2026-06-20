@@ -7,6 +7,11 @@ import { Connection } from "./game/connection.js";
 import { WorldStore } from "./game/world.js";
 import { buildSignedCommandPacket } from "./protocol/commands.js";
 import {
+  buildShipManagementMessage,
+  buildShipPrivacyMessage,
+  buildStarterRecoveryMessage
+} from "./protocol/ship-management.js";
+import {
   buildGeneratorMazePuzzleData,
   buildLoaderClipboardConfigData,
   buildLoaderConfigData,
@@ -105,6 +110,18 @@ export class DredlessClient extends EventBus {
 
   setOutfit(outfit) {
     return this.sendMessage({ type: 7, outfit });
+  }
+
+  sendShipManagement(act, arg = null) {
+    return this.sendMessage(buildShipManagementMessage(act, arg));
+  }
+
+  setShipPrivacy(privacy) {
+    return this.sendMessage(buildShipPrivacyMessage(privacy));
+  }
+
+  recoverStarterItem(itemId) {
+    return this.sendMessage(buildStarterRecoveryMessage(itemId));
   }
 
   sendEntityCommand(cmd, args = [-1, -1, -1]) {
@@ -326,6 +343,16 @@ export class DredlessClient extends EventBus {
 
   placeHeldItem(options = {}, command = {}) {
     return this.useHeldItem(options, command);
+  }
+
+  rotateHeldItem({ invSlot = 0, hold = true } = {}, command = {}) {
+    return this.send({
+      ...command,
+      focus_ent: null,
+      inv_slot: invSlot,
+      act_alt: true,
+      act_alt_held: Boolean(hold)
+    });
   }
 
   selectSlot(invSlot = 0, command = {}) {
