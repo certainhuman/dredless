@@ -356,6 +356,7 @@ export class DredlessClient {
   setOutfit(outfit: unknown): this;
   sendShipManagement(act: string, arg?: unknown): this;
   requestPlayerList(): this;
+  resetInvite(): this;
   setShipPrivacy(privacy: ShipPrivacy): this;
   recoverStarterItem(itemId: number): this;
   sendEntityCommand(cmd: string, args?: unknown[]): this;
@@ -1238,6 +1239,7 @@ export function buildShipManagementMessage(act: string, arg?: unknown): ShipMana
 export function buildShipPrivacyMessage(privacy: ShipPrivacy): ShipManagementMessage;
 export function buildStarterRecoveryMessage(itemId: number): ShipManagementMessage;
 export function buildPlayerListMessage(): ShipManagementMessage;
+export function buildInviteResetMessage(): ShipManagementMessage;
 export function normalizePrivacy(privacy: ShipPrivacy): 0 | 1;
 export function normalizeShipConfigEvent(event: unknown): ShipConfigEvent;
 export function normalizeCaptainSubrankEvent(event: unknown): CaptainSubrankEvent;

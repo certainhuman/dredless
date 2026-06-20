@@ -21,6 +21,7 @@ export {
   normalizeInventoryEvent
 } from "./protocol/inventory.js";
 export {
+  buildInviteResetMessage,
   buildPlayerListMessage,
   buildShipManagementMessage,
   buildShipPrivacyMessage,

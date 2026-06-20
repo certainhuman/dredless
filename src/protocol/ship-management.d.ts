@@ -48,12 +48,14 @@ export function buildShipManagementMessage(act: string, arg?: unknown): ShipMana
 export function buildShipPrivacyMessage(privacy: ShipPrivacy): ShipManagementMessage;
 export function buildStarterRecoveryMessage(itemId: number): ShipManagementMessage;
 export function buildPlayerListMessage(): ShipManagementMessage;
+export function buildInviteResetMessage(): ShipManagementMessage;
 export function normalizePrivacy(privacy: ShipPrivacy): 0 | 1;
 export function normalizeShipConfigEvent(event: unknown): ShipConfigEvent;
 export function normalizeCaptainSubrankEvent(event: unknown): CaptainSubrankEvent;
 export function normalizePlayerListEvent(event: unknown): PlayerListEvent;
 
 export const PLAYER_LIST_ACTION: "player_list";
+export const INVITE_RESET_ACTION: "invite_reset";
 export const SET_PRIVACY_ACTION: "set_privacy";
 export const SHIP_MANAGEMENT_TYPE: 4;
 export const STARTER_RECOVERY_ACTION: "starter_recovery";

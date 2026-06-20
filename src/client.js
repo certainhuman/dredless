@@ -15,6 +15,7 @@ import {
   normalizeInventoryEvent
 } from "./protocol/inventory.js";
 import {
+  buildInviteResetMessage,
   buildPlayerListMessage,
   buildShipManagementMessage,
   buildShipPrivacyMessage,
@@ -154,6 +155,10 @@ export class DredlessClient extends EventBus {
 
   requestPlayerList() {
     return this.sendMessage(buildPlayerListMessage());
+  }
+
+  resetInvite() {
+    return this.sendMessage(buildInviteResetMessage());
   }
 
   setShipPrivacy(privacy) {

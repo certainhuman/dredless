@@ -2,6 +2,7 @@ const SHIP_MANAGEMENT_TYPE = 4;
 const SET_PRIVACY_ACTION = "set_privacy";
 const STARTER_RECOVERY_ACTION = "starter_recovery";
 const PLAYER_LIST_ACTION = "player_list";
+const INVITE_RESET_ACTION = "invite_reset";
 
 function requireNonNegativeInteger(value, name) {
   const number = Number(value);
@@ -30,6 +31,10 @@ export function buildStarterRecoveryMessage(itemId) {
 
 export function buildPlayerListMessage() {
   return buildShipManagementMessage(PLAYER_LIST_ACTION);
+}
+
+export function buildInviteResetMessage() {
+  return buildShipManagementMessage(INVITE_RESET_ACTION);
 }
 
 export function normalizeShipConfigEvent(event = {}) {
@@ -97,6 +102,7 @@ function ownerRankForPlayers(players) {
 }
 
 export {
+  INVITE_RESET_ACTION,
   PLAYER_LIST_ACTION,
   SET_PRIVACY_ACTION,
   SHIP_MANAGEMENT_TYPE,

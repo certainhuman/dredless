@@ -191,6 +191,7 @@ client.sendBlueprintPlacement(placement);
 client.setOutfit(outfit);
 client.sendShipManagement(act, arg?);
 client.requestPlayerList();
+client.resetInvite();
 client.setShipPrivacy(privacy);
 client.recoverStarterItem(itemId);
 client.sendEntityCommand(cmd, args?);
@@ -334,6 +335,7 @@ client.setShipPrivacy("public");
 client.setShipPrivacy("private");
 client.recoverStarterItem(216); // Helm (Starter, Packaged)
 client.requestPlayerList();
+client.resetInvite();
 client.sendShipManagement("set_privacy", 1);
 ```
 
@@ -343,6 +345,10 @@ Starter recovery responses arrive as session packets:
 session `config` packet containing the new `config.privacy` and `invite_key`.
 `client.shipConfig` stores the latest normalized config as
 `{ privacy, privacyName, inviteKey, teamId, patronPerks }`.
+Regenerating the ship invite sends `{ type:4, act:"invite_reset", arg:null }`
+as observed in `reset-invite.jsonl`; the server responds with the same `config`
+session submessage shape and a new `invite_key`, so `client.shipConfig.inviteKey`
+updates through the existing `"ship-config"` event.
 
 Opening or refreshing the official ship-management player-list page sends
 `{ type:4, act:"player_list", arg:null }`; Dredless exposes that as

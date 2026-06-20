@@ -116,6 +116,15 @@ const invited = await Dredless.startInvite(servers[0], "2c0YMWSGcR_r4Qzl4RqDoYEI
 Server is required. If ship is omitted, a new unnamed ship is created.
 Invite helpers join with `never_load: false`.
 
+Ship-management helpers send the same top-level commands as the official client
+and store config responses on the client:
+
+```js
+client.setShipPrivacy("private");
+client.resetInvite();
+console.log(client.shipConfig?.inviteKey);
+```
+
 ## Live Watch Script
 
 ```sh

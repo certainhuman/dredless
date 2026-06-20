@@ -5,6 +5,7 @@ import test from "node:test";
 import { WorldStore } from "../src/game/world.js";
 import { decodeMsgpack, encodeMsgpack } from "../src/protocol/msgpack.js";
 import {
+  buildInviteResetMessage,
   buildPlayerListMessage,
   buildShipPrivacyMessage,
   buildStarterRecoveryMessage,
@@ -72,6 +73,15 @@ test("buildPlayerListMessage matches official client ship-management captures", 
   );
 });
 
+test("buildInviteResetMessage matches official client invite reset capture", () => {
+  assert.deepEqual(buildInviteResetMessage(), { type: 4, act: "invite_reset", arg: null });
+  assert.equal(
+    hex(encodeMsgpack(buildInviteResetMessage())),
+    "83a47479706504a3616374ac696e766974655f7265736574a3617267c0",
+    "reset-invite.jsonl"
+  );
+});
+
 test("ship lockdown countdown is decoded from official model metadata capture", (t) => {
   const values = [];
   const store = replayOfficialCapture("lockdown-counting-down-to-25.jsonl", ({ store }) => {
@@ -134,14 +144,14 @@ test("normalizePrivacy accepts public API aliases", () => {
 test("ship-management session submessages normalize public response shapes", () => {
   assert.deepEqual(normalizeShipConfigEvent({
     type: "config",
-    config: { privacy: 1, invite_key: "abc" },
+    config: { privacy: 1, invite_key: "9L0w0DNi9FEyN2kIeHI_1y3m" },
     team_id: 2872,
     patron_perks: ["x"]
   }), {
     type: "config",
     privacy: 1,
     privacyName: "private",
-    inviteKey: "abc",
+    inviteKey: "9L0w0DNi9FEyN2kIeHI_1y3m",
     teamId: 2872,
     patronPerks: ["x"]
   });
