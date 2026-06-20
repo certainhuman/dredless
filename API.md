@@ -198,6 +198,7 @@ client.fabricatorUnlockResource(row);
 client.fabricatorEject(row);
 client.setLauncherAngle(angle);
 client.setLauncherPower(power);
+client.setSignText(text, mode?);
 client.sendUiConfig(data);
 client.solveGeneratorPuzzle(entity, solution);
 client.sendPusherConfig(entity, config?);
@@ -306,6 +307,23 @@ client.setLauncherPower(15);
 `angle` is degrees and is rounded/wrapped into `0..359`. `power` is the
 launcher UI value `0..30`. These commands target the currently open launcher
 panel; no entity id is present in the outgoing type `5` message.
+
+Sign helpers also use the type `5` entity/PUI command channel. Open an existing
+sign with normal entity use, or place a held Sign item to create and
+auto-open the sign editor. Saving changed text sends `cmd:"sign_text"` with
+`args:[text, mode]`; closing without changes only sends the normal signed
+`exit` input command.
+
+```js
+client.useEntity(sign.entity);
+client.setSignText("Dock here", "when-near");
+client.setSignText("Cargo", "always");
+client.setSignText("Inspect me", "on-hover");
+```
+
+Sign display modes are `0`/`"always"`, `1`/`"when-near"`, and
+`2`/`"on-hover"`. The command targets the currently open sign panel; no entity
+id is present in the outgoing type `5` message.
 
 Pusher helpers use compact `type: 8` UI/config payloads and include the target
 entity id. `sendPusherConfig(entity, config)` sends the full pusher config;

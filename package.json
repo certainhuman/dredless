@@ -71,6 +71,11 @@
       "import": "./src/protocol/ship-management.js",
       "default": "./src/protocol/ship-management.js"
     },
+    "./protocol/sign": {
+      "types": "./src/protocol/sign.d.ts",
+      "import": "./src/protocol/sign.js",
+      "default": "./src/protocol/sign.js"
+    },
     "./protocol/ui-config": {
       "types": "./src/protocol/ui-config.d.ts",
       "import": "./src/protocol/ui-config.js",

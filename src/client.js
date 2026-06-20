@@ -11,6 +11,7 @@ import {
   buildShipPrivacyMessage,
   buildStarterRecoveryMessage
 } from "./protocol/ship-management.js";
+import { buildSignTextMessage } from "./protocol/sign.js";
 import {
   buildGeneratorMazePuzzleData,
   buildLoaderClipboardConfigData,
@@ -170,6 +171,10 @@ export class DredlessClient extends EventBus {
 
   setLauncherPower(power) {
     return this.sendEntityCommand("power", [normalizeLauncherPower(power)]);
+  }
+
+  setSignText(text = "", mode = 0) {
+    return this.sendMessage(buildSignTextMessage(text, mode));
   }
 
   sendUiConfig(data) {

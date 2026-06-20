@@ -34,6 +34,7 @@ export type ShipSpec =
 export type ServerRef = number | Server;
 export type ShipRef = number | string | Ship | ShipSpec | null;
 export type ShipPrivacy = 0 | 1 | boolean | "public" | "private";
+export type SignDisplayMode = 0 | 1 | 2 | "always" | "when-near" | "whenNear" | "near" | "on-hover" | "onHover" | "hover";
 export type ReadWorldScope = "ship" | "current" | "overworld" | number;
 export interface ShipReadOptions {
   includeWorld?: boolean;
@@ -82,6 +83,12 @@ export interface ShipManagementMessage {
   type: 4;
   act: string;
   arg: unknown;
+}
+
+export interface SignTextMessage {
+  type: 5;
+  cmd: "sign_text";
+  args: [string, 0 | 1 | 2];
 }
 
 export type PusherMode = 0 | 1 | 2 | "push" | "pull" | "do-nothing" | "doNothing" | "none";
@@ -265,6 +272,7 @@ export class DredlessClient {
   fabricatorEject(row: number): this;
   setLauncherAngle(angle: number): this;
   setLauncherPower(power: number): this;
+  setSignText(text?: string, mode?: SignDisplayMode): this;
   sendUiConfig(data: unknown): this;
   solveGeneratorPuzzle(entity: number, solution: string | number): this;
   sendPusherConfig(entity: number, config?: PusherConfig): this;
@@ -1047,6 +1055,9 @@ export function buildShipManagementMessage(act: string, arg?: unknown): ShipMana
 export function buildShipPrivacyMessage(privacy: ShipPrivacy): ShipManagementMessage;
 export function buildStarterRecoveryMessage(itemId: number): ShipManagementMessage;
 export function normalizePrivacy(privacy: ShipPrivacy): 0 | 1;
+export function buildSignTextMessage(text?: string, mode?: SignDisplayMode): SignTextMessage;
+export function normalizeSignDisplayMode(mode?: SignDisplayMode): 0 | 1 | 2;
+export function signDisplayModeName(mode: number): "always" | "when-near" | "on-hover" | null;
 export function buildNavigationUnitConfigData(entity: number, config: NavigationUnitConfig & { destination: number }): Uint8Array;
 export function buildGeneratorMazePuzzleData(entity: number, solution: string | number): Uint8Array;
 export function buildLoaderClipboardConfigData(config?: LoaderConfig): Uint8Array;
