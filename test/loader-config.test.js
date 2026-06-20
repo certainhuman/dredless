@@ -6,6 +6,9 @@ import { ModelState } from "../src/game/model.js";
 import { generateGeneratorMaze, solveGeneratorMazeSeed } from "../src/game/generator-maze.js";
 import { WorldState, WorldStore } from "../src/game/world.js";
 import {
+  buildCargoEjectorClipboardDirectionData,
+  buildCargoEjectorCopyConfigData,
+  buildCargoEjectorPasteConfigData,
   buildCargoHatchCopyConfigData,
   buildCargoHatchFilterConfigData,
   buildCargoHatchFilterItemsData,
@@ -1000,6 +1003,26 @@ test("clipboard config helpers match official client generator and expando captu
     hex(buildExpandoClipboardAngleData(115)),
     "9001038a05616e676c65009084739191",
     "change-expando-clipboard-angle-to-115.jsonl"
+  );
+});
+
+test("buildCargoEjector config helpers match official client ejector command captures", () => {
+  assert.equal(
+    hex(buildCargoEjectorCopyConfigData("right")),
+    "9001078a0b616e676c655f66697865640090009191",
+    "copy-cargo-ejector-configs.jsonl"
+  );
+
+  assert.equal(
+    hex(buildCargoEjectorPasteConfigData(60, "right")),
+    "90023c8a0b616e676c655f66697865640090009191",
+    "paste-cargo-ejector-configs.jsonl"
+  );
+
+  assert.equal(
+    hex(buildCargoEjectorClipboardDirectionData("left")),
+    "9001078a0b616e676c655f66697865640090029191",
+    "change-clipboard-cargo-ejector-direction-to-left.jsonl"
   );
 });
 

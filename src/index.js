@@ -31,6 +31,10 @@ export {
   signDisplayModeName
 } from "./protocol/sign.js";
 export {
+  buildCargoEjectorClipboardDirectionData,
+  buildCargoEjectorCopyConfigData,
+  buildCargoEjectorDirectionData,
+  buildCargoEjectorPasteConfigData,
   buildCargoHatchCopyConfigData,
   buildCargoHatchFilterConfigData,
   buildCargoHatchFilterItemsData,

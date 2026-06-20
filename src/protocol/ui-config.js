@@ -86,6 +86,9 @@ const CLIPBOARD_TARGET_VALUES = new Map([
   ["hatch", 0],
   ["cargo-hatch", 0],
   ["cargoHatch", 0],
+  ["ejector", 7],
+  ["cargo-ejector", 7],
+  ["cargoEjector", 7],
   ["expando", 3],
   ["expando-box", 3],
   ["expandoBox", 3],
@@ -454,8 +457,34 @@ export function buildClipboardFixedAngleData(target, direction) {
   return buildClipboardConfigData(target, CLIPBOARD_FIXED_ANGLE_COMMAND, [requireFixedAngle(direction)]);
 }
 
+function buildFixedAngleConfigData(entity, action, direction) {
+  return Uint8Array.from([
+    ...encodeUiCommandTarget(entity, action),
+    ...encodeUiCommandSection(CLIPBOARD_FIXED_ANGLE_COMMAND),
+    NAV_UNIT_HEADER_TAG,
+    requireFixedAngle(direction),
+    ...NAV_UNIT_TRAILER
+  ]);
+}
+
 export function buildGeneratorClipboardDirectionData(direction) {
   return buildClipboardFixedAngleData("generator", direction);
+}
+
+export function buildCargoEjectorDirectionData(entity, direction) {
+  return buildFixedAngleConfigData(entity, 0, direction);
+}
+
+export function buildCargoEjectorPasteConfigData(entity, direction) {
+  return buildFixedAngleConfigData(entity, 2, direction);
+}
+
+export function buildCargoEjectorCopyConfigData(direction) {
+  return buildFixedAngleConfigData(7, CLIPBOARD_ACTION, direction);
+}
+
+export function buildCargoEjectorClipboardDirectionData(direction) {
+  return buildClipboardFixedAngleData("ejector", direction);
 }
 
 export function buildExpandoClipboardAngleData(angle) {

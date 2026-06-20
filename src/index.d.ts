@@ -131,7 +131,7 @@ export type LoaderPosition =
   "bottom-left" | "bottomLeft" | "bottom-middle" | "bottomMiddle" | "bottom-right" | "bottomRight";
 export type LoaderPriority = -1 | 0 | 1 | "low" | "normal" | "medium" | "high";
 export type LoaderFilterMode = 0 | 1 | 2 | 3 | "allow-all" | "allowAll" | "block-filter" | "blockFilter" | "allow-filter" | "allowFilter" | "block-all" | "blockAll";
-export type ClipboardTarget = number | "loader" | "loader-config" | "loaderConfig" | "hatch" | "cargo-hatch" | "cargoHatch" | "expando" | "expando-box" | "expandoBox" | "generator" | "shield-generator" | "shieldGenerator" | "navigation" | "navigation-unit" | "navigationUnit" | "nav" | "nav-unit" | "navUnit";
+export type ClipboardTarget = number | "loader" | "loader-config" | "loaderConfig" | "hatch" | "cargo-hatch" | "cargoHatch" | "ejector" | "cargo-ejector" | "cargoEjector" | "expando" | "expando-box" | "expandoBox" | "generator" | "shield-generator" | "shieldGenerator" | "navigation" | "navigation-unit" | "navigationUnit" | "nav" | "nav-unit" | "navUnit";
 export type FixedAngleDirection = 0 | 1 | 2 | 3 | "right" | "up" | "left" | "down";
 
 export interface PusherConfig {
@@ -327,6 +327,10 @@ export class DredlessClient {
   setClipboardFixedAngle(target: ClipboardTarget, direction: FixedAngleDirection): this;
   setGeneratorClipboardDirection(direction: FixedAngleDirection): this;
   setExpandoClipboardAngle(angle: number): this;
+  setCargoEjectorDirection(entity: number, direction: FixedAngleDirection): this;
+  pasteCargoEjectorConfig(entity: number, direction?: FixedAngleDirection): this;
+  copyCargoEjectorConfig(entity: number, direction?: FixedAngleDirection): this;
+  setCargoEjectorClipboardDirection(direction: FixedAngleDirection): this;
   setLoaderPickPlace(entity: number, pick: LoaderPosition, place: LoaderPosition, config?: LoaderConfig): this;
   setLoaderPriority(entity: number, priority: LoaderPriority, config?: LoaderConfig): this;
   setLoaderStack(entity: number, stack: number, config?: LoaderConfig): this;
@@ -1145,6 +1149,10 @@ export function buildCargoHatchCopyConfigData(config?: Pick<LoaderFullConfig, "f
 export function buildClipboardConfigData(target: ClipboardTarget, commandName: string, values?: Iterable<number>): Uint8Array;
 export function buildClipboardFixedAngleData(target: ClipboardTarget, direction: FixedAngleDirection): Uint8Array;
 export function buildGeneratorClipboardDirectionData(direction: FixedAngleDirection): Uint8Array;
+export function buildCargoEjectorDirectionData(entity: number, direction: FixedAngleDirection): Uint8Array;
+export function buildCargoEjectorPasteConfigData(entity: number, direction: FixedAngleDirection): Uint8Array;
+export function buildCargoEjectorCopyConfigData(direction: FixedAngleDirection): Uint8Array;
+export function buildCargoEjectorClipboardDirectionData(direction: FixedAngleDirection): Uint8Array;
 export function buildExpandoClipboardAngleData(angle: number): Uint8Array;
 export function buildLoaderClipboardConfigData(config?: LoaderConfig): Uint8Array;
 export function buildLoaderConfigData(entity: number, config?: LoaderConfig): Uint8Array;

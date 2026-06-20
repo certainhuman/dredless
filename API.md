@@ -220,6 +220,10 @@ client.sendClipboardConfig(target, commandName, values?);
 client.setClipboardFixedAngle(target, direction);
 client.setGeneratorClipboardDirection(direction);
 client.setExpandoClipboardAngle(angle);
+client.setCargoEjectorDirection(entity, direction);
+client.pasteCargoEjectorConfig(entity, direction?);
+client.copyCargoEjectorConfig(entity, direction?);
+client.setCargoEjectorClipboardDirection(direction);
 client.setLoaderPickPlace(entity, pick, place, config?);
 client.setLoaderPriority(entity, priority, config?);
 client.setLoaderStack(entity, stack, config?);
@@ -463,9 +467,23 @@ client.copyCargoHatchConfig(hatch.entity);
 `copyCargoHatchConfig()` writes the server-side cargo-hatch clipboard target
 (`0`) with copy action `1`.
 
+Cargo Ejector config uses the fixed-direction `angle_fixed` section:
+
+```js
+client.setCargoEjectorDirection(ejector.entity, "left");
+client.pasteCargoEjectorConfig(ejector.entity, "right");
+client.copyCargoEjectorConfig(ejector.entity, "right");
+client.setCargoEjectorClipboardDirection("left");
+```
+
+`copyCargoEjectorConfig()` writes the server-side cargo-ejector clipboard target
+(`7`) with copy action `1`. Direction values are the same fixed-angle values as
+generator direction: `0=right`, `1=up`, `2=left`, `3=down`.
+
 Other copied-config clipboard edits use the same shared action `1` header:
 `90 01 TARGET`. Observed targets are `0=cargo-hatch`, `1=loader`,
-`3=expando`, `4=generator/shield-generator`, and `6=navigation-unit`.
+`3=expando`, `4=generator/shield-generator`, `6=navigation-unit`, and
+`7=cargo-ejector`.
 
 ```js
 client.setGeneratorClipboardDirection("right");

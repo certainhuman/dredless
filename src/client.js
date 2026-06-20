@@ -20,6 +20,10 @@ import {
 } from "./protocol/ship-management.js";
 import { buildSignTextMessage } from "./protocol/sign.js";
 import {
+  buildCargoEjectorClipboardDirectionData,
+  buildCargoEjectorCopyConfigData,
+  buildCargoEjectorDirectionData,
+  buildCargoEjectorPasteConfigData,
   buildCargoHatchCopyConfigData,
   buildCargoHatchFilterConfigData,
   buildCargoHatchFilterItemsData,
@@ -270,6 +274,22 @@ export class DredlessClient extends EventBus {
 
   setExpandoClipboardAngle(angle) {
     return this.sendUiConfig(buildExpandoClipboardAngleData(angle));
+  }
+
+  setCargoEjectorDirection(entity, direction) {
+    return this.sendUiConfig(buildCargoEjectorDirectionData(entity, direction));
+  }
+
+  pasteCargoEjectorConfig(entity, direction = "right") {
+    return this.sendUiConfig(buildCargoEjectorPasteConfigData(entity, direction));
+  }
+
+  copyCargoEjectorConfig(entity, direction = "right") {
+    return this.sendUiConfig(buildCargoEjectorCopyConfigData(direction));
+  }
+
+  setCargoEjectorClipboardDirection(direction) {
+    return this.sendUiConfig(buildCargoEjectorClipboardDirectionData(direction));
   }
 
   setLoaderPickPlace(entity, pick, place, config = {}) {
