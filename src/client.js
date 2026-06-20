@@ -7,6 +7,12 @@ import { Connection } from "./game/connection.js";
 import { WorldStore } from "./game/world.js";
 import { buildSignedCommandPacket } from "./protocol/commands.js";
 import {
+  buildEquipItemCommand,
+  buildInventoryDragCommand,
+  buildUnequipItemCommand,
+  normalizeInventoryEvent
+} from "./protocol/inventory.js";
+import {
   buildShipManagementMessage,
   buildShipPrivacyMessage,
   buildStarterRecoveryMessage
@@ -365,7 +371,19 @@ export class DredlessClient extends EventBus {
   }
 
   drag(source, target, split = false, command = {}) {
-    return this.send({ ...command, drag: { source, target, split } });
+    return this.moveInventoryItem(source, target, { split }, command);
+  }
+
+  moveInventoryItem(source, target, { split = false } = {}, command = {}) {
+    return this.send({ ...command, ...buildInventoryDragCommand(source, target, split) });
+  }
+
+  equipItem(source, equipmentSlot, { split = false } = {}, command = {}) {
+    return this.send({ ...command, ...buildEquipItemCommand(source, equipmentSlot, split) });
+  }
+
+  unequipItem(equipmentSlot, target = 0, { split = false } = {}, command = {}) {
+    return this.send({ ...command, ...buildUnequipItemCommand(equipmentSlot, target, split) });
   }
 
   close(code = 1000, reason = "client") {
@@ -634,7 +652,7 @@ export class DredlessClient extends EventBus {
   #handleSideEvent(event, world) {
     if (!event || typeof event !== "object") return;
     if (event.type === "inventory") {
-      this.inventory = normalizeInventory(event);
+      this.inventory = normalizeInventoryEvent(event);
       this.emit("inventory", this.inventory, world);
       return;
     }
@@ -890,31 +908,4 @@ function shipReadSummary(entity, options, worlds) {
 function distanceBetween(a, b) {
   if (!a || !b || typeof a.x !== "number" || typeof a.y !== "number" || typeof b.x !== "number" || typeof b.y !== "number") return null;
   return Math.hypot(a.x - b.x, a.y - b.y);
-}
-
-function normalizeInventory(event) {
-  const items = Array.isArray(event.items) ? event.items : [];
-  const counts = Array.isArray(event.item_counts) ? event.item_counts : [];
-  const generalSlots = Number(event.general_slots ?? 0);
-  const length = Math.max(items.length, counts.length, generalSlots);
-  const slots = [];
-  for (let index = 0; index < length; index++) {
-    slots.push({
-      index,
-      itemId: items[index] ?? null,
-      count: counts[index] ?? 0,
-      kind: index < generalSlots ? "hotbar" : "equipment"
-    });
-  }
-  return {
-    ...event,
-    general_slots: generalSlots,
-    slots,
-    hotbar: slots.slice(0, generalSlots),
-    equipment: {
-      back: slots[19] || null,
-      hands: slots[20] || null,
-      feet: slots[21] || null
-    }
-  };
 }

@@ -66,6 +66,11 @@
       "import": "./src/protocol/commands.js",
       "default": "./src/protocol/commands.js"
     },
+    "./protocol/inventory": {
+      "types": "./src/protocol/inventory.d.ts",
+      "import": "./src/protocol/inventory.js",
+      "default": "./src/protocol/inventory.js"
+    },
     "./protocol/ship-management": {
       "types": "./src/protocol/ship-management.d.ts",
       "import": "./src/protocol/ship-management.js",

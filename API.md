@@ -240,6 +240,9 @@ client.placeHeldItem(options?, command?);
 client.rotateHeldItem(options?, command?);
 client.selectSlot(invSlot?, command?);
 client.drag(source, target, split?, command?);
+client.moveInventoryItem(source, target, options?, command?);
+client.equipItem(source, equipmentSlot, options?, command?);
+client.unequipItem(equipmentSlot, target?, options?, command?);
 client.close(code?, reason?);
 client.disconnect(code?, reason?);
 client.state({ includeTiles?, includeModel? });
@@ -506,6 +509,25 @@ client.placeHeldItem({ invSlot: 2 }, { mx: 28.26, my: 5.26 });
 `focus_ent=null`, `inv_slot=2`, `act_alt=true`, and `act_alt_held=true`.
 `place-vertical-door.jsonl` and `place-horizontal-door.jsonl` confirm final door
 placement uses the same held-item placement command as other package items.
+
+Inventory movement uses the signed type `0` `drag` field. `drag()` is the
+low-level wrapper; `moveInventoryItem()` is the same operation with an options
+object. Equipment slots are absolute inventory slots in the official protocol:
+`19`/`"back"`, `20`/`"hands"`, and `21`/`"feet"`.
+
+```js
+client.moveInventoryItem(0, 4);
+client.moveInventoryItem(1, 2, { split: true });
+client.equipItem(0, "back");
+client.equipItem(0, "hands");
+client.equipItem(0, "feet");
+client.unequipItem("hands", 0);
+```
+
+Official-client equipment captures confirm double-click equip emits the same
+drag command as manual drag. Backpack and Hover Pack equip to slot `19`,
+Construction Gauntlets equip to slot `20`, Speed Skates equip to slot `21`, and
+unequipping gauntlets sends `drag={ source:20, target:0, split:false }`.
 
 Navigation-unit helpers send the observed top-level `type: 8` UI/config
 payload for `config_nav_unit`:

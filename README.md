@@ -12,6 +12,7 @@ const client = await Dredless.newShip(servers[0], "bot", "#de9797");
 
 client.send({ x: 1, y: 0 });
 client.craftAdd(150, 1);
+client.equipItem(0, "feet");
 client.setSignText("Dock here", "when-near");
 
 client.on("inventory", (inventory) => console.log(inventory.hotbar));

@@ -35,6 +35,7 @@ export type ServerRef = number | Server;
 export type ShipRef = number | string | Ship | ShipSpec | null;
 export type ShipPrivacy = 0 | 1 | boolean | "public" | "private";
 export type SignDisplayMode = 0 | 1 | 2 | "always" | "when-near" | "whenNear" | "near" | "on-hover" | "onHover" | "hover";
+export type EquipmentSlot = 19 | 20 | 21 | "back" | "hand" | "hands" | "foot" | "feet";
 export type ReadWorldScope = "ship" | "current" | "overworld" | number;
 export interface ShipReadOptions {
   includeWorld?: boolean;
@@ -89,6 +90,14 @@ export interface SignTextMessage {
   type: 5;
   cmd: "sign_text";
   args: [string, 0 | 1 | 2];
+}
+
+export interface InventoryDragCommand {
+  drag: {
+    source: number;
+    target: number;
+    split: boolean;
+  };
 }
 
 export type PusherMode = 0 | 1 | 2 | "push" | "pull" | "do-nothing" | "doNothing" | "none";
@@ -314,6 +323,9 @@ export class DredlessClient {
   rotateHeldItem(options?: { invSlot?: number; hold?: boolean }, command?: Command): this;
   selectSlot(invSlot?: number, command?: Command): this;
   drag(source: number, target: number, split?: boolean, command?: Command): this;
+  moveInventoryItem(source: number, target: number, options?: { split?: boolean }, command?: Command): this;
+  equipItem(source: number, equipmentSlot: EquipmentSlot, options?: { split?: boolean }, command?: Command): this;
+  unequipItem(equipmentSlot: EquipmentSlot, target?: number, options?: { split?: boolean }, command?: Command): this;
   close(code?: number, reason?: string): this;
   disconnect(code?: number, reason?: string): this;
   /** @deprecated Prefer state(). */
@@ -405,7 +417,8 @@ export interface InventorySlot {
   index: number;
   itemId: number | null;
   count: number;
-  kind: "hotbar" | "equipment";
+  kind: "hotbar" | "inventory" | "equipment";
+  equipmentSlot: "back" | "hands" | "feet" | null;
 }
 
 export interface InventoryState {
@@ -416,6 +429,7 @@ export interface InventoryState {
   general_slots: number;
   slots: InventorySlot[];
   hotbar: InventorySlot[];
+  inventory: InventorySlot[];
   equipment: {
     back: InventorySlot | null;
     hands: InventorySlot | null;
@@ -1051,6 +1065,12 @@ export interface MachineSummary {
 export function decodeMsgpack(bytes: Uint8Array | ArrayBuffer | number[]): unknown;
 export function encodeMsgpack(value: unknown): Uint8Array;
 export function buildSignedCommandPacket(command: Command, sessionId: number): Uint8Array;
+export function buildInventoryDragCommand(source: number, target: number, split?: boolean): InventoryDragCommand;
+export function buildEquipItemCommand(source: number, slot: EquipmentSlot, split?: boolean): InventoryDragCommand;
+export function buildUnequipItemCommand(slot: EquipmentSlot, target?: number, split?: boolean): InventoryDragCommand;
+export function normalizeEquipmentSlot(slot: EquipmentSlot): 19 | 20 | 21;
+export function equipmentSlotName(slot: number): "back" | "hands" | "feet" | null;
+export function normalizeInventoryEvent(event: unknown): InventoryState;
 export function buildShipManagementMessage(act: string, arg?: unknown): ShipManagementMessage;
 export function buildShipPrivacyMessage(privacy: ShipPrivacy): ShipManagementMessage;
 export function buildStarterRecoveryMessage(itemId: number): ShipManagementMessage;
