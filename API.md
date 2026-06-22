@@ -1042,7 +1042,7 @@ contains normalized classification data:
 ```js
 {
   entity,
-  className,  // e.g. "vulture-boss", "red-sentry", "table2-bot"
+  className,  // e.g. "zombie-boss", "red-sentry", "table2-bot"
   identifier, // stable debug identifier such as "t18:..."; useful in captures
   typeA,
   typeB

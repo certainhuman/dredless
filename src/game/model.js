@@ -745,10 +745,10 @@ function botClassFromState({ health, table2Record, smallRecord, combatRecord, ta
   if (isLazerEnthusiastBotState({ health, table2Record, table10Record, table51Record })) return "lazer-enthusiast";
   if (isCowardBossState({ health })) return "the-coward";
   if (isOrangeFoolBotState({ combatRecord })) return "orange-fool";
-  if (isVultureBossBotState({ health, table2Record, combatRecord })) return "vulture-boss";
-  if (combatRecord?.q20 === 762523904) return "vulture-small-brawler";
-  if (combatRecord?.q20 === 1967883008) return "vulture-yank-bot";
-  if (combatRecord?.q20 === 945371904) return "vulture-large-brawler";
+  if (isZombieBossBotState({ health, table2Record, combatRecord })) return "zombie-boss";
+  if (combatRecord?.q20 === 762523904) return "zombie";
+  if (combatRecord?.q20 === 1967883008) return "zombie-hunter";
+  if (combatRecord?.q20 === 945371904) return "zombie-tank";
   if (isRedSentryBotState({ health, table2Record, combatRecord })) return "red-sentry";
   if (isRedSniperBotState({ health, table2Record })) return "red-sniper";
   if (isBlueRusherBotState({ health, table2Record, combatRecord })) return "blue-rusher";
@@ -767,7 +767,7 @@ function isOrangeFoolBotState({ combatRecord }) {
   return combatRecord?.q20 === -427551232 && combatRecord?.q24 === 1 && combatRecord?.q72 === 3;
 }
 
-function isVultureBossBotState({ health, table2Record, combatRecord }) {
+function isZombieBossBotState({ health, table2Record, combatRecord }) {
   return (
     combatRecord?.q20 === -430233088 &&
     health?.state?.q28 === 30 &&
