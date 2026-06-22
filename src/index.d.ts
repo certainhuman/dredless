@@ -583,6 +583,7 @@ export interface EntityContentsSummary {
   blueprintPreview?: BlueprintPreviewSummary;
   itemCrate?: ItemCrateSummary;
   health?: HealthSummary;
+  bot?: BotSummary;
   fabricator?: FabricatorSummary;
   processor?: { entity: number; state: ModelRecord };
   cannon?: CannonSummary;
@@ -898,6 +899,14 @@ export interface HealthSummary {
   maxHp: number | null;
   ratio: number | null;
   state: ModelRecord;
+}
+
+export interface BotSummary {
+  entity: number;
+  className: string;
+  identifier: string;
+  typeA: number | null;
+  typeB: number | null;
 }
 
 export interface FabricatorSummary {

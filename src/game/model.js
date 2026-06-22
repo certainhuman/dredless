@@ -715,6 +715,137 @@ function summarizeHealth(entity, record) {
   };
 }
 
+function summarizeBot(entity, { health, table2Record, smallRecord, combatRecord, motionRecord, table10Record, table51Record, itemCrate, player, shipControl }) {
+  if (!health || itemCrate || player || shipControl || isBoulderBotExclusion(health, table2Record, combatRecord)) return null;
+  const className = botClassFromState({ health, table2Record, smallRecord, combatRecord, table10Record, table51Record });
+  return {
+    entity,
+    className,
+    identifier: botIdentifierFromState({ combatRecord, motionRecord, smallRecord }),
+    typeA: health.state?.q28 ?? null,
+    typeB: health.state?.q32 ?? null
+  };
+}
+
+function isBoulderBotExclusion(health, table2Record, combatRecord) {
+  return Boolean(
+    health?.maxHp === 2000 &&
+    health?.state?.q28 === 30 &&
+    health?.state?.q32 != null &&
+    table2Record?.q20 != null &&
+    table2Record?.q24 == null &&
+    !combatRecord
+  );
+}
+
+function botClassFromState({ health, table2Record, smallRecord, combatRecord, table10Record, table51Record }) {
+  if (isYellowMineGuardBotState({ health, smallRecord, combatRecord, table2Record })) return "yellow-mine-guard";
+  if (isShieldHelperBotState({ health, table2Record })) return "shield-helper";
+  if (isShieldMasterBotState({ health, table2Record })) return "shield-master";
+  if (isLazerEnthusiastBotState({ health, table2Record, table10Record, table51Record })) return "lazer-enthusiast";
+  if (isCowardBossState({ health })) return "the-coward";
+  if (isOrangeFoolBotState({ combatRecord })) return "orange-fool";
+  if (isVultureBossBotState({ health, table2Record, combatRecord })) return "vulture-boss";
+  if (combatRecord?.q20 === 762523904) return "vulture-small-brawler";
+  if (combatRecord?.q20 === 1967883008) return "vulture-yank-bot";
+  if (combatRecord?.q20 === 945371904) return "vulture-large-brawler";
+  if (isRedSentryBotState({ health, table2Record, combatRecord })) return "red-sentry";
+  if (isRedSniperBotState({ health, table2Record })) return "red-sniper";
+  if (isBlueRusherBotState({ health, table2Record, combatRecord })) return "blue-rusher";
+  if (isYellowHunterBotState({ health, table2Record, combatRecord })) return "yellow-hunter";
+  if (isAquaShielderBotState({ health, table2Record, combatRecord })) return "aqua-shielder";
+  if (table2Record) return "table2-bot";
+  if (combatRecord) return "combat-bot";
+  return "bot";
+}
+
+function isCowardBossState({ health }) {
+  return health?.state?.q28 === 70 && health?.state?.q32 === 78;
+}
+
+function isOrangeFoolBotState({ combatRecord }) {
+  return combatRecord?.q20 === -427551232 && combatRecord?.q24 === 1 && combatRecord?.q72 === 3;
+}
+
+function isVultureBossBotState({ health, table2Record, combatRecord }) {
+  return (
+    combatRecord?.q20 === -430233088 &&
+    health?.state?.q28 === 30 &&
+    health?.state?.q32 === 166 &&
+    table2Record?.q20 === 320 &&
+    table2Record?.q24 === -900
+  );
+}
+
+function isRedSentryBotState({ health, table2Record, combatRecord }) {
+  return (
+    combatRecord?.q20 === 508251904 && combatRecord?.q72 === 2 ||
+    health?.state?.q28 === 70 && health?.state?.q32 === 166 && table2Record?.q20 === 320 && table2Record?.q24 === -900
+  );
+}
+
+function isBlueRusherBotState({ health, table2Record, combatRecord }) {
+  return (
+    combatRecord?.q20 === 1113052928 && combatRecord?.q72 === 2 ||
+    health?.state?.q28 === 30 && health?.state?.q32 === 34 && table2Record?.q20 === 80 && table2Record?.q24 === -900
+  );
+}
+
+function isRedSniperBotState({ health, table2Record }) {
+  return health?.state?.q28 === 35 && health?.state?.q32 === 89 && table2Record?.q20 === 180 && table2Record?.q24 === -900;
+}
+
+function isYellowHunterBotState({ health, table2Record, combatRecord }) {
+  return (
+    combatRecord?.q20 === -775665152 && combatRecord?.q72 === 4 && combatRecord?.q44 === -944515328 ||
+    health?.state?.q28 === 30 && health?.state?.q32 === 56 && table2Record?.q20 === 120 && table2Record?.q24 === -900
+  );
+}
+
+function isAquaShielderBotState({ health, table2Record, combatRecord }) {
+  return (
+    combatRecord?.q20 === 13697024 && combatRecord?.q24 === 1 ||
+    health?.state?.q28 === 50 && health?.state?.q32 === 122 && table2Record?.q20 === 240 && table2Record?.q24 === -900
+  );
+}
+
+function isLazerEnthusiastBotState({ health, table2Record, table10Record, table51Record }) {
+  return (
+    health?.state?.q28 === 140 &&
+    health?.state?.q32 === 155 &&
+    table2Record?.q20 === 300 &&
+    table2Record?.q24 === -900 &&
+    Boolean(table10Record) &&
+    Boolean(table51Record)
+  );
+}
+
+function isYellowMineGuardBotState({ health, smallRecord, combatRecord, table2Record }) {
+  return (
+    health?.state?.q28 === 30 &&
+    health?.state?.q32 === 33 &&
+    smallRecord?.q20 === 78 &&
+    smallRecord?.q24 === 78 &&
+    combatRecord?.q24 === -995542016 &&
+    !table2Record
+  );
+}
+
+function isShieldHelperBotState({ health, table2Record }) {
+  return health?.state?.q28 === 30 && health?.state?.q32 === 33 && health?.maxHp === 1000 && !table2Record;
+}
+
+function isShieldMasterBotState({ health, table2Record }) {
+  return health?.state?.q28 === 190 && health?.state?.q32 === 210 && health?.maxHp === 15000 && Boolean(table2Record);
+}
+
+function botIdentifierFromState({ combatRecord, motionRecord, smallRecord }) {
+  if (combatRecord) return `t18:${combatRecord.q20 ?? "-"}:${combatRecord.q24 ?? "-"}:${combatRecord.q72 ?? "-"}`;
+  if (motionRecord) return `t19:${motionRecord.q20 ?? "-"}:${motionRecord.q24 ?? "-"}`;
+  if (smallRecord) return `t3:${smallRecord.q20 ?? "-"}:${smallRecord.q24 ?? "-"}`;
+  return "-";
+}
+
 function summarizeShieldGenerator(entity, shieldRecord = null, itemHolderRecord = null, boostRecord = null) {
   const charge = shieldRecord?.q20 ?? 0;
   const maxCharge = 5000;
@@ -1913,6 +2044,9 @@ export class ModelState {
     const itemCrate = this.isOverworld && !this.record(2, entityId) && !this.record(18, entityId) && health && crateSizeRecord
       ? summarizeItemCrate(entityId, crateSizeRecord, crateItemRecord, healthRecord)
       : null;
+    const bot = this.isOverworld
+      ? summarizeBot(entityId, { health, table2Record: this.record(2, entityId), smallRecord: crateSizeRecord, combatRecord: this.record(18, entityId), motionRecord: crateItemRecord, table10Record: this.record(10, entityId), table51Record: this.record(51, entityId), itemCrate, player, shipControl })
+      : null;
     const transform = transformRecord ? {
       entity: entityId,
       x: numberOrNull(transformRecord.q20, 40),
@@ -1920,7 +2054,7 @@ export class ModelState {
       rot: numberOrNull(transformRecord.q28, 127.324),
       flags: [transformRecord.q33, transformRecord.q34, transformRecord.q35].filter((value) => value != null)
     } : null;
-    const contents = mergeContents({ itemHolder }, { expandoBox }, { hoverOutline }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { blueprintPreview }, { health }, { fabricator }, { processor }, { cannon }, { thruster }, { pusher }, { launcher }, { loader }, { cargoHatch }, { navigationUnit }, { commsStation }, { fluidTank }, { shieldGenerator }, { shieldProjector }, { helm }, { player }, { shipControl }, { sign }, { spawnPoint }, { door }, { shipSize });
+    const contents = mergeContents({ itemHolder }, { expandoBox }, { hoverOutline }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { blueprintPreview }, { health }, { bot }, { fabricator }, { processor }, { cannon }, { thruster }, { pusher }, { launcher }, { loader }, { cargoHatch }, { navigationUnit }, { commsStation }, { fluidTank }, { shieldGenerator }, { shieldProjector }, { helm }, { player }, { shipControl }, { sign }, { spawnPoint }, { door }, { shipSize });
     const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, expandoBox, hoverOutline, itemCrate, hugeThruster, fabricator, processor, cannon, thruster, pusher, launcher, loader, cargoHatch, navigationUnit, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
     const typeName = entityNameFromType(typeId);
     const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, mapMarker, dockingSpring, hugeThruster, blueprintPreview, fabricator, processor, cannon, pusher, launcher, loader, cargoHatch, navigationUnit, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
@@ -1968,6 +2102,7 @@ export class ModelState {
         dynamicBody ? "dynamic_body" : null,
         itemHolder ? "item_holder" : null,
         health ? "health" : null,
+        bot ? "bot" : null,
         itemCrate ? "item_crate" : null,
         expandoBox ? "expando_box" : null,
         hoverOutline ? "hover_outline" : null,

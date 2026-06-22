@@ -1018,6 +1018,7 @@ Common `contents` fields:
 
 ```js
 entity.contents.health
+entity.contents.bot
 entity.contents.hoverOutline
 entity.contents.itemHolder
 entity.contents.itemCrate
@@ -1033,6 +1034,19 @@ entity.contents.spawnPoint
 entity.contents.door
 entity.contents.player
 entity.contents.shipControl
+```
+
+`entity.contents.bot` is present for overworld health-bearing bot entities and
+contains normalized classification data:
+
+```js
+{
+  entity,
+  className,  // e.g. "vulture-boss", "red-sentry", "table2-bot"
+  identifier, // stable debug identifier such as "t18:..."; useful in captures
+  typeA,
+  typeB
+}
 ```
 
 Cost:

@@ -14,6 +14,7 @@ export {
   type ModelSnapshot,
   type TransformSummary,
   type EntitySummary,
+  type BotSummary,
   type BlockSummary,
   type BlueprintPreviewSummary,
   type ThrusterSummary,
