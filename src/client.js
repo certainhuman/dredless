@@ -74,8 +74,13 @@ export class DredlessClient extends EventBus {
     this.lastPacket = null;
     this.packets = [];
     this.worlds = new WorldStore();
+    this.net = new ClientNetDomain(this);
+    this.debug = new ClientDebugDomain(this);
+    this.player = new PlayerDomain(this);
+    this.inventory = new InventoryDomain(this);
+    this.management = new ShipManagementDomain(this);
     this.cpuLoad = null;
-    this.inventory = null;
+    this.inventoryState = null;
     this.puiPanels = new Map();
     this.commsPanels = new Map();
     this.currentCommsPanel = null;
@@ -546,7 +551,7 @@ export class DredlessClient extends EventBus {
       currentWorldId: this.worlds.currentWorldId,
       worlds: this.worlds.snapshot({ includeTiles, includeModel }),
       cpuLoad: this.cpuLoad,
-      inventory: this.inventory,
+      inventory: this.inventoryState,
       puiPanels: [...this.puiPanels.values()],
       commsPanels: [...this.commsPanels.values()],
       currentCommsPanel: this.currentCommsPanel,
@@ -573,20 +578,27 @@ export class DredlessClient extends EventBus {
     return this.snapshot(options);
   }
 
-  world(id, options = {}) {
-    return this.worlds.worlds.get(Number(id))?.snapshot(options) || null;
+  world(id) {
+    const world = this.worlds.worlds.get(Number(id)) || null;
+    return world ? new WorldDomain(this, world.id) : null;
   }
 
-  overworld(options = {}) {
-    return this.worlds.overworld()?.snapshot(options) || null;
+  overworld() {
+    const world = this.worlds.overworld();
+    return world ? new OverworldDomain(this, world.id) : null;
+  }
+
+  currentShip() {
+    const world = this.worlds.shipWorld();
+    return world ? new ShipDomain(this, world.id) : null;
   }
 
   shipWorld(options = {}) {
     return this.worlds.shipWorld()?.snapshot(options) || null;
   }
 
-  ship(options = {}) {
-    return this.shipWorld(options);
+  ship() {
+    return this.currentShip();
   }
 
   shipEntity() {
@@ -821,8 +833,8 @@ export class DredlessClient extends EventBus {
   #handleSideEvent(event, world) {
     if (!event || typeof event !== "object") return;
     if (event.type === "inventory") {
-      this.inventory = normalizeInventoryEvent(event);
-      this.emit("inventory", this.inventory, world);
+      this.inventoryState = normalizeInventoryEvent(event);
+      this.emit("inventory", this.inventoryState, world);
       return;
     }
     if (event.type === "pui") {
@@ -975,6 +987,298 @@ export class DredlessClient extends EventBus {
   }
 }
 
+class ClientNetDomain {
+  constructor(client) { this.client = client; }
+  get connected() { return this.client.connected; }
+  get ready() { return this.client.ready; }
+  get sid() { return this.client.sid; }
+  get packetCount() { return this.client.packetCount; }
+  get lastPacket() { return this.client.lastPacket; }
+  send(command = {}) { return this.client.send(command); }
+  sendMessage(message, options = {}) { return this.client.sendMessage(message, options); }
+  sendRaw(message, options = {}) { return this.client.sendRaw(message, options); }
+  sendEntityCommand(cmd, args = [-1, -1, -1]) { return this.client.sendEntityCommand(cmd, args); }
+  sendUiConfig(data) { return this.client.sendUiConfig(data); }
+  sendBlueprintPlacement(placement) { return this.client.sendBlueprintPlacement(placement); }
+  setOutfit(outfit) { return this.client.setOutfit(outfit); }
+}
+
+class ClientDebugDomain {
+  constructor(client) { this.client = client; }
+  packets() { return this.client.packets.slice(); }
+  decodeErrors() { return this.client.decodeErrors.slice(); }
+  worldStore() { return this.client.worlds; }
+  modelTable(worldId, tableId) { return this.client.worlds.worlds.get(Number(worldId))?.model.table(tableId) || new Map(); }
+  modelRecord(worldId, tableId, entityId) { return this.client.worlds.worlds.get(Number(worldId))?.model.record(tableId, entityId) || null; }
+  puiPanels() { return [...this.client.puiPanels.values()]; }
+  commsPanels() { return [...this.client.commsPanels.values()]; }
+}
+
+class PlayerDomain {
+  constructor(client) { this.client = client; }
+  move({ x = 0, y = 0 } = {}, command = {}) { return this.client.move(x, y, command); }
+  aim({ x = 0, y = 0, mx = x, my = y } = {}, command = {}) { return this.client.aim(mx, my, command); }
+  action(flags = {}, command = {}) { return this.client.action(flags, command); }
+  useEntity(entity, options = {}, command = {}) { return this.client.useEntity(entityIdOf(entity), options, command); }
+  useHeldItem(options = {}, command = {}) { return this.client.useHeldItem(options, command); }
+  placeHeldItem(options = {}, command = {}) { return this.client.placeHeldItem(options, command); }
+  placeBlueprint(placement, options = {}, command = {}) { return this.client.placeBlueprint(placement, options, command); }
+  rotateHeldItem(options = {}, command = {}) { return this.client.rotateHeldItem(options, command); }
+  selectSlot(invSlot = 0, command = {}) { return this.client.selectSlot(invSlot, command); }
+  inputSettings() { return this.client.inputSettings(); }
+  setInputSettings(settings = {}, options = {}) { return this.client.setInputSettings(settings, options); }
+  setView(width, height, options = {}) { return this.client.setView(width, height, options); }
+  setScreenSize(width, height, options = {}) { return this.client.setScreenSize(width, height, options); }
+  setWrenchMode(mode, options = {}) { return this.client.setWrenchMode(mode, options); }
+  setTurretMode(mode, options = {}) { return this.client.setTurretMode(mode, options); }
+}
+
+class ShipManagementDomain {
+  constructor(client) { this.client = client; }
+  requestPlayerList() { return this.client.requestPlayerList(); }
+  resetInvite() { return this.client.resetInvite(); }
+  setPrivacy(privacy) { return this.client.setShipPrivacy(privacy); }
+  recoverStarterItem(itemId) { return this.client.recoverStarterItem(itemId); }
+  config() { return this.client.shipConfig; }
+  captainSubrank() { return this.client.captainSubrank; }
+  playerList() { return this.client.playerList; }
+}
+class InventoryDomain {
+  constructor(client) { this.client = client; }
+  current() { return this.client.inventoryState; }
+  slots() { return this.current()?.slots || []; }
+  hotbar() { return this.current()?.hotbar || []; }
+  equipment() { return this.current()?.equipment || { back: null, hands: null, feet: null }; }
+  drag(source, target, { split = false } = {}, command = {}) { return this.client.moveInventoryItem(source, target, { split }, command); }
+  move(source, target, options = {}, command = {}) { return this.drag(source, target, options, command); }
+  equip(source, equipmentSlot, options = {}, command = {}) { return this.client.equipItem(source, equipmentSlot, options, command); }
+  unequip(equipmentSlot, target = 0, options = {}, command = {}) { return this.client.unequipItem(equipmentSlot, target, options, command); }
+}
+
+class WorldDomain {
+  constructor(client, scope) {
+    this.client = client;
+    this.scope = scope;
+    this.entities = new EntityCollection(client, scope);
+    this.machines = new MachineCollection(client, scope);
+    this.players = new PlayerCollection(client, scope);
+    this.blocks = new BlockCollection(client, scope);
+    this.materials = new MaterialCollection(client, scope);
+  }
+  get id() { return worldStateFor(this.client, this.scope)?.id ?? null; }
+  exists() { return Boolean(worldStateFor(this.client, this.scope)); }
+  snapshot(options = {}) { return worldStateFor(this.client, this.scope)?.snapshot(options) || null; }
+}
+
+class ShipDomain extends WorldDomain {
+  entity() { const summary = this.client.worlds.currentShipEntity(); return summary ? new EntityHandle(this.client, summary.entity, "overworld") : null; }
+  get overworldEntity() { return this.entity(); }
+  get metadata() { return worldStateFor(this.client, this.scope)?.model.shipMetadata() || null; }
+}
+
+class OverworldDomain extends WorldDomain {
+  ships(options = {}) { return this.client.ships(options).map((summary) => new ShipHandle(this.client, summary)); }
+  shipByHex(hexCode, options = {}) { const summary = this.client.shipByHex(hexCode, options); return summary ? new ShipHandle(this.client, summary) : null; }
+  shipByEntity(entity, options = {}) { const summary = this.client.shipByEntity(entityIdOf(entity), options); return summary ? new ShipHandle(this.client, summary) : null; }
+}
+
+class EntityCollection {
+  constructor(client, scope) { this.client = client; this.scope = scope; }
+  all() { return summariesFor(this.client, this.scope).map((summary) => new EntityHandle(this.client, summary.entity, this.scope)); }
+  raw() { return summariesFor(this.client, this.scope); }
+  get(entity) { return new EntityHandle(this.client, entityIdOf(entity), this.scope); }
+}
+
+class PlayerCollection {
+  constructor(client, scope) { this.client = client; this.scope = scope; }
+  all() { return worldStateFor(this.client, this.scope)?.model.players() || []; }
+}
+
+class BlockCollection {
+  constructor(client, scope) { this.client = client; this.scope = scope; }
+  all() { return worldStateFor(this.client, this.scope)?.blocks() || []; }
+  at(x, y) { return this.all().find((block) => block.x === x && block.y === y) || null; }
+}
+
+class MaterialCollection {
+  constructor(client, scope) { this.client = client; this.scope = scope; }
+  all() { return worldStateFor(this.client, this.scope)?.materials() || []; }
+}
+
+class MachineCollection {
+  constructor(client, scope) { this.client = client; this.scope = scope; }
+  summary() { return worldStateFor(this.client, this.scope)?.model.machines() || emptyMachineSummary(); }
+  loaders() { return this.summary().loaders.map((item) => new LoaderHandle(this.client, item.entity, this.scope)); }
+  loader(entity) { return new LoaderHandle(this.client, entityIdOf(entity), this.scope); }
+  pushers() { return this.summary().pushers.map((item) => new PusherHandle(this.client, item.entity, this.scope)); }
+  pusher(entity) { return new PusherHandle(this.client, entityIdOf(entity), this.scope); }
+  launchers() { return this.summary().launchers.map((item) => new LauncherHandle(this.client, item.entity, this.scope)); }
+  launcher(entity) { return new LauncherHandle(this.client, entityIdOf(entity), this.scope); }
+  navigationUnits() { return this.summary().navigationUnits.map((item) => new NavigationUnitHandle(this.client, item.entity, this.scope)); }
+  navigationUnit(entity = null) { const id = entity == null ? this.summary().navigationUnits[0]?.entity : entityIdOf(entity); return id == null ? null : new NavigationUnitHandle(this.client, id, this.scope); }
+  fabricators() { return this.summary().fabricators.map((item) => new FabricatorHandle(this.client, item.entity, this.scope)); }
+  fabricator(entity) { return new FabricatorHandle(this.client, entityIdOf(entity), this.scope); }
+  commsStations() { return this.summary().commsStations.map((item) => new CommsStationHandle(this.client, item.entity, this.scope)); }
+  commsStation(entity = null) { const id = entity == null ? this.summary().commsStations[0]?.entity : entityIdOf(entity); return id == null ? null : new CommsStationHandle(this.client, id, this.scope); }
+  signs() { return summariesFor(this.client, this.scope).filter((item) => item.contents?.sign).map((item) => new SignHandle(this.client, item.entity, this.scope)); }
+  sign(entity) { return new SignHandle(this.client, entityIdOf(entity), this.scope); }
+  generators() { return this.summary().shieldGenerators.map((item) => new GeneratorHandle(this.client, item.entity, this.scope)); }
+  generator(entity) { return new GeneratorHandle(this.client, entityIdOf(entity), this.scope); }
+  cargoHatches() { return this.summary().cargoHatches.map((item) => new CargoHatchHandle(this.client, item.entity, this.scope)); }
+  cargoHatch(entity) { return new CargoHatchHandle(this.client, entityIdOf(entity), this.scope); }
+  cargoEjector(entity) { return new CargoEjectorHandle(this.client, entityIdOf(entity), this.scope); }
+}
+
+class EntityHandle {
+  constructor(client, entity, scope = "ship") { this.client = client; this.entity = Number(entity); this.scope = scope; }
+  exists() { return Boolean(this.snapshot()); }
+  snapshot() { return worldStateFor(this.client, this.scope)?.entity(this.entity) || null; }
+  get id() { return this.entity; }
+  get position() { return this.snapshot()?.transform || null; }
+  get health() { return this.snapshot()?.contents?.health || null; }
+  get contents() { return this.snapshot()?.contents || null; }
+  use(options = {}, command = {}) { return this.client.player.useEntity(this.entity, options, command); }
+}
+
+class MachineHandle extends EntityHandle {
+  open(options = {}, command = {}) { return this.use(options, command); }
+}
+
+class LoaderHandle extends MachineHandle {
+  summary() { return this.snapshot()?.contents?.loader || null; }
+  configure(config = {}) { return this.client.sendLoaderConfig(this.entity, config); }
+  configureFull(config = {}) { return this.client.sendLoaderFullConfig(this.entity, config); }
+  copy(config = {}) { return this.client.copyLoaderConfig(this.entity, config); }
+  setPickPlace(pick, place, config = {}) { return this.client.setLoaderPickPlace(this.entity, pick, place, config); }
+  setPriority(priority, config = {}) { return this.client.setLoaderPriority(this.entity, priority, config); }
+  setStack(stack, config = {}) { return this.client.setLoaderStack(this.entity, stack, config); }
+  setCycle(cycle, config = {}) { return this.client.setLoaderCycle(this.entity, cycle, config); }
+  setRequireOutput(requireOutput, config = {}) { return this.client.setLoaderRequireOutput(this.entity, requireOutput, config); }
+  setWaitForStack(waitForStack, config = {}) { return this.client.setLoaderWaitForStack(this.entity, waitForStack, config); }
+  setFilterMode(filterMode) { return this.client.setLoaderFilterMode(this.entity, filterMode); }
+  setFilterItems(filterSlots = []) { return this.client.setLoaderFilterItems(this.entity, filterSlots); }
+  get pick() { return this.summary()?.pick; }
+  get place() { return this.summary()?.place; }
+  get priority() { return this.summary()?.priority; }
+  get stack() { return this.summary()?.stack; }
+  get cycle() { return this.summary()?.cycle; }
+  get requireOutput() { return this.summary()?.requireOutput; }
+  get waitForStack() { return this.summary()?.waitForStack; }
+  get filterMode() { return this.summary()?.filterMode; }
+  get filterSlots() { return this.summary()?.filterSlots || []; }
+}
+
+class PusherHandle extends MachineHandle {
+  summary() { return this.snapshot()?.contents?.pusher || null; }
+  get beam() { return this.snapshot()?.contents?.pusherBeam || null; }
+  configure(config = {}) { return this.client.sendPusherConfig(this.entity, config); }
+  setAngle(angle, config = {}) { return this.client.setPusherAngle(this.entity, angle, config); }
+  setSpeed(speed, config = {}) { return this.client.setPusherSpeed(this.entity, speed, config); }
+  setLength(length, config = {}) { return this.client.setPusherLength(this.entity, length, config); }
+  setMode(mode, config = {}) { return this.client.setPusherMode(this.entity, mode, config); }
+  setFilteredMode(mode, config = {}) { return this.client.setPusherFilteredMode(this.entity, mode, config); }
+  setFilterInventory(filterInventory, config = {}) { return this.client.setPusherFilterInventory(this.entity, filterInventory, config); }
+  setFilterItems(filterSlots = []) { return this.client.setPusherFilterItems(this.entity, filterSlots); }
+  get angle() { return this.summary()?.angle; }
+  get speed() { return this.summary()?.speed; }
+  get length() { return this.summary()?.length; }
+  get mode() { return this.summary()?.mode; }
+  get filteredMode() { return this.summary()?.filteredMode; }
+}
+
+class LauncherHandle extends MachineHandle {
+  summary() { return this.snapshot()?.contents?.launcher || null; }
+  setAngle(angle) { return this.client.setLauncherAngle(angle); }
+  setPower(power) { return this.client.setLauncherPower(power); }
+  get angleDegrees() { return this.summary()?.angleDegrees; }
+  get angleRadians() { return this.summary()?.angleRadians; }
+  get angleRaw() { return this.summary()?.angleRaw; }
+}
+
+class NavigationUnitHandle extends MachineHandle {
+  summary() { return this.snapshot()?.contents?.navigationUnit || null; }
+  configure(config = {}) { return this.client.sendNavigationUnitConfig(this.entity, config); }
+  copy(config = {}) { return this.client.copyNavigationUnitConfig(this.entity, config); }
+  paste(config = {}) { return this.client.pasteNavigationUnitConfig(this.entity, config); }
+  setDestination(destination, config = {}) { return this.client.setNavigationDestination(this.entity, destination, config); }
+  setAutoWarp(config = {}) { return this.client.setNavigationAutoWarp(this.entity, config); }
+  startWarp(config = {}) { return this.client.startWarp(this.entity, config); }
+  cancelWarp(config = {}) { return this.client.cancelWarp(this.entity, config); }
+  get destination() { return this.summary()?.destination; }
+  get autoWarpOnShieldFailure() { return this.summary()?.autoWarpOnShieldFailure; }
+  get autoWarpOnNoCaptains() { return this.summary()?.autoWarpOnNoCaptains; }
+  get warp() { return this.summary()?.warp; }
+}
+
+class FabricatorHandle extends MachineHandle {
+  panel() { return this.client.puiPanels.get(this.entity) || null; }
+  add(itemId, count = 1, index = -1) { return this.client.craftAdd(itemId, count, index); }
+  sub(itemId, count = 1, index = 0) { return this.client.craftSub(itemId, count, index); }
+  clearQueue() { return this.client.craftClearQueue(); }
+  toggleRepeat() { return this.client.craftToggleRepeat(); }
+  lockResource(row) { return this.client.fabricatorLockResource(row); }
+  unlockResource(row) { return this.client.fabricatorUnlockResource(row); }
+  eject(row) { return this.client.fabricatorEject(row); }
+}
+
+class CommsStationHandle extends MachineHandle {
+  summary() { return this.snapshot()?.contents?.commsStation || null; }
+  panel() { return this.client.commsPanels.get(this.entity) || null; }
+  sendMessage(message = "") { return this.client.sendCommsMessage(message); }
+}
+class SignHandle extends MachineHandle {
+  summary() { return this.snapshot()?.contents?.sign || null; }
+  setText(text = "", mode = 0) { return this.client.setSignText(text, mode); }
+  get text() { return this.summary()?.text; }
+  get mode() { return this.summary()?.mode; }
+}
+
+class GeneratorHandle extends MachineHandle {
+  summary() { return this.snapshot()?.contents?.shieldGenerator || null; }
+  solvePuzzle(solution) { return this.client.solveGeneratorPuzzle(this.entity, solution); }
+}
+
+class CargoHatchHandle extends MachineHandle {
+  summary() { return this.snapshot()?.contents?.cargoHatch || null; }
+  configure(config = {}) { return this.client.sendCargoHatchFullConfig(this.entity, config); }
+  copy(config = {}) { return this.client.copyCargoHatchConfig(this.entity, config); }
+  paste(config = {}) { return this.client.pasteCargoHatchConfig(this.entity, config); }
+  setFilterMode(filterMode) { return this.client.setCargoHatchFilterMode(this.entity, filterMode); }
+  setFilterItems(filterSlots = []) { return this.client.setCargoHatchFilterItems(this.entity, filterSlots); }
+}
+
+class CargoEjectorHandle extends MachineHandle {
+  setDirection(direction) { return this.client.setCargoEjectorDirection(this.entity, direction); }
+  copy(direction = "right") { return this.client.copyCargoEjectorConfig(this.entity, direction); }
+  paste(direction = "right") { return this.client.pasteCargoEjectorConfig(this.entity, direction); }
+}
+
+class ShipHandle {
+  constructor(client, summary) { this.client = client; this.summary = summary; }
+  get entity() { return this.summary.entity; }
+  get name() { return this.summary.name; }
+  get hexCode() { return this.summary.hexCode; }
+  get distance() { return this.summary.distance; }
+  get worldId() { return this.summary.worldId; }
+  get hasWorldData() { return this.summary.hasWorldData; }
+  world() { return this.worldId == null ? null : this.client.world(this.worldId); }
+  snapshot() { return this.summary; }
+}
+
+function worldStateFor(client, scope = "ship") {
+  if (scope == null || scope === "ship" || scope === "current") return client.worlds.shipWorld();
+  if (scope === "overworld") return client.worlds.overworld();
+  return client.worlds.worlds.get(Number(scope)) || null;
+}
+
+function summariesFor(client, scope = "ship") {
+  return worldStateFor(client, scope)?.entities() || [];
+}
+
+function entityIdOf(value) {
+  if (value && typeof value === "object") return Number(value.entity ?? value.id);
+  return Number(value);
+}
 const WRENCH_MODES = new Map([
   [0, "drop-all-items"],
   [1, "grab-primary-items"],
@@ -1140,3 +1444,11 @@ function distanceBetween(a, b) {
   if (!a || !b || typeof a.x !== "number" || typeof a.y !== "number" || typeof b.x !== "number" || typeof b.y !== "number") return null;
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
+
+
+
+
+
+
+
+

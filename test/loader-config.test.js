@@ -1083,7 +1083,8 @@ test("navigation capture decodes layered overworld ids and nav base ids", () => 
     layer: 0,
     key: "freeport",
     name: "Freeport",
-    displayName: "Freeport I"
+    tiered: false,
+    displayName: "Freeport"
   });
 
   const ship = store.shipWorld();
@@ -1815,3 +1816,4 @@ test("blueprint scanner preview expands repeated placement bits", () => {
     [8.5, 10.5], [11.5, 10.5], [15.5, 10.5]
   ]);
 });
+

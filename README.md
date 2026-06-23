@@ -10,13 +10,19 @@ import Dredless from "dredless";
 const servers = await Dredless.fetchServers();
 const client = await Dredless.newShip(servers[0], "bot", "#de9797");
 
-client.send({ x: 1, y: 0 });
-client.craftAdd(150, 1);
-client.equipItem(0, "feet");
-client.setSignText("Dock here", "when-near");
-client.placeBlueprint({ x: 28, y: 18, width: 3, height: 3, source: "DSA:..." }, { invSlot: 2 });
+client.player.move({ x: 1, y: 0 });
+client.inventory.equip(0, "feet");
+client.player.placeBlueprint({ x: 28, y: 18, width: 3, height: 3, source: "DSA:..." }, { invSlot: 2 });
 
-client.on("inventory", (inventory) => console.log(inventory.hotbar));
+const ship = client.currentShip();
+const loader = ship?.machines.loaders()[0];
+loader?.configure({ cycle: 5, stack: 12 });
+
+const sign = ship?.machines.signs()[0];
+sign?.open();
+sign?.setText("Dock here", "when-near");
+
+client.on("inventory", () => console.log(client.inventory.hotbar()));
 client.on("model", ({ world }) => console.log(world.model.transforms()));
 ```
 
@@ -120,9 +126,9 @@ Ship-management helpers send the same top-level commands as the official client
 and store config responses on the client:
 
 ```js
-client.setShipPrivacy("private");
+client.management.setPrivacy("private");
 client.resetInvite();
-console.log(client.shipConfig?.inviteKey);
+console.log(client.management.config()?.inviteKey);
 ```
 
 ## Live Watch Script
@@ -215,3 +221,5 @@ Benchmark another implementation by pointing at a module that exports
 ```sh
 npm run benchmark -- captures/near-ship.jsonl --module ./src/game/world.js --module ../other-client/src/game/world.js
 ```
+
+

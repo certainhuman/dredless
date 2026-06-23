@@ -321,155 +321,280 @@ export class DredlessClient {
   connected: boolean;
   ready: boolean;
   packetCount: number;
-  /** @deprecated Debug/protocol access. Prefer state() and event callbacks. */
   lastPacket: unknown;
-  /** @deprecated Debug/protocol access. Prefer state(), ship(), and collection helpers. */
-  packets: unknown[];
-  /** @deprecated Low-level world store. Prefer ship(), entities(), machines(), players(), blocks(), and materials(). */
-  worlds: WorldStore;
-  cpuLoad: number | null;
-  inventory: InventoryState | null;
-  puiPanels: Map<number, PuiEvent>;
-  commsPanels: Map<number, CommsEvent>;
-  currentCommsPanel: CommsEvent | null;
-  warnings: unknown[];
-  effects: unknown[];
-  chat: unknown[];
-  motd: unknown[];
-  sessionMessages: unknown[];
-  scannerResults: ScannerResult[];
-  lastScannerResult: ScannerResult | null;
-  shipConfig: ShipConfigEvent | null;
-  captainSubrank: CaptainSubrankEvent | null;
-  playerList: PlayerListEvent | null;
-  outfits: Map<number, unknown>;
-  commandAcks: Map<number, number>;
-  lastCommandAck: CommandAck | null;
-  decodeErrors: unknown[];
+  net: ClientNetDomain;
+  debug: ClientDebugDomain;
+  player: PlayerDomain;
+  inventory: InventoryDomain;
+  management: ShipManagementDomain;
   readyPromise: Promise<this>;
-  /** @deprecated Debug/protocol access. Prefer state() and event callbacks. */
-  get packetsRaw(): unknown[];
 
   waitUntilReady(): Promise<this>;
-  send(command: Command): this;
-  sendMessage(message: unknown, options?: { afterReady?: boolean }): this;
-  sendRaw(message: unknown, options?: { afterReady?: boolean }): this;
-  sendBlueprintPlacement(placement: BlueprintPlacement): this;
-  setOutfit(outfit: unknown): this;
-  sendShipManagement(act: string, arg?: unknown): this;
-  requestPlayerList(): this;
-  resetInvite(): this;
-  setShipPrivacy(privacy: ShipPrivacy): this;
-  recoverStarterItem(itemId: number): this;
-  sendEntityCommand(cmd: string, args?: unknown[]): this;
-  sendCommsMessage(message?: string): this;
-  sendFabricatorMessage(cmd: string, args?: [number, number, number]): this;
-  sendFabricatorCommand(itemId: number, count?: number, index?: number): this;
-  craftAdd(itemId: number, count?: number, index?: number): this;
-  craftSub(itemId: number, count?: number, index?: number): this;
-  craftClearQueue(): this;
-  craftToggleRepeat(): this;
-  fabricatorLockResource(row: number): this;
-  fabricatorUnlockResource(row: number): this;
-  fabricatorEject(row: number): this;
-  setLauncherAngle(angle: number): this;
-  setLauncherPower(power: number): this;
-  setSignText(text?: string, mode?: SignDisplayMode): this;
-  sendUiConfig(data: unknown): this;
-  solveGeneratorPuzzle(entity: number, solution: string | number): this;
-  sendPusherConfig(entity: number, config?: PusherConfig): this;
-  setPusherAngle(entity: number, angle: number, config?: PusherConfig): this;
-  setPusherSpeed(entity: number, speed: number, config?: PusherConfig): this;
-  setPusherLength(entity: number, length: number, config?: PusherConfig): this;
-  setPusherMode(entity: number, mode: PusherMode, config?: PusherConfig): this;
-  setPusherFilteredMode(entity: number, filteredMode: PusherMode, config?: PusherConfig): this;
-  setPusherFilterInventory(entity: number, filterInventory: boolean, config?: PusherConfig): this;
-  setPusherFilterItems(entity: number, filterSlots?: Array<number | null | undefined>): this;
-  sendLoaderConfig(entity: number, config?: LoaderConfig): this;
-  sendLoaderFullConfig(entity: number, config?: LoaderFullConfig): this;
-  copyLoaderConfig(entity: number, config?: LoaderFullConfig): this;
-  sendLoaderClipboardConfig(config?: LoaderConfig): this;
-  sendClipboardConfig(target: ClipboardTarget, commandName: string, values?: Iterable<number>): this;
-  setClipboardFixedAngle(target: ClipboardTarget, direction: FixedAngleDirection): this;
-  setGeneratorClipboardDirection(direction: FixedAngleDirection): this;
-  setExpandoClipboardAngle(angle: number): this;
-  setCargoEjectorDirection(entity: number, direction: FixedAngleDirection): this;
-  pasteCargoEjectorConfig(entity: number, direction?: FixedAngleDirection): this;
-  copyCargoEjectorConfig(entity: number, direction?: FixedAngleDirection): this;
-  setCargoEjectorClipboardDirection(direction: FixedAngleDirection): this;
-  setLoaderPickPlace(entity: number, pick: LoaderPosition, place: LoaderPosition, config?: LoaderConfig): this;
-  setLoaderPriority(entity: number, priority: LoaderPriority, config?: LoaderConfig): this;
-  setLoaderStack(entity: number, stack: number, config?: LoaderConfig): this;
-  setLoaderCycle(entity: number, cycle: number, config?: LoaderConfig): this;
-  setLoaderRequireOutput(entity: number, requireOutput: boolean, config?: LoaderConfig): this;
-  setLoaderWaitForStack(entity: number, waitForStack: boolean, config?: LoaderConfig): this;
-  setLoaderFilterMode(entity: number, filterMode: LoaderFilterMode): this;
-  setLoaderFilterItems(entity: number, filterSlots?: Array<number | null | undefined>): this;
-  setCargoHatchFilterMode(entity: number, filterMode: LoaderFilterMode): this;
-  setCargoHatchFilterItems(entity: number, filterSlots?: Array<number | null | undefined>): this;
-  sendCargoHatchFullConfig(entity: number, config?: Pick<LoaderFullConfig, "filterMode" | "filterSlots">): this;
-  pasteCargoHatchConfig(entity: number, config?: Pick<LoaderFullConfig, "filterMode" | "filterSlots">): this;
-  copyCargoHatchConfig(entity: number, config?: Pick<LoaderFullConfig, "filterMode" | "filterSlots">): this;
-  inputSettings(): CurrentInputSettings;
-  setInputSettings(settings?: InputSettings, options?: { send?: boolean }): this;
-  setView(width: number, height: number, options?: { send?: boolean }): this;
-  setScreenSize(width: number, height: number, options?: { send?: boolean }): this;
-  setWrenchMode(mode: WrenchMode, options?: { send?: boolean }): this;
-  setWrenchAction(mode: WrenchMode, options?: { send?: boolean }): this;
-  setTurretMode(mode: TurretMode, options?: { send?: boolean }): this;
-  sendNavigationUnitConfig(entity: number, config?: NavigationUnitConfig): this;
-  copyNavigationUnitConfig(entity: number, config?: NavigationUnitConfig): this;
-  pasteNavigationUnitConfig(entity: number, config?: NavigationUnitConfig): this;
-  setNavigationDestination(entity: number, destination: number, config?: NavigationUnitConfig): this;
-  setNavigationAutoWarp(entity: number, config?: NavigationUnitConfig): this;
-  startWarp(entity: number, config?: NavigationUnitConfig): this;
-  cancelWarp(entity: number, config?: NavigationUnitConfig): this;
-  move(x?: number, y?: number, command?: Command): this;
-  aim(mx?: number, my?: number, command?: Command): this;
-  action(flags?: Command, command?: Command): this;
-  useEntity(entity: number, options?: { invSlot?: number; hold?: boolean }, command?: Command): this;
-  useHeldItem(options?: { invSlot?: number; hold?: boolean }, command?: Command): this;
-  placeHeldItem(options?: { invSlot?: number; hold?: boolean }, command?: Command): this;
-  placeBlueprint(
-    placement: BlueprintPlacement,
-    options?: { invSlot?: number; hold?: boolean; mx?: number; my?: number },
-    command?: Command
-  ): this;
-  rotateHeldItem(options?: { invSlot?: number; hold?: boolean }, command?: Command): this;
-  selectSlot(invSlot?: number, command?: Command): this;
-  drag(source: number, target: number, split?: boolean, command?: Command): this;
-  moveInventoryItem(source: number, target: number, options?: { split?: boolean }, command?: Command): this;
-  equipItem(source: number, equipmentSlot: EquipmentSlot, options?: { split?: boolean }, command?: Command): this;
-  unequipItem(equipmentSlot: EquipmentSlot, target?: number, options?: { split?: boolean }, command?: Command): this;
   close(code?: number, reason?: string): this;
   disconnect(code?: number, reason?: string): this;
-  /** @deprecated Prefer state(). */
-  snapshot(options?: { includeTiles?: boolean; includeModel?: boolean }): ClientSnapshot;
-  state(options?: { includeTiles?: boolean; includeModel?: boolean }): ClientSnapshot;
-  /** @deprecated Prefer ship(), entities(scope), machines(scope), or players(scope). */
-  world(id: number, options?: { includeTiles?: boolean; includeModel?: boolean }): WorldSnapshot | null;
-  /** @deprecated Prefer entities("overworld") or shipControls("overworld"). */
-  overworld(options?: { includeTiles?: boolean; includeModel?: boolean }): WorldSnapshot | null;
-  /** @deprecated Prefer ship(). */
+  currentShip(): ShipDomain | null;
+  ship(): ShipDomain | null;
+  overworld(): OverworldDomain | null;
+  world(id: number): WorldDomain | null;
   shipWorld(options?: { includeTiles?: boolean; includeModel?: boolean }): WorldSnapshot | null;
-  ship(options?: { includeTiles?: boolean; includeModel?: boolean }): WorldSnapshot | null;
-  shipEntity(): EntitySummary | null;
-  entities(scope?: ReadWorldScope): EntitySummary[];
-  entity(entityId: number, scope?: ReadWorldScope): EntitySummary | null;
-  blocks(scope?: ReadWorldScope): BlockSummary[];
-  materials(scope?: ReadWorldScope): MaterialSummary[];
-  machines(scope?: ReadWorldScope): MachineSummary;
-  players(scope?: ReadWorldScope): PlayerSummary[];
-  shipControls(scope?: ReadWorldScope): ShipControlSummary[];
-  ships(options?: ShipReadOptions): ShipReadSummary[];
-  shipByHex(hexCode: string, options?: ShipReadOptions): ShipReadSummary | null;
-  shipByEntity(entityId: number, options?: ShipReadOptions): ShipReadSummary | null;
+  state(options?: { includeTiles?: boolean; includeModel?: boolean }): ClientSnapshot;
 
   on(type: string, callback: (...args: unknown[]) => void): this;
   off(type: string, callback: (...args: unknown[]) => void): this;
   once(type: string, callback: (...args: unknown[]) => void): this;
 }
 
+export interface ClientNetDomain {
+  connected: boolean;
+  ready: boolean;
+  sid: number | null;
+  packetCount: number;
+  lastPacket: unknown;
+  send(command?: Command): DredlessClient;
+  sendMessage(message: unknown, options?: { afterReady?: boolean }): DredlessClient;
+  sendRaw(message: unknown, options?: { afterReady?: boolean }): DredlessClient;
+  sendEntityCommand(cmd: string, args?: unknown[]): DredlessClient;
+  sendUiConfig(data: unknown): DredlessClient;
+  sendBlueprintPlacement(placement: BlueprintPlacement): DredlessClient;
+  setOutfit(outfit: unknown): DredlessClient;
+}
+
+export interface ClientDebugDomain {
+  packets(): unknown[];
+  decodeErrors(): unknown[];
+  worldStore(): WorldStore;
+  modelTable(worldId: number, tableId: number): Map<number, ModelRecord>;
+  modelRecord(worldId: number, tableId: number, entityId: number): ModelRecord | null;
+  puiPanels(): PuiEvent[];
+  commsPanels(): CommsEvent[];
+}
+
+export interface PlayerDomain {
+  move(vector?: { x?: number; y?: number }, command?: Command): DredlessClient;
+  aim(point?: { x?: number; y?: number; mx?: number; my?: number }, command?: Command): DredlessClient;
+  action(flags?: Command, command?: Command): DredlessClient;
+  useEntity(entity: number | EntityHandle | EntitySummary, options?: { invSlot?: number; hold?: boolean }, command?: Command): DredlessClient;
+  useHeldItem(options?: { invSlot?: number; hold?: boolean }, command?: Command): DredlessClient;
+  placeHeldItem(options?: { invSlot?: number; hold?: boolean }, command?: Command): DredlessClient;
+  placeBlueprint(placement: BlueprintPlacement, options?: { invSlot?: number; hold?: boolean; mx?: number; my?: number }, command?: Command): DredlessClient;
+  rotateHeldItem(options?: { invSlot?: number; hold?: boolean }, command?: Command): DredlessClient;
+  selectSlot(invSlot?: number, command?: Command): DredlessClient;
+  inputSettings(): CurrentInputSettings;
+  setInputSettings(settings?: InputSettings, options?: { send?: boolean }): DredlessClient;
+  setView(width: number, height: number, options?: { send?: boolean }): DredlessClient;
+  setScreenSize(width: number, height: number, options?: { send?: boolean }): DredlessClient;
+  setWrenchMode(mode: WrenchMode, options?: { send?: boolean }): DredlessClient;
+  setTurretMode(mode: TurretMode, options?: { send?: boolean }): DredlessClient;
+}
+
+export interface ShipManagementDomain {
+  requestPlayerList(): DredlessClient;
+  resetInvite(): DredlessClient;
+  setPrivacy(privacy: ShipPrivacy): DredlessClient;
+  recoverStarterItem(itemId: number): DredlessClient;
+  config(): ShipConfigEvent | null;
+  captainSubrank(): CaptainSubrankEvent | null;
+  playerList(): PlayerListEvent | null;
+}
+export interface InventoryDomain {
+  current(): InventoryState | null;
+  slots(): InventorySlot[];
+  hotbar(): InventorySlot[];
+  equipment(): InventoryState["equipment"];
+  drag(source: number, target: number, options?: { split?: boolean }, command?: Command): DredlessClient;
+  move(source: number, target: number, options?: { split?: boolean }, command?: Command): DredlessClient;
+  equip(source: number, equipmentSlot: EquipmentSlot, options?: { split?: boolean }, command?: Command): DredlessClient;
+  unequip(equipmentSlot: EquipmentSlot, target?: number, options?: { split?: boolean }, command?: Command): DredlessClient;
+}
+
+export interface WorldDomain {
+  id: number | null;
+  entities: EntityCollection;
+  machines: MachineCollection;
+  players: PlayerCollection;
+  blocks: BlockCollection;
+  materials: MaterialCollection;
+  exists(): boolean;
+  snapshot(options?: { includeTiles?: boolean; includeModel?: boolean }): WorldSnapshot | null;
+}
+
+export interface ShipDomain extends WorldDomain {
+  metadata: ShipWorldMetadataSummary | null;
+  entity(): EntityHandle | null;
+  overworldEntity: EntityHandle | null;
+}
+
+export interface OverworldDomain extends WorldDomain {
+  ships(options?: ShipReadOptions): ShipHandle[];
+  shipByHex(hexCode: string, options?: ShipReadOptions): ShipHandle | null;
+  shipByEntity(entity: number | EntityHandle | EntitySummary, options?: ShipReadOptions): ShipHandle | null;
+}
+
+export interface EntityCollection {
+  all(): EntityHandle[];
+  raw(): EntitySummary[];
+  get(entity: number | EntityHandle | EntitySummary): EntityHandle;
+}
+
+export interface PlayerCollection { all(): PlayerSummary[]; }
+export interface BlockCollection { all(): BlockSummary[]; at(x: number, y: number): BlockSummary | null; }
+export interface MaterialCollection { all(): MaterialSummary[]; }
+
+export interface MachineCollection {
+  summary(): MachineSummary;
+  loaders(): LoaderHandle[];
+  loader(entity: number | EntityHandle | EntitySummary): LoaderHandle;
+  pushers(): PusherHandle[];
+  pusher(entity: number | EntityHandle | EntitySummary): PusherHandle;
+  launchers(): LauncherHandle[];
+  launcher(entity: number | EntityHandle | EntitySummary): LauncherHandle;
+  navigationUnits(): NavigationUnitHandle[];
+  navigationUnit(entity?: number | EntityHandle | EntitySummary | null): NavigationUnitHandle | null;
+  fabricators(): FabricatorHandle[];
+  fabricator(entity: number | EntityHandle | EntitySummary): FabricatorHandle;
+  commsStations(): CommsStationHandle[];
+  commsStation(entity?: number | EntityHandle | EntitySummary | null): CommsStationHandle | null;
+  signs(): SignHandle[];
+  sign(entity: number | EntityHandle | EntitySummary): SignHandle;
+  generators(): GeneratorHandle[];
+  generator(entity: number | EntityHandle | EntitySummary): GeneratorHandle;
+  cargoHatches(): CargoHatchHandle[];
+  cargoHatch(entity: number | EntityHandle | EntitySummary): CargoHatchHandle;
+  cargoEjector(entity: number | EntityHandle | EntitySummary): CargoEjectorHandle;
+}
+
+export interface EntityHandle {
+  entity: number;
+  id: number;
+  position: TransformSummary | null;
+  health: HealthSummary | null;
+  contents: EntityContentsSummary | null;
+  exists(): boolean;
+  snapshot(): EntitySummary | null;
+  use(options?: { invSlot?: number; hold?: boolean }, command?: Command): DredlessClient;
+}
+
+export interface MachineHandle extends EntityHandle { open(options?: { invSlot?: number; hold?: boolean }, command?: Command): DredlessClient; }
+
+export interface LoaderHandle extends MachineHandle {
+  summary(): LoaderSummary | null;
+  configure(config?: LoaderConfig): DredlessClient;
+  configureFull(config?: LoaderFullConfig): DredlessClient;
+  copy(config?: LoaderFullConfig): DredlessClient;
+  setPickPlace(pick: LoaderPosition, place: LoaderPosition, config?: LoaderConfig): DredlessClient;
+  setPriority(priority: LoaderPriority, config?: LoaderConfig): DredlessClient;
+  setStack(stack: number, config?: LoaderConfig): DredlessClient;
+  setCycle(cycle: number, config?: LoaderConfig): DredlessClient;
+  setRequireOutput(requireOutput: boolean, config?: LoaderConfig): DredlessClient;
+  setWaitForStack(waitForStack: boolean, config?: LoaderConfig): DredlessClient;
+  setFilterMode(filterMode: LoaderFilterMode): DredlessClient;
+  setFilterItems(filterSlots?: Array<number | null | undefined>): DredlessClient;
+  pick: number | undefined;
+  place: number | undefined;
+  priority: number | undefined;
+  stack: number | undefined;
+  cycle: number | undefined;
+  requireOutput: boolean | undefined;
+  waitForStack: boolean | undefined;
+  filterMode: number | undefined;
+  filterSlots: Array<number | null>;
+}
+
+export interface PusherHandle extends MachineHandle {
+  summary(): PusherSummary | null;
+  beam: PusherBeamSummary | null;
+  configure(config?: PusherConfig): DredlessClient;
+  setAngle(angle: number, config?: PusherConfig): DredlessClient;
+  setSpeed(speed: number, config?: PusherConfig): DredlessClient;
+  setLength(length: number, config?: PusherConfig): DredlessClient;
+  setMode(mode: PusherMode, config?: PusherConfig): DredlessClient;
+  setFilteredMode(mode: PusherMode, config?: PusherConfig): DredlessClient;
+  setFilterInventory(filterInventory: boolean, config?: PusherConfig): DredlessClient;
+  setFilterItems(filterSlots?: Array<number | null | undefined>): DredlessClient;
+  angle: number | undefined;
+  speed: number | undefined;
+  length: number | undefined;
+  mode: number | undefined;
+  filteredMode: number | undefined;
+}
+
+export interface LauncherHandle extends MachineHandle {
+  summary(): LauncherSummary | null;
+  setAngle(angle: number): DredlessClient;
+  setPower(power: number): DredlessClient;
+  angleDegrees: number | undefined;
+  angleRadians: number | undefined;
+  angleRaw: number | null | undefined;
+}
+
+export interface NavigationUnitHandle extends MachineHandle {
+  summary(): NavigationUnitSummary | null;
+  configure(config?: NavigationUnitConfig): DredlessClient;
+  copy(config?: NavigationUnitConfig): DredlessClient;
+  paste(config?: NavigationUnitConfig): DredlessClient;
+  setDestination(destination: number, config?: NavigationUnitConfig): DredlessClient;
+  setAutoWarp(config?: NavigationUnitConfig): DredlessClient;
+  startWarp(config?: NavigationUnitConfig): DredlessClient;
+  cancelWarp(config?: NavigationUnitConfig): DredlessClient;
+  destination: number | undefined;
+  autoWarpOnShieldFailure: boolean | undefined;
+  autoWarpOnNoCaptains: boolean | undefined;
+  warp: string | undefined;
+}
+
+export interface FabricatorHandle extends MachineHandle {
+  panel(): PuiEvent | null;
+  add(itemId: number, count?: number, index?: number): DredlessClient;
+  sub(itemId: number, count?: number, index?: number): DredlessClient;
+  clearQueue(): DredlessClient;
+  toggleRepeat(): DredlessClient;
+  lockResource(row: number): DredlessClient;
+  unlockResource(row: number): DredlessClient;
+  eject(row: number): DredlessClient;
+}
+
+export interface CommsStationHandle extends MachineHandle {
+  summary(): CommsStationSummary | null;
+  panel(): CommsEvent | null;
+  sendMessage(message?: string): DredlessClient;
+}
+export interface SignHandle extends MachineHandle {
+  summary(): SignSummary | null;
+  setText(text?: string, mode?: SignDisplayMode): DredlessClient;
+  text: string | undefined;
+  mode: number | undefined;
+}
+
+export interface GeneratorHandle extends MachineHandle {
+  summary(): ShieldGeneratorSummary | null;
+  solvePuzzle(solution: string | number): DredlessClient;
+}
+
+export interface CargoHatchHandle extends MachineHandle {
+  summary(): CargoHatchSummary | null;
+  configure(config?: Pick<LoaderFullConfig, "filterMode" | "filterSlots">): DredlessClient;
+  copy(config?: Pick<LoaderFullConfig, "filterMode" | "filterSlots">): DredlessClient;
+  paste(config?: Pick<LoaderFullConfig, "filterMode" | "filterSlots">): DredlessClient;
+  setFilterMode(filterMode: LoaderFilterMode): DredlessClient;
+  setFilterItems(filterSlots?: Array<number | null | undefined>): DredlessClient;
+}
+
+export interface CargoEjectorHandle extends MachineHandle {
+  setDirection(direction: FixedAngleDirection): DredlessClient;
+  copy(direction?: FixedAngleDirection): DredlessClient;
+  paste(direction?: FixedAngleDirection): DredlessClient;
+}
+
+export interface ShipHandle {
+  entity: number;
+  name: string | null;
+  hexCode: string | null;
+  distance: number | null;
+  worldId: number | null;
+  hasWorldData: boolean;
+  world(): WorldDomain | null;
+  snapshot(): ShipReadSummary;
+}
 export interface ClientSnapshot {
   baseUrl: string;
   session: SessionSnapshot;
@@ -1352,3 +1477,9 @@ export interface DredlessNamespace {
 
 export const Dredless: DredlessNamespace;
 export default Dredless;
+
+
+
+
+
+

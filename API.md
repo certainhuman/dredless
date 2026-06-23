@@ -65,230 +65,69 @@ Constructor behavior:
 - Stores optional `gameVersion`.
 - Performs no network I/O.
 
-Properties:
+Primary domains:
 
 ```js
-session.baseUrl
-session.cookies
-session.gameSession
-session.gameToken
-session.gameVersion
-session.noticeVersion
-session.account
-session.geoServer
+client.player       // movement, aim, held item use, placement, input settings
+client.inventory    // current inventory state plus drag/equip/unequip actions
+client.management   // ship privacy, invite reset, player list, starter recovery
+client.net          // low-level websocket/send primitives
+client.debug        // raw packets, model tables, decode errors, PUI panels
+
+client.currentShip() // loaded ship-world live handle
+client.overworld()   // overworld live handle
+client.world(id)     // explicit world live handle
 ```
 
-Methods:
+Domain-object examples:
 
 ```js
-session.request(path, init);
-await session.fetchAccountStatus();
-await session.fetchShips(server);
-await session.fetchShipList(server);
+client.player.move({ x: 1, y: 0 });
+client.player.aim({ x: 300, y: 200 });
+client.inventory.equip(0, "feet");
 
-await session.startJoinConnection(server, ship?);
-await session.startConnection(server, ship?);
-await session.startNewShipConnection(server, name?, color?);
-await session.startInviteConnection(server, code);
+const ship = client.currentShip();
+const loader = ship?.machines.loaders()[0];
+loader?.configure({ cycle: 5, stack: 12 });
+loader?.setFilterItems([255, 0, 0]);
 
-await session.join(server, ship?);
-await session.start(server, ship?);
-await session.newShip(server, name?, color?);
-await session.startInvite(server, code);
-await session.invite(server, code);
+const pusher = ship?.machines.pushers()[0];
+pusher?.configure({ angle: 180, mode: "push", filteredMode: "pull" });
+console.log(pusher?.beam?.length, pusher?.beam?.modeName);
 
-session.toJSON();
+const launcher = ship?.machines.launchers()[0];
+launcher?.open();
+launcher?.setAngle(90);
+launcher?.setPower(15);
+
+const overworld = client.overworld();
+const nearbyShips = overworld?.ships({ sort: "distance" });
 ```
 
-`fetchAccountStatus()` calls `/account/status`, returns the response body, updates account fields, and merges relevant `Set-Cookie` headers.
-`fetchShips()` resolves to normalized `Ship[]`; `fetchShipList()` resolves to `ShipList`.
+Live handles are intentionally lightweight. A handle stores the client, world
+scope, and entity id; getters read the latest decoded state. Use `snapshot()` on
+a handle when you want the current normalized summary object.
 
-## `AnonSession`
+Low-level sends remain available under `client.net`:
 
 ```js
-const anon = new AnonSession(gameSession, anonKey, gameVersion?, baseUrl?);
+client.net.send(command);
+client.net.sendMessage(message, { afterReady: true });
+client.net.sendRaw(message);
+client.net.sendEntityCommand(cmd, args);
+client.net.sendUiConfig(data);
 ```
 
-`AnonSession` extends `Session` and adds:
+Debug/raw access is explicit:
 
 ```js
-anon.anonKey
+client.debug.packets();
+client.debug.decodeErrors();
+client.debug.modelTable(worldId, tableId);
+client.debug.modelRecord(worldId, tableId, entityId);
 ```
-
-## `Connection`
-
-```js
-const connection = new Connection(session, gameToken, netPort, serverId);
-```
-
-Constructor behavior:
-
-- Stores session, `game_token`, net port, and server id.
-- Adds `game_token` to the session cookie store.
-- Performs no network I/O.
-
-Properties:
-
-```js
-connection.session
-connection.gameToken
-connection.netPort
-connection.serverId
-connection.server
-connection.baseUrl
-```
-
-## `DredlessClient`
-
-```js
-const client = new DredlessClient(connection);
-await client.waitUntilReady();
-```
-
-Constructor behavior:
-
-- Starts the WebSocket connection immediately.
-- Resolves `readyPromise` after the server ready packet and bootstrap.
-
-Properties:
-
-```js
-client.connection
-client.session
-client.serverId
-client.server
-client.netPort
-client.sid
-client.connected
-client.ready
-client.readyPromise
-client.packetCount
-client.lastPacket
-client.cpuLoad
-client.inventory
-client.puiPanels
-client.commsPanels
-client.currentCommsPanel
-client.chat
-client.motd
-client.sessionMessages
-client.shipConfig
-client.captainSubrank
-client.playerList
-client.commandAcks
-client.lastCommandAck
-client.decodeErrors
-```
-
-Methods:
-
-```js
-await client.waitUntilReady();
-client.send(command);
-client.sendMessage(message, { afterReady? });
-client.sendRaw(message, { afterReady? });
-client.sendBlueprintPlacement(placement);
-client.setOutfit(outfit);
-client.sendShipManagement(act, arg?);
-client.requestPlayerList();
-client.resetInvite();
-client.setShipPrivacy(privacy);
-client.recoverStarterItem(itemId);
-client.sendEntityCommand(cmd, args?);
-client.sendCommsMessage(message);
-client.sendFabricatorMessage(cmd, args?);
-client.sendFabricatorCommand(itemId, count?, index?);
-client.craftAdd(itemId, count?, index?);
-client.craftSub(itemId, count?, index?);
-client.craftClearQueue();
-client.craftToggleRepeat();
-client.fabricatorLockResource(row);
-client.fabricatorUnlockResource(row);
-client.fabricatorEject(row);
-client.setLauncherAngle(angle);
-client.setLauncherPower(power);
-client.setSignText(text, mode?);
-client.sendUiConfig(data);
-client.solveGeneratorPuzzle(entity, solution);
-client.sendPusherConfig(entity, config?);
-client.setPusherAngle(entity, angle, config?);
-client.setPusherSpeed(entity, speed, config?);
-client.setPusherLength(entity, length, config?);
-client.setPusherMode(entity, mode, config?);
-client.setPusherFilteredMode(entity, filteredMode, config?);
-client.setPusherFilterInventory(entity, filterInventory, config?);
-client.setPusherFilterItems(entity, filterSlots?);
-client.sendLoaderConfig(entity, config?);
-client.sendLoaderFullConfig(entity, config?);
-client.copyLoaderConfig(entity, config?);
-client.sendLoaderClipboardConfig(config?);
-client.sendClipboardConfig(target, commandName, values?);
-client.setClipboardFixedAngle(target, direction);
-client.setGeneratorClipboardDirection(direction);
-client.setExpandoClipboardAngle(angle);
-client.setCargoEjectorDirection(entity, direction);
-client.pasteCargoEjectorConfig(entity, direction?);
-client.copyCargoEjectorConfig(entity, direction?);
-client.setCargoEjectorClipboardDirection(direction);
-client.setLoaderPickPlace(entity, pick, place, config?);
-client.setLoaderPriority(entity, priority, config?);
-client.setLoaderStack(entity, stack, config?);
-client.setLoaderCycle(entity, cycle, config?);
-client.setLoaderRequireOutput(entity, requireOutput, config?);
-client.setLoaderWaitForStack(entity, waitForStack, config?);
-client.setLoaderFilterMode(entity, filterMode);
-client.setLoaderFilterItems(entity, filterSlots?);
-client.setCargoHatchFilterMode(entity, filterMode);
-client.setCargoHatchFilterItems(entity, filterSlots?);
-client.sendCargoHatchFullConfig(entity, config?);
-client.pasteCargoHatchConfig(entity, config?);
-client.copyCargoHatchConfig(entity, config?);
-client.inputSettings();
-client.setInputSettings(settings?, options?);
-client.setView(width, height, options?);
-client.setScreenSize(width, height, options?);
-client.setWrenchMode(mode, options?);
-client.setWrenchAction(mode, options?);
-client.setTurretMode(mode, options?);
-client.sendNavigationUnitConfig(entity, config?);
-client.setNavigationDestination(entity, destination, config?);
-client.setNavigationAutoWarp(entity, config?);
-client.copyNavigationUnitConfig(entity, config?);
-client.pasteNavigationUnitConfig(entity, config?);
-client.startWarp(entity, config?);
-client.cancelWarp(entity, config?);
-client.move(x?, y?, command?);
-client.aim(mx?, my?, command?);
-client.action(flags?, command?);
-client.useEntity(entity, options?, command?);
-client.useHeldItem(options?, command?);
-client.placeHeldItem(options?, command?);
-client.placeBlueprint(placement, options?, command?);
-client.rotateHeldItem(options?, command?);
-client.selectSlot(invSlot?, command?);
-client.drag(source, target, split?, command?);
-client.moveInventoryItem(source, target, options?, command?);
-client.equipItem(source, equipmentSlot, options?, command?);
-client.unequipItem(equipmentSlot, target?, options?, command?);
-client.close(code?, reason?);
-client.disconnect(code?, reason?);
-client.state({ includeTiles?, includeModel? });
-client.ship({ includeTiles?, includeModel? });
-client.shipEntity();
-client.entities(scope?);
-client.entity(entityId, scope?);
-client.machines(scope?);
-client.players(scope?);
-client.shipControls(scope?);
-client.ships(options?);
-client.shipByHex(hexCode, options?);
-client.shipByEntity(entityId, options?);
-client.blocks(scope?);
-client.materials(scope?);
-```
-
-`send()` builds a signed `type: 0` input command and waits for the server `sid`
-before sending. `sendMessage()` sends ordinary MsgPack websocket messages such
+`client.net.send()` builds a signed `type: 0` input command and waits for the server `sid`
+before sending. `client.net.sendMessage()` sends ordinary MsgPack websocket messages such
 as `type: 5` entity/PUI commands, `type: 7` outfits, and `type: 8` UI/config
 payloads.
 
@@ -297,13 +136,13 @@ message shape. Fabricator helpers are named wrappers around this generic entity
 command channel:
 
 ```js
-client.craftAdd(248, 8);      // queue 8 Munitions Fabricators
-client.craftSub(248, 1, 0);   // remove 1 from queue index 0
-client.craftClearQueue();
-client.craftToggleRepeat();
-client.fabricatorLockResource(1);
-client.fabricatorUnlockResource(1);
-client.fabricatorEject(0);
+fabricator.add(248, 8);      // queue 8 Munitions Fabricators
+fabricator.sub(248, 1, 0);   // remove 1 from queue index 0
+fabricator.clearQueue();
+fabricator.toggleRepeat();
+fabricator.lockResource(1);
+fabricator.unlockResource(1);
+fabricator.eject(0);
 ```
 
 `sendFabricatorCommand()` is the legacy `craft_add` wrapper. Use
@@ -312,9 +151,9 @@ client.fabricatorEject(0);
 Comms station messages use their own top-level message shape:
 
 ```js
-client.useEntity(comms.entity);
-client.sendCommsMessage("my message");
-client.action({ exit: true });
+comms.open();
+comms.sendMessage("my message");
+client.player.action({ exit: true });
 ```
 
 Opening a comms station is a normal signed entity-use input command. The server
@@ -323,7 +162,7 @@ event. Sending a message emits `{ type:3, msg }`; the server then sends a type
 `13` comms bubble packet and a `comms` side-event update. Closing uses the
 normal signed `exit=true` input command and a `{ type:"comms", ent_id:null }`
 side event. Dredless stores normalized open comms panels in
-`client.commsPanels`, the active panel in `client.currentCommsPanel`, and emits
+`client.debug.commsPanels()`, the active panel in the latest current comms panel, and emits
 `client.on("comms", fn)` with flattened message text. When the comms history has
 multiple rows, each `msgs_text` row becomes one `messages[]` entry.
 
@@ -331,30 +170,30 @@ Ship-management helpers send observed top-level `type: 4` messages. These are
 not signed input commands and do not use the entity/PUI command channel:
 
 ```js
-client.setShipPrivacy("public");
-client.setShipPrivacy("private");
-client.recoverStarterItem(216); // Helm (Starter, Packaged)
-client.requestPlayerList();
-client.resetInvite();
-client.sendShipManagement("set_privacy", 1);
+client.management.setPrivacy("public");
+client.management.setPrivacy("private");
+client.management.recoverStarterItem(216); // Helm (Starter, Packaged)
+client.management.requestPlayerList();
+client.management.resetInvite();
+client.net.sendMessage({ type: 4, act: "set_privacy", arg: 1 });
 ```
 
 Privacy values accept `0`/`"public"`/`false` and `1`/`"private"`/`true`.
 Starter recovery responses arrive as session packets:
 `{ type:"starter_recovery_response", fail_reason }`. Privacy changes produce a
 session `config` packet containing the new `config.privacy` and `invite_key`.
-`client.shipConfig` stores the latest normalized config as
+`client.management.config()` stores the latest normalized config as
 `{ privacy, privacyName, inviteKey, teamId, patronPerks }`.
 Regenerating the ship invite sends `{ type:4, act:"invite_reset", arg:null }`
 as observed in `reset-invite.jsonl`; the server responds with the same `config`
-session submessage shape and a new `invite_key`, so `client.shipConfig.inviteKey`
+session submessage shape and a new `invite_key`, so `client.management.config()?.inviteKey`
 updates through the existing `"ship-config"` event.
 
 Opening or refreshing the official ship-management player-list page sends
 `{ type:4, act:"player_list", arg:null }`; Dredless exposes that as
-`requestPlayerList()`. The server responds with a type `25` session packet whose
+`client.management.requestPlayerList()`. The server responds with a type `25` session packet whose
 submessage is `type:"player_list"`. Dredless normalizes and stores it in
-`client.playerList`, emits `client.on("player-list", fn)`, and preserves removed
+`client.management.playerList()`, emits `client.on("player-list", fn)`, and preserves removed
 rows as entries with `removed:true`. Player rows include `captainRank` when the
 player is a captain. Lower numeric captain ranks have higher authority:
 `captainRank:1` is the original creator rank, captains promoted by them are
@@ -366,7 +205,7 @@ presence is required before the lockdown-release countdown can begin.
 The official privacy/invite-code page did not send a websocket command in
 `change-management-menu-to-page-with-ship-privacy-and-invite-code.jsonl`; it
 appears to render from the latest `config` session submessage. Captain subrank
-session packets are normalized into `client.captainSubrank` and emitted as
+session packets are normalized into `client.management.captainSubrank()` and emitted as
 `"captain-subrank"`. `captainSubrank.subrank` uses the same lower-is-stronger
 rank scale as player-list `captainRank`.
 
@@ -375,9 +214,9 @@ the launcher with a normal entity use first; the server replies with a PUI panel
 like `{ type:"launcher", power:30, angle:270 }`.
 
 ```js
-client.useEntity(launcher.entity);
-client.setLauncherAngle(90);
-client.setLauncherPower(15);
+launcher.open();
+launcher.setAngle(90);
+launcher.setPower(15);
 ```
 
 `angle` is degrees and is rounded/wrapped into `0..359`. `power` is the
@@ -391,10 +230,10 @@ auto-open the sign editor. Saving changed text sends `cmd:"sign_text"` with
 `exit` input command.
 
 ```js
-client.useEntity(sign.entity);
-client.setSignText("Dock here", "when-near");
-client.setSignText("Cargo", "always");
-client.setSignText("Inspect me", "on-hover");
+sign.open();
+sign.setText("Dock here", "when-near");
+sign.setText("Cargo", "always");
+sign.setText("Inspect me", "on-hover");
 ```
 
 Sign display modes are `0`/`"always"`, `1`/`"when-near"`, and
@@ -408,7 +247,7 @@ official defaults: default mode `do-nothing`, filtered mode `push`, angle `0`,
 speed `20`, length `1000`, and filter-by-inventory off.
 
 ```js
-client.sendPusherConfig(pusher.entity, {
+pusher.configure({
   mode: "pull",
   filteredMode: "do-nothing",
   angle: 90,
@@ -417,8 +256,8 @@ client.sendPusherConfig(pusher.entity, {
   filterInventory: true
 });
 
-client.setPusherAngle(pusher.entity, 180);
-client.setPusherFilterItems(pusher.entity, [100, 0, 0]); // Wrench in slot 0
+pusher.setAngle(180);
+pusher.setFilterItems([100, 0, 0]); // Wrench in slot 0
 ```
 
 Pusher modes are `0`/`"push"`, `1`/`"pull"`, and
@@ -432,7 +271,7 @@ defaults: pick `top-left`, place `top-right`, priority `normal`, stack `16`,
 cycle `1`, require-output off, and wait-for-stack off.
 
 ```js
-client.sendLoaderConfig(loader.entity, {
+loader.configure({
   pick: "top-left",
   place: "top-right",
   priority: "high",
@@ -442,11 +281,11 @@ client.sendLoaderConfig(loader.entity, {
   waitForStack: false
 });
 
-client.setLoaderCycle(loader.entity, 4);
-client.setLoaderFilterMode(loader.entity, "allow-filter");
-client.setLoaderFilterItems(loader.entity, [255, 0, 0]); // Fluid Tank in slot 0
+loader.setCycle(4);
+loader.setFilterMode("allow-filter");
+loader.setFilterItems([255, 0, 0]); // Fluid Tank in slot 0
 
-client.sendLoaderFullConfig(loader.entity, {
+loader.configureFull({
   pick: "bottom-right",
   place: "bottom-middle",
   priority: "low",
@@ -458,8 +297,8 @@ client.sendLoaderFullConfig(loader.entity, {
   filterSlots: [255, 0, 0]
 });
 
-client.copyLoaderConfig(loader.entity);
-client.sendLoaderClipboardConfig({
+loader.copy();
+client.net.sendUiConfig(buildLoaderClipboardConfigData({
   pick: "bottom-left",
   place: "top-right",
   priority: "normal",
@@ -467,7 +306,7 @@ client.sendLoaderClipboardConfig({
   cycle: 11,
   requireOutput: false,
   waitForStack: false
-});
+}));
 ```
 
 Loader priority uses Dredless normalized values (`-1=low`, `0=normal`,
@@ -491,13 +330,13 @@ Cargo Hatch config uses the same `filter_config` and `filter_items` sections as
 loader filtering, but has no base `config_loader` section:
 
 ```js
-client.setCargoHatchFilterMode(hatch.entity, "allow-filter");
-client.setCargoHatchFilterItems(hatch.entity, [0, 0, 152]); // Flak Ammo in slot 2
-client.pasteCargoHatchConfig(hatch.entity, {
+hatch.setFilterMode("allow-filter");
+hatch.setFilterItems([0, 0, 152]); // Flak Ammo in slot 2
+hatch.paste({
   filterMode: "allow-filter",
   filterSlots: [0, 0, 152]
 });
-client.copyCargoHatchConfig(hatch.entity);
+hatch.copy();
 ```
 
 `pasteCargoHatchConfig()` sends both filter sections with paste action `2`.
@@ -507,10 +346,10 @@ client.copyCargoHatchConfig(hatch.entity);
 Cargo Ejector config uses the fixed-direction `angle_fixed` section:
 
 ```js
-client.setCargoEjectorDirection(ejector.entity, "left");
-client.pasteCargoEjectorConfig(ejector.entity, "right");
-client.copyCargoEjectorConfig(ejector.entity, "right");
-client.setCargoEjectorClipboardDirection("left");
+ejector.setDirection("left");
+ejector.paste("right");
+ejector.copy("right");
+client.net.sendUiConfig(buildCargoEjectorClipboardDirectionData("left"));
 ```
 
 `copyCargoEjectorConfig()` writes the server-side cargo-ejector clipboard target
@@ -528,7 +367,7 @@ client.setGeneratorClipboardDirection("up");
 client.setGeneratorClipboardDirection("left");
 client.setGeneratorClipboardDirection("down");
 client.setExpandoClipboardAngle(115);
-client.sendClipboardConfig("expando", "angle", [115]);
+client.net.sendUiConfig(buildClipboardConfigData("expando", "angle", [115]));
 ```
 
 Generator clipboard direction uses command `angle_fixed` with values
@@ -538,8 +377,8 @@ Generator clipboard direction uses command `angle_fixed` with values
 Shield generator puzzle submissions use a compact `type: 8` UI/config payload:
 
 ```js
-client.useEntity(generator.entity);
-client.solveGeneratorPuzzle(generator.entity, generator.puzzleSolution);
+generator.open();
+generator.solvePuzzle(generator.puzzleSolution);
 ```
 
 `open-generator-puzzle.jsonl` confirms opening the puzzle is a normal entity
@@ -571,10 +410,10 @@ command. The official client does not send a separate settings packet for these
 controls; it changes repeated fields on normal input commands:
 
 ```js
-client.setWrenchMode("grab-all-items");
-client.setTurretMode("volley-fire");
-client.setScreenSize(2840, 1634);
-client.setView(1282.395, 737.829);
+client.player.setWrenchMode("grab-all-items");
+client.player.setTurretMode("volley-fire");
+client.player.setScreenSize(2840, 1634);
+client.player.setView(1282.395, 737.829);
 client.inputSettings();
 ```
 
@@ -596,9 +435,9 @@ Turret modes:
 View/zoom settings:
 
 ```js
-client.setView(width, height);          // sends vx/vy in ship-tile units
-client.setScreenSize(width, height);    // sends scr_w/scr_h in pixels
-client.setInputSettings({
+client.player.setView(width, height);          // sends vx/vy in ship-tile units
+client.player.setScreenSize(width, height);    // sends scr_w/scr_h in pixels
+client.player.setInputSettings({
   viewWidth: 17.75,
   viewHeight: 10.2125,
   screenWidth: 2840,
@@ -623,7 +462,7 @@ Generic entity use sends a normal left-click type `0` command with the entity
 in `focus_ent`:
 
 ```js
-client.useEntity(ejector.entity, { invSlot: 0 });
+ejector.use({ invSlot: 0 });
 ```
 
 `place-16-standard-ammo-in-ejector.jsonl` confirms this is how the official
@@ -635,7 +474,7 @@ Using or placing the currently held hotbar item sends the same left-click flags
 without a focused entity:
 
 ```js
-client.placeHeldItem({ invSlot: 0 }, { mx: 19.79, my: 4.79 });
+client.player.placeHeldItem({ invSlot: 0 }, { mx: 19.79, my: 4.79 });
 ```
 
 `place-generator.jsonl` confirms placing a Shield Generator from hotbar slot `0`
@@ -647,7 +486,7 @@ placing it, sends the alternate action flags:
 
 ```js
 client.rotateHeldItem({ invSlot: 2 }, { mx: 28.77, my: 5.82 });
-client.placeHeldItem({ invSlot: 2 }, { mx: 28.26, my: 5.26 });
+client.player.placeHeldItem({ invSlot: 2 }, { mx: 28.26, my: 5.26 });
 ```
 
 `rotate-door-placement-to-horizontal.jsonl` confirms rotation is `type:0` with
@@ -659,20 +498,20 @@ Blueprint placement sends one ordinary MsgPack message before the signed
 held-item click:
 
 ```js
-client.sendBlueprintPlacement({
+client.net.sendBlueprintPlacement({
   x: 28,
   y: 18,
   width: 3,
   height: 3,
   source: "DSA:m8DAzDxhAgMDU8NL9olAmhFKM4DoiRMB"
 });
-client.placeHeldItem({ invSlot: 2 }, { mx: 28.71, my: 18.36 });
+client.player.placeHeldItem({ invSlot: 2 }, { mx: 28.71, my: 18.36 });
 ```
 
 Use `placeBlueprint()` to send both packets in the same order:
 
 ```js
-client.placeBlueprint(
+client.player.placeBlueprint(
   {
     x: 29,
     y: 17,
@@ -691,7 +530,7 @@ and the active hotbar slot in `inv_slot`.
 Ship scanner items are activated with the same normal signed held-item click:
 
 ```js
-client.useHeldItem({ invSlot: 1 }, { mx: 30.5, my: 5.5 });
+client.player.useHeldItem({ invSlot: 1 }, { mx: 30.5, my: 5.5 });
 ```
 
 Observed scanner item ids are Manifest Scanner `115`, BoM Scanner `116`, and
@@ -727,11 +566,11 @@ object. Equipment slots are absolute inventory slots in the official protocol:
 `19`/`"back"`, `20`/`"hands"`, and `21`/`"feet"`.
 
 ```js
-client.moveInventoryItem(0, 4);
-client.moveInventoryItem(1, 2, { split: true });
-client.equipItem(0, "back");
-client.equipItem(0, "hands");
-client.equipItem(0, "feet");
+client.inventory.move(0, 4);
+client.inventory.move(1, 2, { split: true });
+client.inventory.equip(0, "back");
+client.inventory.equip(0, "hands");
+client.inventory.equip(0, "feet");
 client.unequipItem("hands", 0);
 ```
 
@@ -744,10 +583,10 @@ Navigation-unit helpers send the observed top-level `type: 8` UI/config
 payload for `config_nav_unit`:
 
 ```js
-const nav = client.machines().navigationUnits[0];
+const nav = client.currentShip()?.machines.summary().navigationUnits[0];
 
-client.setNavigationDestination(nav.entity, 40); // Raven
-client.setNavigationAutoWarp(nav.entity, {
+nav.setDestination(40); // Raven
+nav.setAutoWarp({
   destination: 40,
   page: 1,
   autoWarpOnShieldFailure: true,
@@ -798,13 +637,13 @@ Collection helpers accept an optional `scope`:
 Methods that accept a scope:
 
 ```js
-client.entities(scope);
+client.world(scope)?.entities.raw();
 client.entity(entityId, scope);
-client.machines(scope);
-client.players(scope);
+client.world(scope)?.machines.summary();
+client.world(scope)?.players.all();
 client.shipControls(scope);
-client.blocks(scope);
-client.materials(scope);
+client.world(scope)?.blocks.all();
+client.world(scope)?.materials.all();
 ```
 
 ### `client.state(options?)`
@@ -875,16 +714,16 @@ Use when:
 
 Prefer instead:
 
-- `client.ship()` for only the current ship world.
-- `client.entities()`, `client.machines()`, or `client.players()` for
+- `client.currentShip()?.snapshot()` for only the current ship world.
+- `client.currentShip()?.entities.raw()`, `client.currentShip()?.machines.summary()`, or `client.currentShip()?.players.all()` for
   high-frequency reads.
 
-### `client.ship(options?)`
+### `client.currentShip()`
 
 Returns the current ship-world snapshot, or `null` if no ship world is loaded.
 
 ```js
-const ship = client.ship();
+const ship = client.currentShip()?.snapshot();
 ```
 
 Return shape:
@@ -943,7 +782,7 @@ example `66` resolves to Mosaic, not Combat Arena VII.
 Options:
 
 ```js
-client.ship({
+client.currentShip()?.snapshot({
   includeTiles: false,
   includeModel: false
 });
@@ -966,17 +805,17 @@ Use when:
 
 Prefer instead:
 
-- `client.machines()` if you only need machines.
-- `client.entities()` if you only need entity summaries.
+- `client.currentShip()?.machines.summary()` if you only need machines.
+- `client.currentShip()?.entities.raw()` if you only need entity summaries.
 - `client.materials()` if you only need material counts.
 
-### `client.shipEntity()`
+### `client.currentShip()?.entity()?.snapshot()`
 
 Returns the overworld entity that represents the currently loaded ship, or
 `null` when the link is not known.
 
 ```js
-const currentShip = client.shipEntity();
+const currentShip = client.currentShip()?.entity()?.snapshot();
 ```
 
 Return shape is `EntitySummary`:
@@ -1019,16 +858,16 @@ Use when:
 
 Alternative:
 
-- `client.ships().find((ship) => ship.entity === client.shipEntity()?.entity)`
+- `client.overworld()?.ships().find((ship) => ship.entity === client.currentShip()?.entity()?.snapshot()?.entity)`
   when you also want the normalized `ShipReadSummary` shape.
 
-### `client.entities(scope?)`
+### World entity collections
 
 Returns all normalized entity summaries in the selected world.
 
 ```js
-const entities = client.entities();
-const overworldEntities = client.entities("overworld");
+const entities = client.currentShip()?.entities.raw();
+const overworldEntities = client.overworld()?.entities.raw();
 ```
 
 Return shape:
@@ -1103,8 +942,8 @@ Use when:
 Prefer instead:
 
 - `client.entity(id)` for a known id.
-- `client.machines()` for known machine categories.
-- `client.players()` for player-only reads.
+- `client.currentShip()?.machines.summary()` for known machine categories.
+- `client.currentShip()?.players.all()` for player-only reads.
 
 ### `client.entity(entityId, scope?)`
 
@@ -1116,7 +955,7 @@ const overworldEntity = client.entity(2495754, "overworld");
 ```
 
 Return shape is one `EntitySummary`, the same as an item from
-`client.entities()`.
+`client.currentShip()?.entities.raw()`.
 
 Cost:
 
@@ -1130,14 +969,14 @@ Use when:
 
 Prefer instead:
 
-- `client.entities()` when you need to search or filter by arbitrary fields.
+- `client.currentShip()?.entities.raw()` when you need to search or filter by arbitrary fields.
 
-### `client.machines(scope?)`
+### Machine collections
 
 Returns normalized machine summaries grouped by machine kind.
 
 ```js
-const machines = client.machines();
+const machines = client.currentShip()?.machines.summary();
 const loaders = machines.loaders;
 ```
 
@@ -1275,7 +1114,7 @@ the launcher defaults to `0deg`. The decoded degree value may be slightly
 fractional because the persisted value is quantized. Launcher power is not
 exposed by persisted model state; it is only present in the live launcher PUI
 after opening the launcher. Consumers that need to edit power should open the launcher first, then use
-`client.setLauncherPower(power)`.
+`launcher.setPower(power)`.
 
 Navigation unit shape:
 
@@ -1330,14 +1169,14 @@ Use when:
 Prefer instead:
 
 - `client.entity(id).contents.loader` for one known machine.
-- `client.ship()` if you also need entities, players, blocks, and materials.
+- `client.currentShip()?.snapshot()` if you also need entities, players, blocks, and materials.
 
-### `client.players(scope?)`
+### Player collections
 
 Returns normalized player summaries.
 
 ```js
-const players = client.players();
+const players = client.currentShip()?.players.all();
 ```
 
 Return shape:
@@ -1423,7 +1262,7 @@ Use when:
 
 Alternative:
 
-- `client.entities().filter((entity) => entity.contents?.player)` when you
+- `client.currentShip()?.entities.raw().filter((entity) => entity.contents?.player)` when you
   need the full entity wrapper around each player.
 
 ### `client.shipControls(scope?)`
@@ -1494,19 +1333,19 @@ Use when:
 
 Prefer instead:
 
-- `client.ships()` for the higher-level ship list that includes position,
+- `client.overworld()?.ships()` for the higher-level ship list that includes position,
   distance, entity wrapper, and attached loaded world data.
-- `client.shipEntity()` for only the current loaded ship's overworld entity.
+- `client.currentShip()?.entity()?.snapshot()` for only the current loaded ship's overworld entity.
 
-### `client.ships(options?)`
+### `client.overworld()?.ships(options?)`
 
 Returns all visible overworld ships in a higher-level shape. Every result has
 ship-control data. If the corresponding ship world is loaded, the result also
 includes a `world` snapshot.
 
 ```js
-const ships = client.ships();
-const nearby = client.ships({ includeWorld: false, sort: "distance" });
+const ships = client.overworld()?.ships();
+const nearby = client.overworld()?.ships({ includeWorld: false, sort: "distance" });
 ```
 
 Return shape:
@@ -1539,7 +1378,7 @@ Return shape:
 Options:
 
 ```js
-client.ships({
+client.overworld()?.ships({
   includeWorld: true,
   includeTiles: false,
   includeModel: false,
@@ -1573,26 +1412,26 @@ Use when:
 Examples:
 
 ```js
-for (const ship of client.ships({ sort: "distance" })) {
+for (const ship of client.overworld()?.ships({ sort: "distance" })) {
   console.log(ship.name, ship.hexCode, ship.hasWorldData);
   if (ship.world) console.log(ship.world.machines.loaders);
 }
 ```
 
 ```js
-const visibleShips = client.ships({ includeWorld: false });
-const detailedLoadedShips = client.ships().filter((ship) => ship.hasWorldData);
+const visibleShips = client.overworld()?.ships({ includeWorld: false });
+const detailedLoadedShips = client.overworld()?.ships().filter((ship) => ship.hasWorldData);
 ```
 
 Prefer instead:
 
 - `client.shipControls()` if you only need ship-control records.
-- `client.shipEntity()` for only the current ship.
-- `client.ship()` for only the current ship world's detailed contents.
+- `client.currentShip()?.entity()?.snapshot()` for only the current ship.
+- `client.currentShip()?.snapshot()` for only the current ship world's detailed contents.
 
 ### `client.shipByHex(hexCode, options?)`
 
-Returns one item from `client.ships(options)`, matched case-insensitively by
+Returns one item from `client.overworld()?.ships(options)`, matched case-insensitively by
 hex code, or `null`.
 
 ```js
@@ -1600,11 +1439,11 @@ const ship = client.shipByHex("56C318");
 ```
 
 Return shape is one `ShipReadSummary`, the same as an item from
-`client.ships()`.
+`client.overworld()?.ships()`.
 
 Cost:
 
-- Calls `client.ships(options)` and then searches the result.
+- Calls `client.overworld()?.ships(options)` and then searches the result.
 - Same cost as `ships()` plus a linear find.
 
 Use when:
@@ -1614,14 +1453,14 @@ Use when:
 Prefer instead for repeated lookups:
 
 ```js
-const ships = client.ships({ includeWorld: false });
+const ships = client.overworld()?.ships({ includeWorld: false });
 const byHex = new Map(ships.map((ship) => [ship.hexCode?.toUpperCase(), ship]));
 const ship = byHex.get("56C318");
 ```
 
 ### `client.shipByEntity(entityId, options?)`
 
-Returns one item from `client.ships(options)`, matched by overworld ship entity
+Returns one item from `client.overworld()?.ships(options)`, matched by overworld ship entity
 id, or `null`.
 
 ```js
@@ -1629,11 +1468,11 @@ const ship = client.shipByEntity(8056857);
 ```
 
 Return shape is one `ShipReadSummary`, the same as an item from
-`client.ships()`.
+`client.overworld()?.ships()`.
 
 Cost:
 
-- Calls `client.ships(options)` and then searches the result.
+- Calls `client.overworld()?.ships(options)` and then searches the result.
 - Same cost as `ships()` plus a linear find.
 
 Use when:
@@ -1681,7 +1520,7 @@ Use when:
 
 Prefer instead:
 
-- `client.entities()` when block-level occupancy is not needed.
+- `client.currentShip()?.entities.raw()` when block-level occupancy is not needed.
 - `client.entity(id)` for a known entity id.
 
 ### `client.materials(scope?)`
@@ -1718,7 +1557,7 @@ Use when:
 
 Prefer instead:
 
-- `client.ship({ includeTiles: true })` when you need both tile list and
+- `client.currentShip()?.snapshot({ includeTiles: true })` when you need both tile list and
   material summary in one snapshot.
 - Cache the result yourself if polling often and tile changes are not relevant.
 
@@ -1728,20 +1567,20 @@ Lower-level compatibility/debug methods remain available:
 
 ```js
 client.snapshot({ includeTiles?, includeModel? });
-client.world(id, { includeTiles?, includeModel? });
-client.overworld({ includeTiles?, includeModel? });
+client.world(id)?.snapshot({ includeTiles?, includeModel? });
+client.overworld()?.snapshot({ includeTiles?, includeModel? });
 client.shipWorld({ includeTiles?, includeModel? });
-client.packetsRaw;
+client.debug.packets();
 client.worlds;
 ```
 
 `client.snapshot()` is the old name for `client.state()`.
-`client.shipWorld()` is the old name for `client.ship()`.
+`client.shipWorld()` is the old name for `client.currentShip()?.snapshot()`.
 `client.world(id)` / `client.overworld()` return full world snapshots and are
 useful for diagnostics, but the scoped helpers are usually clearer.
 `client.worlds` exposes the live `WorldStore`; prefer it only for replay tools,
 decoder work, or debugging.
-`client.packetsRaw` returns a shallow copy of raw decoded websocket packets and
+`client.debug.packets()` returns a shallow copy of raw decoded websocket packets and
 can grow large.
 
 ### Cost Guidelines
@@ -1749,30 +1588,30 @@ can grow large.
 For frequent polling:
 
 ```js
-const machines = client.machines();
-const players = client.players();
-const entities = client.entities();
+const machines = client.currentShip()?.machines.summary();
+const players = client.currentShip()?.players.all();
+const entities = client.currentShip()?.entities.raw();
 ```
 
 Avoid frequent full snapshots:
 
 ```js
 client.state();
-client.ship({ includeTiles: true });
-client.ship({ includeModel: true });
-client.ships({ includeWorld: true, includeModel: true });
+client.currentShip()?.snapshot({ includeTiles: true });
+client.currentShip()?.snapshot({ includeModel: true });
+client.overworld()?.ships({ includeWorld: true, includeModel: true });
 ```
 
 Prefer cheap ship lists when detailed ship contents are not needed:
 
 ```js
-const ships = client.ships({ includeWorld: false, sort: "distance" });
+const ships = client.overworld()?.ships({ includeWorld: false, sort: "distance" });
 ```
 
 Avoid repeated helper calls inside loops when one call can be reused:
 
 ```js
-const machines = client.machines();
+const machines = client.currentShip()?.machines.summary();
 for (const loader of machines.loaders) {
   // use loader
 }
@@ -1781,8 +1620,8 @@ for (const loader of machines.loaders) {
 Instead of:
 
 ```js
-for (const entity of client.entities()) {
-  const loaders = client.machines().loaders;
+for (const entity of client.currentShip()?.entities.raw()) {
+  const loaders = client.currentShip()?.machines.summary().loaders;
 }
 ```
 
@@ -1831,7 +1670,7 @@ ship name, RGB color, ship dimensions, `onlineShipOwnerCount`, and
 `30` with only the required owner count present; captures with one of two owners
 online show `onlineShipOwnerCount:1` and `requiredShipOwnerCount:2`.
 Tile entries include material names, known shape names, solid/open flags, and
-HP fractions when the official tileset defines them. `client.shipEntity()`
+HP fractions when the official tileset defines them. `client.currentShip()?.entity()?.snapshot()`
 resolves the loaded ship world's `parent_world`/`parent_ent` link back to the
 corresponding overworld ship entity. Overworld ship-control summaries include
 ship `name`, `hexCode`,
@@ -1841,8 +1680,8 @@ Helm entity summaries include `occupied` when the model stream identifies the
 specific helm currently being used.
 Comms station summaries include current `charges`, `maxCharges`, `chargeRatio`,
 and `occupied` when a player is using the station.
-Open comms UI state is exposed separately as `client.currentCommsPanel` and
-`client.commsPanels`; message rows include both `raw` rich text and flattened
+Open comms UI state is exposed separately as the latest current comms panel and
+`client.debug.commsPanels()`; message rows include both `raw` rich text and flattened
 plain `text`.
 Comms bubble packets are stored on each world as recent `commsBubbles`, with
 source entity, message text, color, and display duration.
@@ -1862,7 +1701,7 @@ door rank/open state, cannon ammo/aim/barrel recoil/spin/cooling state, expando 
 configuration, and normalized loader configuration (`pick`, `place`,
 `priority`, `requireOutput`, `stack`, `cycle`, `waitForStack`, filter mode,
 filter slots, and enum display names).
-Packets that cannot be fully decoded are recorded in `client.decodeErrors` and
+Packets that cannot be fully decoded are recorded in `client.debug.decodeErrors()` and
 emit `decode-error`; they do not close the websocket.
 
 ## Server And Ship Arguments
@@ -1908,3 +1747,8 @@ Normalized ships returned by fetch helpers include:
   ships
 }
 ```
+
+
+
+
+
