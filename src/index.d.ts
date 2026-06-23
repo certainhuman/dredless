@@ -781,6 +781,7 @@ export interface OverworldZoneSummary {
   layer: number;
   key: string;
   name: string;
+  tiered: boolean;
   displayName: string;
 }
 

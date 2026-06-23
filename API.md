@@ -927,12 +927,16 @@ For overworld worlds, `overworldZone` is:
   layer,       // zero-based layer index
   key,         // "freeport", "hummingbird", ...
   name,        // display base name
-  displayName  // base name plus layer, for example "Sparrow II"
+  tiered,      // true when layer ids are valid for this base zone
+  displayName  // tiered name plus layer, for example "Sparrow II"; otherwise name
 }
 ```
 
 Known base ids are `0` Freeport, `10` Hummingbird, `20` Finch,
-`30` Sparrow, `40` Raven, `50` Falcon, and `60` Combat Arena.
+`30` Sparrow, `40` Raven, `50` Falcon, `60` Combat Arena, and `66` Mosaic.
+Currently only Finch and Sparrow are tiered, so ids such as `21` and `31`
+resolve as Finch II and Sparrow II. Non-tiered zones require exact ids; for
+example `66` resolves to Mosaic, not Combat Arena VII.
 
 `tiles` is present only with `includeTiles: true`.
 
