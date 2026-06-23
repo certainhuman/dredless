@@ -15,9 +15,13 @@ import {
   normalizeInventoryEvent
 } from "./protocol/inventory.js";
 import {
+  buildBanPlayerMessage,
+  buildDemoteSelfMessage,
   buildInviteResetMessage,
+  buildKickPlayerMessage,
   buildPlayerListMessage,
   buildShipManagementMessage,
+  buildSetPlayerRankMessage,
   buildShipPrivacyMessage,
   buildStarterRecoveryMessage,
   normalizeCaptainSubrankEvent,
@@ -174,6 +178,34 @@ export class DredlessClient extends EventBus {
 
   recoverStarterItem(itemId) {
     return this.sendMessage(buildStarterRecoveryMessage(itemId));
+  }
+
+  setPlayerRank(refId, rank) {
+    return this.sendMessage(buildSetPlayerRankMessage(refId, rank));
+  }
+
+  promotePlayerToCaptain(refId) {
+    return this.setPlayerRank(refId, "captain");
+  }
+
+  demotePlayerToCrew(refId) {
+    return this.setPlayerRank(refId, "crew");
+  }
+
+  demotePlayerToGuest(refId) {
+    return this.setPlayerRank(refId, "guest");
+  }
+
+  kickPlayer(refId) {
+    return this.sendMessage(buildKickPlayerMessage(refId));
+  }
+
+  banPlayer(refId) {
+    return this.sendMessage(buildBanPlayerMessage(refId));
+  }
+
+  demoteSelf() {
+    return this.sendMessage(buildDemoteSelfMessage());
   }
 
   sendEntityCommand(cmd, args = [-1, -1, -1]) {
@@ -825,7 +857,7 @@ export class DredlessClient extends EventBus {
       return;
     }
     if (submessage.type === "player_list") {
-      this.playerList = normalizePlayerListEvent(submessage);
+      this.playerList = normalizePlayerListEvent(submessage, this.playerList);
       this.emit("player-list", this.playerList, packet);
     }
   }
@@ -1039,6 +1071,13 @@ class ShipManagementDomain {
   resetInvite() { return this.client.resetInvite(); }
   setPrivacy(privacy) { return this.client.setShipPrivacy(privacy); }
   recoverStarterItem(itemId) { return this.client.recoverStarterItem(itemId); }
+  setPlayerRank(refId, rank) { return this.client.setPlayerRank(refId, rank); }
+  promotePlayerToCaptain(refId) { return this.client.promotePlayerToCaptain(refId); }
+  demotePlayerToCrew(refId) { return this.client.demotePlayerToCrew(refId); }
+  demotePlayerToGuest(refId) { return this.client.demotePlayerToGuest(refId); }
+  kickPlayer(refId) { return this.client.kickPlayer(refId); }
+  banPlayer(refId) { return this.client.banPlayer(refId); }
+  demoteSelf() { return this.client.demoteSelf(); }
   config() { return this.client.shipConfig; }
   captainSubrank() { return this.client.captainSubrank; }
   playerList() { return this.client.playerList; }

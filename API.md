@@ -175,10 +175,22 @@ client.management.setPrivacy("private");
 client.management.recoverStarterItem(216); // Helm (Starter, Packaged)
 client.management.requestPlayerList();
 client.management.resetInvite();
+client.management.promotePlayerToCaptain(10);
+client.management.demotePlayerToCrew(10);
+client.management.demotePlayerToGuest(10);
+client.management.kickPlayer(10);
+client.management.banPlayer(10);
+client.management.demoteSelf();
 client.net.sendMessage({ type: 4, act: "set_privacy", arg: 1 });
 ```
 
 Privacy values accept `0`/`"public"`/`false` and `1`/`"private"`/`true`.
+Player rank helpers use observed official rank codes: `0`/`"guest"`, `1`/`"crew"`,
+and `3`/`"captain"`. They send `{ type:4, act:"set_rank", arg:refId, rank }`.
+Kicking and banning send `{ type:4, act:"kick", arg:refId }` and
+`{ type:4, act:"ban", arg:refId }`; self-demotion sends
+`{ type:4, act:"demote_self", arg:null }`. The server responds with world text,
+ship log entries, and usually a refreshed `player_list` session submessage.
 Starter recovery responses arrive as session packets:
 `{ type:"starter_recovery_response", fail_reason }`. Privacy changes produce a
 session `config` packet containing the new `config.privacy` and `invite_key`.
@@ -190,12 +202,16 @@ session submessage shape and a new `invite_key`, so `client.management.config()?
 updates through the existing `"ship-config"` event.
 
 Opening or refreshing the official ship-management player-list page sends
-`{ type:4, act:"player_list", arg:null }`; Dredless exposes that as
+`{ type:4, act:"player_list", arg:null }`; it does not fetch the invite key.
+Dredless exposes that as
 `client.management.requestPlayerList()`. The server responds with a type `25` session packet whose
 submessage is `type:"player_list"`. Dredless normalizes and stores it in
-`client.management.playerList()`, emits `client.on("player-list", fn)`, and preserves removed
-rows as entries with `removed:true`. Player rows include `captainRank` when the
-player is a captain. Lower numeric captain ranks have higher authority:
+`client.management.playerList()` and emits `client.on("player-list", fn)`. Later
+`player_list` responses can be sparse deltas: included rows are merged by
+`refId`, `_removed:true` rows remove existing players, and omitted players are
+retained. The normalized event exposes the merged visible `players` plus the raw
+normalized packet `changes` and `removedPlayers`. Player rows include
+`captainRank` when the player is a captain. Lower numeric captain ranks have higher authority:
 `captainRank:1` is the original creator rank, captains promoted by them are
 rank `2`, and so on. The normalized player list derives
 `ownerCaptainRank` as the lowest current captain rank and marks every current
@@ -204,7 +220,10 @@ presence is required before the lockdown-release countdown can begin.
 
 The official privacy/invite-code page did not send a websocket command in
 `change-management-menu-to-page-with-ship-privacy-and-invite-code.jsonl`; it
-appears to render from the latest `config` session submessage. Captain subrank
+appears to render from the latest `config` session submessage. Guest and crew
+joins do not receive `config.invite_key`; when a guest/crew is promoted to
+captain, the server sends `type:"config"` with `invite_key` before the
+`captain_subrank` update. Captain subrank
 session packets are normalized into `client.management.captainSubrank()` and emitted as
 `"captain-subrank"`. `captainSubrank.subrank` uses the same lower-is-stronger
 rank scale as player-list `captainRank`.

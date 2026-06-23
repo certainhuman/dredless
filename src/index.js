@@ -21,13 +21,18 @@ export {
   normalizeInventoryEvent
 } from "./protocol/inventory.js";
 export {
+  buildBanPlayerMessage,
+  buildDemoteSelfMessage,
   buildInviteResetMessage,
+  buildKickPlayerMessage,
   buildPlayerListMessage,
   buildShipManagementMessage,
+  buildSetPlayerRankMessage,
   buildShipPrivacyMessage,
   buildStarterRecoveryMessage,
   normalizeCaptainSubrankEvent,
   normalizePlayerListEvent,
+  normalizePlayerRank,
   normalizePrivacy,
   normalizeShipConfigEvent
 } from "./protocol/ship-management.js";

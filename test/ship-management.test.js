@@ -5,12 +5,17 @@ import test from "node:test";
 import { WorldStore } from "../src/game/world.js";
 import { decodeMsgpack, encodeMsgpack } from "../src/protocol/msgpack.js";
 import {
+  buildBanPlayerMessage,
+  buildDemoteSelfMessage,
   buildInviteResetMessage,
+  buildKickPlayerMessage,
   buildPlayerListMessage,
+  buildSetPlayerRankMessage,
   buildShipPrivacyMessage,
   buildStarterRecoveryMessage,
   normalizeCaptainSubrankEvent,
   normalizePlayerListEvent,
+  normalizePlayerRank,
   normalizePrivacy,
   normalizeShipConfigEvent
 } from "../src/protocol/ship-management.js";
@@ -82,6 +87,34 @@ test("buildInviteResetMessage matches official client invite reset capture", () 
   );
 });
 
+
+test("build crew-management messages match official client captures", () => {
+  assert.deepEqual(buildSetPlayerRankMessage(10, "captain"), { type: 4, act: "set_rank", arg: 10, rank: 3 });
+  assert.deepEqual(buildSetPlayerRankMessage(10, "crew"), { type: 4, act: "set_rank", arg: 10, rank: 1 });
+  assert.deepEqual(buildSetPlayerRankMessage(10, "guest"), { type: 4, act: "set_rank", arg: 10, rank: 0 });
+  assert.deepEqual(buildKickPlayerMessage(10), { type: 4, act: "kick", arg: 10 });
+  assert.deepEqual(buildBanPlayerMessage(10), { type: 4, act: "ban", arg: 10 });
+  assert.deepEqual(buildDemoteSelfMessage(), { type: 4, act: "demote_self", arg: null });
+  assert.equal(
+    hex(encodeMsgpack(buildSetPlayerRankMessage(10, "captain"))),
+    "84a47479706504a3616374a87365745f72616e6ba36172670aa472616e6b03",
+    "promote-player-to-captain.jsonl"
+  );
+  assert.equal(
+    hex(encodeMsgpack(buildSetPlayerRankMessage(10, "crew"))),
+    "84a47479706504a3616374a87365745f72616e6ba36172670aa472616e6b01",
+    "demote-player-to-crew.jsonl"
+  );
+  assert.equal(
+    hex(encodeMsgpack(buildSetPlayerRankMessage(10, "guest"))),
+    "84a47479706504a3616374a87365745f72616e6ba36172670aa472616e6b00",
+    "demote-player-to-guest.jsonl"
+  );
+  assert.equal(hex(encodeMsgpack(buildKickPlayerMessage(10))), "83a47479706504a3616374a46b69636ba36172670a", "kick-player.jsonl");
+  assert.equal(hex(encodeMsgpack(buildBanPlayerMessage(10))), "83a47479706504a3616374a362616ea36172670a", "ban-player.jsonl");
+  assert.equal(hex(encodeMsgpack(buildDemoteSelfMessage())), "83a47479706504a3616374ab64656d6f74655f73656c66a3617267c0", "demote-self.jsonl");
+});
+
 test("ship lockdown countdown is decoded from official model metadata capture", (t) => {
   const values = [];
   const store = replayOfficialCapture("lockdown-counting-down-to-25.jsonl", ({ store }) => {
@@ -141,6 +174,60 @@ test("normalizePrivacy accepts public API aliases", () => {
   assert.throws(() => normalizePrivacy("friends"), /privacy/);
 });
 
+test("normalizePlayerRank accepts observed public API aliases", () => {
+  assert.equal(normalizePlayerRank("guest"), 0);
+  assert.equal(normalizePlayerRank("crew"), 1);
+  assert.equal(normalizePlayerRank("captain"), 3);
+  assert.equal(normalizePlayerRank(0), 0);
+  assert.equal(normalizePlayerRank(1), 1);
+  assert.equal(normalizePlayerRank(3), 3);
+  assert.throws(() => normalizePlayerRank("banned"), /rank/);
+});
+
+
+test("normalizePlayerListEvent treats captain_rank zero as non-captain", () => {
+  const event = normalizePlayerListEvent({
+    type: "player_list",
+    player_list: [
+      { ref_id: 1, discrim: "#Owner", team_rank: 3, captain_rank: 1, items: [], alias_discrims: [], online_count: 1 },
+      { ref_id: 10, discrim: "#Crew", team_rank: 1, captain_rank: 0, items: [], alias_discrims: [], online_count: 1 },
+      { ref_id: 11, discrim: "#Guest", team_rank: 0, captain_rank: 0, items: [], alias_discrims: [], online_count: 0 }
+    ]
+  });
+  assert.equal(event.ownerCaptainRank, 1);
+  assert.deepEqual(event.shipOwners.map((player) => player.refId), [1]);
+  assert.equal(event.players[1].isCaptain, false);
+  assert.equal(event.players[1].isShipOwner, false);
+  assert.equal(event.players[2].isCaptain, false);
+  assert.equal(event.players[2].isShipOwner, false);
+});
+
+test("normalizePlayerListEvent merges player_list deltas into previous state", () => {
+  const initial = normalizePlayerListEvent({
+    type: "player_list",
+    player_list: [
+      { ref_id: 1, discrim: "#Jf01WW", team_rank: 3, captain_rank: 1, time: 60234, items: [], alias_discrims: [["#OGP12v", 7288814]], online_count: 1 },
+      { ref_id: 9, _removed: true },
+      { ref_id: 10, discrim: "#OGP12v", team_rank: 1, captain_rank: 0, time: 1664, items: [], alias_discrims: [["#Jf01WW", 15909921]], online_count: 0 },
+      { ref_id: 11, discrim: "Nemo", team_rank: 0, captain_rank: 0, time: 23, items: [], alias_discrims: [], online_count: 0 }
+    ]
+  });
+  const updated = normalizePlayerListEvent({
+    type: "player_list",
+    player_list: [
+      { ref_id: 1, discrim: "#Jf01WW", team_rank: 3, captain_rank: 1, time: 60276, items: [], alias_discrims: [["#OGP12v", 7288814], ["#uSWhVm", 9372709]], online_count: 1 },
+      { ref_id: 9, _removed: true },
+      { ref_id: 12, discrim: "#uSWhVm", team_rank: 1, captain_rank: 0, time: 8, items: [], alias_discrims: [["#Jf01WW", 15909921], ["#OGP12v", 7288814]], online_count: 1 }
+    ]
+  }, initial);
+
+  assert.deepEqual(updated.players.map((player) => player.refId), [1, 12, 10, 11]);
+  assert.deepEqual(updated.changes.map((player) => player.refId), [1, 9, 12]);
+  assert.deepEqual(updated.removedPlayers.map((player) => player.refId), [9]);
+  assert.equal(updated.players.find((player) => player.refId === 10)?.discrim, "#OGP12v");
+  assert.equal(updated.players.find((player) => player.refId === 11)?.discrim, "Nemo");
+});
+
 test("ship-management session submessages normalize public response shapes", () => {
   assert.deepEqual(normalizeShipConfigEvent({
     type: "config",
@@ -164,7 +251,7 @@ test("ship-management session submessages normalize public response shapes", () 
     subrank: 1,
     enableCheats: true
   });
-  assert.deepEqual(normalizePlayerListEvent({
+  const playerList = normalizePlayerListEvent({
     type: "player_list",
     player_list: [
       {
@@ -193,72 +280,13 @@ test("ship-management session submessages normalize public response shapes", () 
       },
       { ref_id: 7, _removed: true }
     ]
-  }), {
-    type: "player_list",
-    ownerCaptainRank: 2,
-    shipOwners: [
-      {
-        refId: 1,
-        removed: false,
-        discrim: "#Jf01WW",
-        discrimColor: 15909921,
-        teamRank: 3,
-        captainRank: 2,
-        isCaptain: true,
-        isShipOwner: true,
-        time: 39590,
-        items: [],
-        aliasDiscrims: [],
-        extraAliases: null,
-        onlineCount: 1
-      }
-    ],
-    players: [
-      {
-        refId: 1,
-        removed: false,
-        discrim: "#Jf01WW",
-        discrimColor: 15909921,
-        teamRank: 3,
-        captainRank: 2,
-        isCaptain: true,
-        isShipOwner: true,
-        time: 39590,
-        items: [],
-        aliasDiscrims: [],
-        extraAliases: null,
-        onlineCount: 1
-      },
-      {
-        refId: 2,
-        removed: false,
-        discrim: "#Other",
-        discrimColor: 1,
-        teamRank: 3,
-        captainRank: 3,
-        isCaptain: true,
-        isShipOwner: false,
-        time: 12,
-        items: [],
-        aliasDiscrims: [],
-        extraAliases: null,
-        onlineCount: 1
-      },
-      {
-        refId: 7,
-        removed: true,
-        discrim: null,
-        discrimColor: null,
-        teamRank: null,
-        captainRank: null,
-        isCaptain: false,
-        isShipOwner: false,
-        time: null,
-        items: [],
-        aliasDiscrims: [],
-        extraAliases: null,
-        onlineCount: null
-      }
-    ]
   });
+  assert.equal(playerList.type, "player_list");
+  assert.equal(playerList.ownerCaptainRank, 2);
+  assert.deepEqual(playerList.shipOwners.map((player) => player.refId), [1]);
+  assert.deepEqual(playerList.players.map((player) => player.refId), [1, 2]);
+  assert.deepEqual(playerList.changes.map((player) => player.refId), [1, 2, 7]);
+  assert.deepEqual(playerList.removedPlayers.map((player) => player.refId), [7]);
+  assert.equal(playerList.players[0].isShipOwner, true);
+  assert.equal(playerList.players[1].isShipOwner, false);
 });

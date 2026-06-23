@@ -3,6 +3,10 @@ const SET_PRIVACY_ACTION = "set_privacy";
 const STARTER_RECOVERY_ACTION = "starter_recovery";
 const PLAYER_LIST_ACTION = "player_list";
 const INVITE_RESET_ACTION = "invite_reset";
+const SET_RANK_ACTION = "set_rank";
+const KICK_ACTION = "kick";
+const BAN_ACTION = "ban";
+const DEMOTE_SELF_ACTION = "demote_self";
 
 function requireNonNegativeInteger(value, name) {
   const number = Number(value);
@@ -16,9 +20,22 @@ function normalizePrivacy(value) {
   throw new RangeError(`privacy must be 0, 1, true, false, "public", or "private"`);
 }
 
-export function buildShipManagementMessage(act, arg = null) {
+function normalizePlayerRef(value) {
+  return requireNonNegativeInteger(value, "refId");
+}
+
+function normalizePlayerRank(value) {
+  if (value === 0 || value === "guest") return 0;
+  if (value === 1 || value === "crew") return 1;
+  if (value === 3 || value === "captain") return 3;
+  throw new RangeError(`rank must be 0, 1, 3, "guest", "crew", or "captain"`);
+}
+
+export function buildShipManagementMessage(act, arg = null, extra = null) {
   if (typeof act !== "string" || !act) throw new TypeError(`act must be a non-empty string`);
-  return { type: SHIP_MANAGEMENT_TYPE, act, arg };
+  const message = { type: SHIP_MANAGEMENT_TYPE, act, arg };
+  if (extra && typeof extra === "object") Object.assign(message, extra);
+  return message;
 }
 
 export function buildShipPrivacyMessage(privacy) {
@@ -35,6 +52,22 @@ export function buildPlayerListMessage() {
 
 export function buildInviteResetMessage() {
   return buildShipManagementMessage(INVITE_RESET_ACTION);
+}
+
+export function buildSetPlayerRankMessage(refId, rank) {
+  return buildShipManagementMessage(SET_RANK_ACTION, normalizePlayerRef(refId), { rank: normalizePlayerRank(rank) });
+}
+
+export function buildKickPlayerMessage(refId) {
+  return buildShipManagementMessage(KICK_ACTION, normalizePlayerRef(refId));
+}
+
+export function buildBanPlayerMessage(refId) {
+  return buildShipManagementMessage(BAN_ACTION, normalizePlayerRef(refId));
+}
+
+export function buildDemoteSelfMessage() {
+  return buildShipManagementMessage(DEMOTE_SELF_ACTION);
 }
 
 export function normalizeShipConfigEvent(event = {}) {
@@ -59,16 +92,53 @@ export function normalizeCaptainSubrankEvent(event = {}) {
   };
 }
 
-export function normalizePlayerListEvent(event = {}) {
+export function normalizePlayerListEvent(event = {}, previous = null) {
   const source = event && typeof event === "object" ? event : {};
-  const players = Array.isArray(source.player_list) ? source.player_list.map(normalizePlayerListEntry) : [];
+  const changes = Array.isArray(source.player_list) ? source.player_list.map(normalizePlayerListEntry) : [];
+  const players = mergePlayerListChanges(previous?.players, changes);
   const ownerCaptainRank = ownerRankForPlayers(players);
   return {
     type: "player_list",
     ownerCaptainRank,
     shipOwners: players.filter((player) => player.isShipOwner),
-    players
+    players,
+    changes,
+    removedPlayers: changes.filter((player) => player.removed)
   };
+}
+
+function mergePlayerListChanges(previousPlayers, changes) {
+  if (!Array.isArray(previousPlayers) || !previousPlayers.length) return changes.filter((player) => !player.removed).map((player) => ({ ...player }));
+
+  const existing = new Map();
+  for (const player of previousPlayers) {
+    if (player?.refId == null || player.removed) continue;
+    existing.set(player.refId, { ...player, isShipOwner: false });
+  }
+
+  const changedRefs = new Set();
+  const merged = [];
+  for (const change of changes) {
+    if (change.refId == null) {
+      if (!change.removed) merged.push({ ...change, isShipOwner: false });
+      continue;
+    }
+    changedRefs.add(change.refId);
+    if (change.removed) {
+      existing.delete(change.refId);
+      continue;
+    }
+    const player = { ...(existing.get(change.refId) || {}), ...change, removed: false, isShipOwner: false };
+    existing.set(change.refId, player);
+    merged.push(player);
+  }
+
+  for (const player of previousPlayers) {
+    if (player?.refId == null || changedRefs.has(player.refId)) continue;
+    const retained = existing.get(player.refId);
+    if (retained) merged.push(retained);
+  }
+  return merged;
 }
 
 function normalizePlayerListEntry(entry = {}) {
@@ -80,7 +150,7 @@ function normalizePlayerListEntry(entry = {}) {
     discrimColor: source.discrim_color ?? null,
     teamRank: source.team_rank ?? null,
     captainRank: source.captain_rank ?? null,
-    isCaptain: source.captain_rank != null,
+    isCaptain: Number(source.captain_rank) > 0,
     isShipOwner: false,
     time: source.time ?? null,
     items: Array.isArray(source.items) ? source.items.slice() : [],
@@ -92,7 +162,7 @@ function normalizePlayerListEntry(entry = {}) {
 
 function ownerRankForPlayers(players) {
   const ranks = players
-    .filter((player) => !player.removed && player.captainRank != null)
+    .filter((player) => !player.removed && Number(player.captainRank) > 0)
     .map((player) => Number(player.captainRank))
     .filter(Number.isFinite);
   if (!ranks.length) return null;
@@ -102,10 +172,15 @@ function ownerRankForPlayers(players) {
 }
 
 export {
+  BAN_ACTION,
+  DEMOTE_SELF_ACTION,
   INVITE_RESET_ACTION,
+  KICK_ACTION,
   PLAYER_LIST_ACTION,
   SET_PRIVACY_ACTION,
+  SET_RANK_ACTION,
   SHIP_MANAGEMENT_TYPE,
   STARTER_RECOVERY_ACTION,
+  normalizePlayerRank,
   normalizePrivacy
 };

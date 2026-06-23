@@ -127,7 +127,10 @@ and store config responses on the client:
 
 ```js
 client.management.setPrivacy("private");
-client.resetInvite();
+client.management.resetInvite();
+client.management.promotePlayerToCaptain(10);
+client.management.demotePlayerToCrew(10);
+client.management.kickPlayer(10);
 console.log(client.management.config()?.inviteKey);
 ```
 
