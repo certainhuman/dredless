@@ -604,6 +604,7 @@ export interface EntityContentsSummary {
   cannon?: CannonSummary;
   thruster?: ThrusterSummary;
   pusher?: PusherSummary;
+  pusherBeam?: PusherBeamSummary;
   launcher?: LauncherSummary;
   loader?: LoaderSummary;
   cargoHatch?: CargoHatchSummary;
@@ -1023,6 +1024,16 @@ export interface PusherSummary {
   filterSlotsState: ModelRecord;
 }
 
+export interface PusherBeamSummary {
+  entity: number;
+  active: boolean;
+  mode: number;
+  modeName: string | null;
+  lengthRaw: number;
+  length: number;
+  state: ModelRecord;
+}
+
 export interface CommsStationSummary {
   entity: number;
   typeId: number;
@@ -1237,6 +1248,7 @@ export interface MachineSummary {
   cannons: CannonSummary[];
   thrusters: ThrusterSummary[];
   pushers: PusherSummary[];
+  pusherBeams: PusherBeamSummary[];
   launchers: LauncherSummary[];
   loaders: LoaderSummary[];
   cargoHatches: CargoHatchSummary[];

@@ -1236,6 +1236,26 @@ Pusher shape:
 }
 ```
 
+Pusher beam runtime shape:
+
+```js
+{
+  entity,
+  active,
+  mode,
+  modeName,
+  lengthRaw,
+  length,
+  state
+}
+```
+
+`pusherBeam` is decoded from the accumulated runtime beam table. `lengthRaw` is
+the wire value, and `length` is the current beam reach in blocks (`lengthRaw /
+10`). `mode` uses the same pusher mode enum as pusher config: `0 = Push`,
+`1 = Pull`, and `2 = Do Nothing`. `active` is false only when mode is
+`Do Nothing`.
+
 Launcher shape:
 
 ```js

@@ -1078,6 +1078,7 @@ function emptyMachineSummary() {
     cannons: [],
     thrusters: [],
     pushers: [],
+    pusherBeams: [],
     launchers: [],
     loaders: [],
     navigationUnits: [],
