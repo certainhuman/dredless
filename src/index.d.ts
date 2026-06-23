@@ -337,6 +337,8 @@ export class DredlessClient {
   chat: unknown[];
   motd: unknown[];
   sessionMessages: unknown[];
+  scannerResults: ScannerResult[];
+  lastScannerResult: ScannerResult | null;
   shipConfig: ShipConfigEvent | null;
   captainSubrank: CaptainSubrankEvent | null;
   playerList: PlayerListEvent | null;
@@ -490,6 +492,8 @@ export interface ClientSnapshot {
   chat: unknown[];
   motd: unknown[];
   sessionMessages: unknown[];
+  scannerResults: ScannerResult[];
+  lastScannerResult: ScannerResult | null;
   shipConfig: ShipConfigEvent | null;
   captainSubrank: CaptainSubrankEvent | null;
   playerList: PlayerListEvent | null;
@@ -504,6 +508,17 @@ export interface ClientSnapshot {
 export interface CommandAck {
   world: number;
   commandNumber: number;
+}
+
+export interface ScannerResult {
+  kind: "manifest" | "bom" | "unknown";
+  sid: number | null;
+  shipHex: string | null;
+  shipName: string | null;
+  blocks: Record<string, number> | null;
+  objects: Record<string, number> | null;
+  inventories: Record<string, number> | null;
+  materials: Record<string, number> | null;
 }
 
 export interface NavigationUnitConfig {

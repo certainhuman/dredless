@@ -84,6 +84,8 @@ export class DredlessClient extends EventBus {
     this.chat = [];
     this.motd = [];
     this.sessionMessages = [];
+    this.scannerResults = [];
+    this.lastScannerResult = null;
     this.shipConfig = null;
     this.captainSubrank = null;
     this.playerList = null;
@@ -553,6 +555,8 @@ export class DredlessClient extends EventBus {
       chat: this.chat.slice(-50),
       motd: this.motd.slice(-20),
       sessionMessages: this.sessionMessages.slice(-50),
+      scannerResults: this.scannerResults.slice(-20),
+      lastScannerResult: this.lastScannerResult,
       shipConfig: this.shipConfig,
       captainSubrank: this.captainSubrank,
       playerList: this.playerList,
@@ -766,6 +770,11 @@ export class DredlessClient extends EventBus {
       case 14:
         if (packet.sid != null) this.outfits.set(packet.sid, packet.outfit);
         this.emit("outfit", packet);
+        break;
+      case 15:
+        this.lastScannerResult = normalizeScannerResultPacket(packet);
+        this.#pushLimited(this.scannerResults, this.lastScannerResult);
+        this.emit("scanner-result", this.lastScannerResult, packet);
         break;
       case 18:
         this.cpuLoad = packet.cpu_load ?? null;
@@ -1029,6 +1038,35 @@ function normalizeLauncherPower(value) {
     throw new RangeError(`launcher power must be an integer between 0 and 30`);
   }
   return number;
+}
+
+function normalizeScannerResultPacket(packet) {
+  const manifest = packet?.manifest && typeof packet.manifest === "object" ? packet.manifest : {};
+  const hasMaterials = manifest.materials && typeof manifest.materials === "object";
+  const hasManifest = (
+    (manifest.blocks && typeof manifest.blocks === "object") ||
+    (manifest.objects && typeof manifest.objects === "object") ||
+    (manifest.inventories && typeof manifest.inventories === "object")
+  );
+  return {
+    kind: hasMaterials ? "bom" : hasManifest ? "manifest" : "unknown",
+    sid: packet?.sid ?? null,
+    shipHex: typeof manifest.ship_hex === "string" ? manifest.ship_hex : null,
+    shipName: typeof manifest.ship_name === "string" ? manifest.ship_name : null,
+    blocks: copyCountMap(manifest.blocks),
+    objects: copyCountMap(manifest.objects),
+    inventories: copyCountMap(manifest.inventories),
+    materials: copyCountMap(manifest.materials)
+  };
+}
+
+function copyCountMap(value) {
+  if (!value || typeof value !== "object") return null;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([, count]) => typeof count === "number")
+      .map(([itemId, count]) => [String(itemId), count])
+  );
 }
 
 function emptyMachineSummary() {

@@ -688,6 +688,39 @@ The official client uses top-level message `type:9` with `{ x, y, w, h,
 source }`, then sends the normal signed left-click command with `focus_ent=null`
 and the active hotbar slot in `inv_slot`.
 
+Ship scanner items are activated with the same normal signed held-item click:
+
+```js
+client.useHeldItem({ invSlot: 1 }, { mx: 30.5, my: 5.5 });
+```
+
+Observed scanner item ids are Manifest Scanner `115`, BoM Scanner `116`, and
+Blueprint Scanner `120`. Manifest and BoM scanner clicks send no special
+outgoing command beyond the `type:0` click; the server replies with packet
+`type:15` carrying a `manifest` payload. Dredless normalizes those responses in
+`client.scannerResults`, stores the latest as `client.lastScannerResult`, and
+emits `client.on("scanner-result", (result, packet) => {})`.
+
+Result shape:
+
+```js
+{
+  kind: "manifest" | "bom" | "unknown",
+  sid,
+  shipHex,
+  shipName,
+  blocks,      // Manifest Scanner item-id/count map, or null
+  objects,     // Manifest Scanner item-id/count map, or null
+  inventories, // Manifest Scanner item-id/count map, or null
+  materials    // BoM Scanner item-id/count map, or null
+}
+```
+
+In `blueprint-scan-3x3-iron-block.jsonl`, Blueprint Scanner use did not produce
+a scanner-specific websocket response; it only sent normal signed input frames.
+That suggests the official client can produce the blueprint scan output locally
+from already-loaded ship state, at least for this sample.
+
 Inventory movement uses the signed type `0` `drag` field. `drag()` is the
 low-level wrapper; `moveInventoryItem()` is the same operation with an options
 object. Equipment slots are absolute inventory slots in the official protocol:
@@ -805,6 +838,8 @@ Return shape:
   chat,
   motd,
   sessionMessages,
+  scannerResults,
+  lastScannerResult,
   outfits,
   commandAcks,
   lastCommandAck,
