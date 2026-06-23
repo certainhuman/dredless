@@ -1137,12 +1137,12 @@ function normalizeDegrees(value) {
 
 function summarizeItemLauncher(entity, typeId, launcherRecord) {
   if (typeId !== ITEM_LAUNCHER_TYPE_ID || !launcherRecord) return null;
-  const angleRadians = numberOrNull(launcherRecord.q32, 1000);
+  const angleRadians = numberOrNull(launcherRecord.q32 ?? 0, 200);
   return {
     entity,
+    angleRaw: launcherRecord.q32 ?? null,
     angleRadians,
     angleDegrees: angleRadians == null ? null : normalizeDegrees((angleRadians * 180) / Math.PI),
-    powerRaw: launcherRecord.q20 ?? null,
     state: cloneRecord(launcherRecord)
   };
 }

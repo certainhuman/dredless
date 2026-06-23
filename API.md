@@ -1261,16 +1261,20 @@ Launcher shape:
 ```js
 {
   entity,
+  angleRaw,
   angleRadians,
   angleDegrees,
-  powerRaw,
   state
 }
 ```
 
-`angleDegrees` is decoded from persisted launcher model state. The live launcher
-PUI exposes power as a direct `0..30` value, but the persisted model field has
-only been identified as `powerRaw`; consumers that need to edit power should use
+`angleRaw` is the table value before scaling, using radians scaled by `200`.
+`angleRadians` is the direct decoded transport value, and `angleDegrees` is the
+same value converted to normalized degrees. If the raw angle field is omitted,
+the launcher defaults to `0deg`. The decoded degree value may be slightly
+fractional because the persisted value is quantized. Launcher power is not
+exposed by persisted model state; it is only present in the live launcher PUI
+after opening the launcher. Consumers that need to edit power should open the launcher first, then use
 `client.setLauncherPower(power)`.
 
 Navigation unit shape:

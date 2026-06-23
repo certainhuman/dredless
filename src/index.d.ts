@@ -994,9 +994,9 @@ export interface CargoHatchSummary {
 
 export interface LauncherSummary {
   entity: number;
+  angleRaw: number | null;
   angleRadians: number | null;
   angleDegrees: number | null;
-  powerRaw: number | null;
   state: ModelRecord;
 }
 
