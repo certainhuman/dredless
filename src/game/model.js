@@ -1587,9 +1587,14 @@ export class ModelState {
       loaders: machines.loaders.slice(),
       cargoHatches: machines.cargoHatches.slice(),
       navigationUnits: machines.navigationUnits.slice(),
+      commsStations: machines.commsStations.slice(),
       fluidTanks: machines.fluidTanks.slice(),
       shieldGenerators: machines.shieldGenerators.slice(),
       shieldProjectors: machines.shieldProjectors.slice(),
+      helms: machines.helms.slice(),
+      signs: machines.signs.slice(),
+      spawnPoints: machines.spawnPoints.slice(),
+      doors: machines.doors.slice(),
       expandoBoxes: machines.expandoBoxes.slice()
     };
   }
@@ -1941,6 +1946,10 @@ export class ModelState {
       fluidTanks: [],
       shieldGenerators: [],
       shieldProjectors: [],
+      helms: [],
+      signs: [],
+      spawnPoints: [],
+      doors: [],
       expandoBoxes: []
     };
     const players = [];
@@ -1967,6 +1976,10 @@ export class ModelState {
       if (contents.fluidTank) machines.fluidTanks.push(contents.fluidTank);
       if (contents.shieldGenerator) machines.shieldGenerators.push(contents.shieldGenerator);
       if (contents.shieldProjector) machines.shieldProjectors.push(contents.shieldProjector);
+      if (contents.helm) machines.helms.push(contents.helm);
+      if (contents.sign) machines.signs.push(contents.sign);
+      if (contents.spawnPoint) machines.spawnPoints.push(contents.spawnPoint);
+      if (contents.door) machines.doors.push(contents.door);
       if (contents.expandoBox) machines.expandoBoxes.push(contents.expandoBox);
       if (contents.player) players.push(contents.player);
       if (contents.shipControl) shipControls.push(contents.shipControl);

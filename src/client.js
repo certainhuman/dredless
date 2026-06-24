@@ -59,7 +59,7 @@ import { decodeMsgpack, encodeMsgpack, cloneCommand } from "./protocol/msgpack.j
 import { toUint8Array } from "./protocol/binary.js";
 
 export class DredlessClient extends EventBus {
-  constructor(connection) {
+  constructor(connection, { connect = true } = {}) {
     super();
     if (!(connection instanceof Connection)) throw new Error("DredlessClient requires a Connection");
 
@@ -107,7 +107,7 @@ export class DredlessClient extends EventBus {
       this.#rejectReady = reject;
     });
 
-    this.#connect().catch((error) => this.#fail(error));
+    if (connect) this.#connect().catch((error) => this.#fail(error));
   }
 
   #commandNumber = 1;
@@ -642,7 +642,8 @@ export class DredlessClient extends EventBus {
   }
 
   entity(entityId, scope = "ship") {
-    return this.#readWorld(scope)?.entity(entityId) || null;
+    const summary = this.#readWorld(scope)?.entity(entityId) || null;
+    return summary ? new EntitySnapshot(summary) : null;
   }
 
   blocks(scope = "ship") {
@@ -1121,9 +1122,53 @@ class OverworldDomain extends WorldDomain {
   shipByEntity(entity, options = {}) { const summary = this.client.shipByEntity(entityIdOf(entity), options); return summary ? new ShipHandle(this.client, summary) : null; }
 }
 
+class EntitySnapshot {
+  constructor(summary) {
+    const data = clonePlain(summary || {});
+    Object.assign(this, data);
+    this.id = Number(data.entity ?? data.id);
+    this.entity = this.id;
+    this.position = data.transform || null;
+    this.rotation = data.transform?.rotation ?? null;
+    this.type = Object.freeze({
+      category: data.category || null,
+      machine: entityMachineType(data.contents),
+      item: entityItemType(data.contents),
+      components: Object.freeze(Object.keys(data.contents || {}))
+    });
+    deepFreeze(this);
+  }
+
+  is(type) {
+    const key = normalizeEntityKey(type);
+    if (!key) return false;
+    if (key === normalizeEntityKey(this.category)) return true;
+    if (key === "placedentity" && this.category === "placed_entity") return true;
+    if (key === "looseitem" && this.category === "loose_item") return true;
+    if (key === "ship" && (this.category === "ship_control" || this.contents?.shipControl)) return true;
+    if (key === "machine") return Boolean(this.type.machine);
+    if (key === "item") return Boolean(this.contents?.itemHolder || this.contents?.itemCrate || this.contents?.expandoBox);
+    if (key === "bot") return Boolean(this.contents?.bot);
+    if (key === "player") return Boolean(this.contents?.player || this.category === "player");
+    if (key === normalizeEntityKey(this.type.machine)) return true;
+    if (this.kind?.some((kind) => normalizeEntityKey(kind) === key)) return true;
+    return Boolean(componentFor(this.contents, key));
+  }
+
+  has(feature) {
+    return this.feature(feature) != null;
+  }
+
+  feature(feature) {
+    return entityFeature(this.contents, feature);
+  }
+}
+
 class EntityCollection {
   constructor(client, scope) { this.client = client; this.scope = scope; }
   all() { return summariesFor(this.client, this.scope).map((summary) => new EntityHandle(this.client, summary.entity, this.scope)); }
+  snapshots() { return summariesFor(this.client, this.scope).map((summary) => new EntitySnapshot(summary)); }
+  states() { return this.snapshots(); }
   raw() { return summariesFor(this.client, this.scope); }
   get(entity) { return new EntityHandle(this.client, entityIdOf(entity), this.scope); }
 }
@@ -1146,37 +1191,79 @@ class MaterialCollection {
 
 class MachineCollection {
   constructor(client, scope) { this.client = client; this.scope = scope; }
-  summary() { return worldStateFor(this.client, this.scope)?.model.machines() || emptyMachineSummary(); }
-  loaders() { return this.summary().loaders.map((item) => new LoaderHandle(this.client, item.entity, this.scope)); }
+  state() { return worldStateFor(this.client, this.scope)?.model.machines() || emptyMachineSummary(); }
+  raw() { return this.state(); }
+  loaders() { return this.state().loaders.map((item) => new LoaderHandle(this.client, item.entity, this.scope)); }
   loader(entity) { return new LoaderHandle(this.client, entityIdOf(entity), this.scope); }
-  pushers() { return this.summary().pushers.map((item) => new PusherHandle(this.client, item.entity, this.scope)); }
+  pushers() { return this.state().pushers.map((item) => new PusherHandle(this.client, item.entity, this.scope)); }
   pusher(entity) { return new PusherHandle(this.client, entityIdOf(entity), this.scope); }
-  launchers() { return this.summary().launchers.map((item) => new LauncherHandle(this.client, item.entity, this.scope)); }
+  launchers() { return this.state().launchers.map((item) => new LauncherHandle(this.client, item.entity, this.scope)); }
   launcher(entity) { return new LauncherHandle(this.client, entityIdOf(entity), this.scope); }
-  navigationUnits() { return this.summary().navigationUnits.map((item) => new NavigationUnitHandle(this.client, item.entity, this.scope)); }
-  navigationUnit(entity = null) { const id = entity == null ? this.summary().navigationUnits[0]?.entity : entityIdOf(entity); return id == null ? null : new NavigationUnitHandle(this.client, id, this.scope); }
-  fabricators() { return this.summary().fabricators.map((item) => new FabricatorHandle(this.client, item.entity, this.scope)); }
+  navigationUnits() { return this.state().navigationUnits.map((item) => new NavigationUnitHandle(this.client, item.entity, this.scope)); }
+  navigationUnit(entity = null) { const id = entity == null ? this.state().navigationUnits[0]?.entity : entityIdOf(entity); return id == null ? null : new NavigationUnitHandle(this.client, id, this.scope); }
+  fabricators() { return this.state().fabricators.map((item) => new FabricatorHandle(this.client, item.entity, this.scope)); }
   fabricator(entity) { return new FabricatorHandle(this.client, entityIdOf(entity), this.scope); }
-  commsStations() { return this.summary().commsStations.map((item) => new CommsStationHandle(this.client, item.entity, this.scope)); }
-  commsStation(entity = null) { const id = entity == null ? this.summary().commsStations[0]?.entity : entityIdOf(entity); return id == null ? null : new CommsStationHandle(this.client, id, this.scope); }
+  commsStations() { return this.state().commsStations.map((item) => new CommsStationHandle(this.client, item.entity, this.scope)); }
+  commsStation(entity = null) { const id = entity == null ? this.state().commsStations[0]?.entity : entityIdOf(entity); return id == null ? null : new CommsStationHandle(this.client, id, this.scope); }
   signs() { return summariesFor(this.client, this.scope).filter((item) => item.contents?.sign).map((item) => new SignHandle(this.client, item.entity, this.scope)); }
   sign(entity) { return new SignHandle(this.client, entityIdOf(entity), this.scope); }
-  generators() { return this.summary().shieldGenerators.map((item) => new GeneratorHandle(this.client, item.entity, this.scope)); }
+  generators() { return this.state().shieldGenerators.map((item) => new GeneratorHandle(this.client, item.entity, this.scope)); }
   generator(entity) { return new GeneratorHandle(this.client, entityIdOf(entity), this.scope); }
-  cargoHatches() { return this.summary().cargoHatches.map((item) => new CargoHatchHandle(this.client, item.entity, this.scope)); }
+  cargoHatches() { return this.state().cargoHatches.map((item) => new CargoHatchHandle(this.client, item.entity, this.scope)); }
   cargoHatch(entity) { return new CargoHatchHandle(this.client, entityIdOf(entity), this.scope); }
   cargoEjector(entity) { return new CargoEjectorHandle(this.client, entityIdOf(entity), this.scope); }
+  cannons() { return this.state().cannons.map((item) => new CannonHandle(this.client, item.entity, this.scope)); }
+  cannon(entity) { return new CannonHandle(this.client, entityIdOf(entity), this.scope); }
+  thrusters() { return this.state().thrusters.map((item) => new ThrusterHandle(this.client, item.entity, this.scope)); }
+  thruster(entity) { return new ThrusterHandle(this.client, entityIdOf(entity), this.scope); }
+  helms() { return this.state().helms.map((item) => new HelmHandle(this.client, item.entity, this.scope)); }
+  helm(entity) { return new HelmHandle(this.client, entityIdOf(entity), this.scope); }
+  doors() { return this.state().doors.map((item) => new DoorHandle(this.client, item.entity, this.scope)); }
+  door(entity) { return new DoorHandle(this.client, entityIdOf(entity), this.scope); }
+  spawnPoints() { return this.state().spawnPoints.map((item) => new SpawnPointHandle(this.client, item.entity, this.scope)); }
+  spawnPoint(entity) { return new SpawnPointHandle(this.client, entityIdOf(entity), this.scope); }
+  shieldProjectors() { return this.state().shieldProjectors.map((item) => new ShieldProjectorHandle(this.client, item.entity, this.scope)); }
+  shieldProjector(entity) { return new ShieldProjectorHandle(this.client, entityIdOf(entity), this.scope); }
+  fluidTanks() { return this.state().fluidTanks.map((item) => new FluidTankHandle(this.client, item.entity, this.scope)); }
+  fluidTank(entity) { return new FluidTankHandle(this.client, entityIdOf(entity), this.scope); }
+  processors() { return this.state().processors.map((item) => new ProcessorHandle(this.client, item.entity, this.scope)); }
+  processor(entity) { return new ProcessorHandle(this.client, entityIdOf(entity), this.scope); }
+  expandoBoxes() { return this.state().expandoBoxes.map((item) => new ExpandoBoxHandle(this.client, item.entity, this.scope)); }
+  expandoBox(entity) { return new ExpandoBoxHandle(this.client, entityIdOf(entity), this.scope); }
 }
 
 class EntityHandle {
-  constructor(client, entity, scope = "ship") { this.client = client; this.entity = Number(entity); this.scope = scope; }
+  constructor(client, entity, scope = "ship") { this.client = client; this.id = Number(entity); this.entity = this.id; this.scope = scope; }
   exists() { return Boolean(this.snapshot()); }
-  snapshot() { return worldStateFor(this.client, this.scope)?.entity(this.entity) || null; }
-  get id() { return this.entity; }
-  get position() { return this.snapshot()?.transform || null; }
-  get health() { return this.snapshot()?.contents?.health || null; }
-  get contents() { return this.snapshot()?.contents || null; }
-  use(options = {}, command = {}) { return this.client.player.useEntity(this.entity, options, command); }
+  snapshot() {
+    const summary = worldStateFor(this.client, this.scope)?.entity(this.id) || null;
+    return summary ? new EntitySnapshot(summary) : null;
+  }
+  get position() { return summaryForEntity(this.client, this.scope, this.id)?.transform || null; }
+  get health() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.health || null; }
+  get contents() { return summaryForEntity(this.client, this.scope, this.id)?.contents || null; }
+  is(type) { return this.snapshot()?.is(type) ?? false; }
+  has(feature) { return this.snapshot()?.has(feature) ?? false; }
+  feature(feature) { return this.snapshot()?.feature(feature) ?? null; }
+  as(type) { return entityDomainHandle(this.client, this.id, this.scope, type, this.snapshot()); }
+  asLoader() { return this.as("loader"); }
+  asPusher() { return this.as("pusher"); }
+  asLauncher() { return this.as("launcher"); }
+  asNavigationUnit() { return this.as("navigationUnit"); }
+  asCommsStation() { return this.as("commsStation"); }
+  asSign() { return this.as("sign"); }
+  asGenerator() { return this.as("shieldGenerator"); }
+  asCargoHatch() { return this.as("cargoHatch"); }
+  asCannon() { return this.as("cannon"); }
+  asThruster() { return this.as("thruster"); }
+  asHelm() { return this.as("helm"); }
+  asDoor() { return this.as("door"); }
+  asSpawnPoint() { return this.as("spawnPoint"); }
+  asShieldProjector() { return this.as("shieldProjector"); }
+  asFluidTank() { return this.as("fluidTank"); }
+  asProcessor() { return this.as("processor"); }
+  asExpandoBox() { return this.as("expandoBox"); }
+  use(options = {}, command = {}) { return this.client.player.useEntity(this.id, options, command); }
 }
 
 class MachineHandle extends EntityHandle {
@@ -1184,73 +1271,74 @@ class MachineHandle extends EntityHandle {
 }
 
 class LoaderHandle extends MachineHandle {
-  summary() { return this.snapshot()?.contents?.loader || null; }
-  configure(config = {}) { return this.client.sendLoaderConfig(this.entity, config); }
-  configureFull(config = {}) { return this.client.sendLoaderFullConfig(this.entity, config); }
-  copy(config = {}) { return this.client.copyLoaderConfig(this.entity, config); }
-  setPickPlace(pick, place, config = {}) { return this.client.setLoaderPickPlace(this.entity, pick, place, config); }
-  setPriority(priority, config = {}) { return this.client.setLoaderPriority(this.entity, priority, config); }
-  setStack(stack, config = {}) { return this.client.setLoaderStack(this.entity, stack, config); }
-  setCycle(cycle, config = {}) { return this.client.setLoaderCycle(this.entity, cycle, config); }
-  setRequireOutput(requireOutput, config = {}) { return this.client.setLoaderRequireOutput(this.entity, requireOutput, config); }
-  setWaitForStack(waitForStack, config = {}) { return this.client.setLoaderWaitForStack(this.entity, waitForStack, config); }
-  setFilterMode(filterMode) { return this.client.setLoaderFilterMode(this.entity, filterMode); }
-  setFilterItems(filterSlots = []) { return this.client.setLoaderFilterItems(this.entity, filterSlots); }
-  get pick() { return this.summary()?.pick; }
-  get place() { return this.summary()?.place; }
-  get priority() { return this.summary()?.priority; }
-  get stack() { return this.summary()?.stack; }
-  get cycle() { return this.summary()?.cycle; }
-  get requireOutput() { return this.summary()?.requireOutput; }
-  get waitForStack() { return this.summary()?.waitForStack; }
-  get filterMode() { return this.summary()?.filterMode; }
-  get filterSlots() { return this.summary()?.filterSlots || []; }
+  get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.loader || null; }
+  configure(config = {}) { return this.client.sendLoaderConfig(this.id, config); }
+  configureFull(config = {}) { return this.client.sendLoaderFullConfig(this.id, config); }
+  copy(config = {}) { return this.client.copyLoaderConfig(this.id, config); }
+  setPickPlace(pick, place, config = {}) { return this.client.setLoaderPickPlace(this.id, pick, place, config); }
+  setPriority(priority, config = {}) { return this.client.setLoaderPriority(this.id, priority, config); }
+  setStack(stack, config = {}) { return this.client.setLoaderStack(this.id, stack, config); }
+  setCycle(cycle, config = {}) { return this.client.setLoaderCycle(this.id, cycle, config); }
+  setRequireOutput(requireOutput, config = {}) { return this.client.setLoaderRequireOutput(this.id, requireOutput, config); }
+  setWaitForStack(waitForStack, config = {}) { return this.client.setLoaderWaitForStack(this.id, waitForStack, config); }
+  setFilterMode(filterMode) { return this.client.setLoaderFilterMode(this.id, filterMode); }
+  setFilterItems(filterSlots = []) { return this.client.setLoaderFilterItems(this.id, filterSlots); }
+  get pick() { return this.state?.pick; }
+  get place() { return this.state?.place; }
+  get priority() { return this.state?.priority; }
+  get stack() { return this.state?.stack; }
+  get cycle() { return this.state?.cycle; }
+  get requireOutput() { return this.state?.requireOutput; }
+  get waitForStack() { return this.state?.waitForStack; }
+  get filterMode() { return this.state?.filterMode; }
+  get filterSlots() { return this.state?.filterSlots || []; }
 }
 
 class PusherHandle extends MachineHandle {
-  summary() { return this.snapshot()?.contents?.pusher || null; }
-  get beam() { return this.snapshot()?.contents?.pusherBeam || null; }
-  configure(config = {}) { return this.client.sendPusherConfig(this.entity, config); }
-  setAngle(angle, config = {}) { return this.client.setPusherAngle(this.entity, angle, config); }
-  setSpeed(speed, config = {}) { return this.client.setPusherSpeed(this.entity, speed, config); }
-  setLength(length, config = {}) { return this.client.setPusherLength(this.entity, length, config); }
-  setMode(mode, config = {}) { return this.client.setPusherMode(this.entity, mode, config); }
-  setFilteredMode(mode, config = {}) { return this.client.setPusherFilteredMode(this.entity, mode, config); }
-  setFilterInventory(filterInventory, config = {}) { return this.client.setPusherFilterInventory(this.entity, filterInventory, config); }
-  setFilterItems(filterSlots = []) { return this.client.setPusherFilterItems(this.entity, filterSlots); }
-  get angle() { return this.summary()?.angle; }
-  get speed() { return this.summary()?.speed; }
-  get length() { return this.summary()?.length; }
-  get mode() { return this.summary()?.mode; }
-  get filteredMode() { return this.summary()?.filteredMode; }
+  get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.pusher || null; }
+  get beam() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.pusherBeam || null; }
+  configure(config = {}) { return this.client.sendPusherConfig(this.id, config); }
+  setAngle(angle, config = {}) { return this.client.setPusherAngle(this.id, angle, config); }
+  setSpeed(speed, config = {}) { return this.client.setPusherSpeed(this.id, speed, config); }
+  setLength(length, config = {}) { return this.client.setPusherLength(this.id, length, config); }
+  setMode(mode, config = {}) { return this.client.setPusherMode(this.id, mode, config); }
+  setFilteredMode(mode, config = {}) { return this.client.setPusherFilteredMode(this.id, mode, config); }
+  setFilterInventory(filterInventory, config = {}) { return this.client.setPusherFilterInventory(this.id, filterInventory, config); }
+  setFilterItems(filterSlots = []) { return this.client.setPusherFilterItems(this.id, filterSlots); }
+  get angle() { return this.state?.angle; }
+  get speed() { return this.state?.speed; }
+  get length() { return this.state?.length; }
+  get mode() { return this.state?.mode; }
+  get filteredMode() { return this.state?.filteredMode; }
 }
 
 class LauncherHandle extends MachineHandle {
-  summary() { return this.snapshot()?.contents?.launcher || null; }
+  get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.launcher || null; }
   setAngle(angle) { return this.client.setLauncherAngle(angle); }
   setPower(power) { return this.client.setLauncherPower(power); }
-  get angleDegrees() { return this.summary()?.angleDegrees; }
-  get angleRadians() { return this.summary()?.angleRadians; }
-  get angleRaw() { return this.summary()?.angleRaw; }
+  get angleDegrees() { return this.state?.angleDegrees; }
+  get angleRadians() { return this.state?.angleRadians; }
+  get angleRaw() { return this.state?.angleRaw; }
 }
 
 class NavigationUnitHandle extends MachineHandle {
-  summary() { return this.snapshot()?.contents?.navigationUnit || null; }
-  configure(config = {}) { return this.client.sendNavigationUnitConfig(this.entity, config); }
-  copy(config = {}) { return this.client.copyNavigationUnitConfig(this.entity, config); }
-  paste(config = {}) { return this.client.pasteNavigationUnitConfig(this.entity, config); }
-  setDestination(destination, config = {}) { return this.client.setNavigationDestination(this.entity, destination, config); }
-  setAutoWarp(config = {}) { return this.client.setNavigationAutoWarp(this.entity, config); }
-  startWarp(config = {}) { return this.client.startWarp(this.entity, config); }
-  cancelWarp(config = {}) { return this.client.cancelWarp(this.entity, config); }
-  get destination() { return this.summary()?.destination; }
-  get autoWarpOnShieldFailure() { return this.summary()?.autoWarpOnShieldFailure; }
-  get autoWarpOnNoCaptains() { return this.summary()?.autoWarpOnNoCaptains; }
-  get warp() { return this.summary()?.warp; }
+  get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.navigationUnit || null; }
+  configure(config = {}) { return this.client.sendNavigationUnitConfig(this.id, config); }
+  copy(config = {}) { return this.client.copyNavigationUnitConfig(this.id, config); }
+  paste(config = {}) { return this.client.pasteNavigationUnitConfig(this.id, config); }
+  setDestination(destination, config = {}) { return this.client.setNavigationDestination(this.id, destination, config); }
+  setAutoWarp(config = {}) { return this.client.setNavigationAutoWarp(this.id, config); }
+  startWarp(config = {}) { return this.client.startWarp(this.id, config); }
+  cancelWarp(config = {}) { return this.client.cancelWarp(this.id, config); }
+  get destination() { return this.state?.destination; }
+  get autoWarpOnShieldFailure() { return this.state?.autoWarpOnShieldFailure; }
+  get autoWarpOnNoCaptains() { return this.state?.autoWarpOnNoCaptains; }
+  get warp() { return this.state?.warp; }
 }
 
 class FabricatorHandle extends MachineHandle {
-  panel() { return this.client.puiPanels.get(this.entity) || null; }
+  get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.fabricator || null; }
+  panel() { return this.client.puiPanels.get(this.id) || null; }
   add(itemId, count = 1, index = -1) { return this.client.craftAdd(itemId, count, index); }
   sub(itemId, count = 1, index = 0) { return this.client.craftSub(itemId, count, index); }
   clearQueue() { return this.client.craftClearQueue(); }
@@ -1261,37 +1349,80 @@ class FabricatorHandle extends MachineHandle {
 }
 
 class CommsStationHandle extends MachineHandle {
-  summary() { return this.snapshot()?.contents?.commsStation || null; }
-  panel() { return this.client.commsPanels.get(this.entity) || null; }
+  get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.commsStation || null; }
+  panel() { return this.client.commsPanels.get(this.id) || null; }
   sendMessage(message = "") { return this.client.sendCommsMessage(message); }
 }
 class SignHandle extends MachineHandle {
-  summary() { return this.snapshot()?.contents?.sign || null; }
+  get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.sign || null; }
   setText(text = "", mode = 0) { return this.client.setSignText(text, mode); }
-  get text() { return this.summary()?.text; }
-  get mode() { return this.summary()?.mode; }
+  get text() { return this.state?.text; }
+  get mode() { return this.state?.mode; }
 }
 
 class GeneratorHandle extends MachineHandle {
-  summary() { return this.snapshot()?.contents?.shieldGenerator || null; }
-  solvePuzzle(solution) { return this.client.solveGeneratorPuzzle(this.entity, solution); }
+  get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.shieldGenerator || null; }
+  solvePuzzle(solution) { return this.client.solveGeneratorPuzzle(this.id, solution); }
 }
 
 class CargoHatchHandle extends MachineHandle {
-  summary() { return this.snapshot()?.contents?.cargoHatch || null; }
-  configure(config = {}) { return this.client.sendCargoHatchFullConfig(this.entity, config); }
-  copy(config = {}) { return this.client.copyCargoHatchConfig(this.entity, config); }
-  paste(config = {}) { return this.client.pasteCargoHatchConfig(this.entity, config); }
-  setFilterMode(filterMode) { return this.client.setCargoHatchFilterMode(this.entity, filterMode); }
-  setFilterItems(filterSlots = []) { return this.client.setCargoHatchFilterItems(this.entity, filterSlots); }
+  get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.cargoHatch || null; }
+  configure(config = {}) { return this.client.sendCargoHatchFullConfig(this.id, config); }
+  copy(config = {}) { return this.client.copyCargoHatchConfig(this.id, config); }
+  paste(config = {}) { return this.client.pasteCargoHatchConfig(this.id, config); }
+  setFilterMode(filterMode) { return this.client.setCargoHatchFilterMode(this.id, filterMode); }
+  setFilterItems(filterSlots = []) { return this.client.setCargoHatchFilterItems(this.id, filterSlots); }
+}
+
+class CannonHandle extends MachineHandle {
+  get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.cannon || null; }
+}
+
+class ThrusterHandle extends MachineHandle {
+  get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.thruster || null; }
+}
+
+class HelmHandle extends MachineHandle {
+  get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.helm || null; }
+  get occupied() { return this.state?.occupied; }
+}
+
+class DoorHandle extends MachineHandle {
+  get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.door || null; }
+  get rank() { return this.state?.rank; }
+  get open() { return this.state?.open; }
+}
+
+class SpawnPointHandle extends MachineHandle {
+  get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.spawnPoint || null; }
+  get rank() { return this.state?.rank; }
+}
+
+class ShieldProjectorHandle extends MachineHandle {
+  get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.shieldProjector || null; }
+  get active() { return this.state?.active; }
+}
+
+class FluidTankHandle extends MachineHandle {
+  get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.fluidTank || null; }
+  get amount() { return this.state?.amount; }
+}
+
+class ProcessorHandle extends MachineHandle {
+  get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.processor || null; }
+}
+
+class ExpandoBoxHandle extends MachineHandle {
+  get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.expandoBox || null; }
+  get item() { return this.state?.itemId; }
+  get count() { return this.state?.count; }
 }
 
 class CargoEjectorHandle extends MachineHandle {
-  setDirection(direction) { return this.client.setCargoEjectorDirection(this.entity, direction); }
-  copy(direction = "right") { return this.client.copyCargoEjectorConfig(this.entity, direction); }
-  paste(direction = "right") { return this.client.pasteCargoEjectorConfig(this.entity, direction); }
+  setDirection(direction) { return this.client.setCargoEjectorDirection(this.id, direction); }
+  copy(direction = "right") { return this.client.copyCargoEjectorConfig(this.id, direction); }
+  paste(direction = "right") { return this.client.pasteCargoEjectorConfig(this.id, direction); }
 }
-
 class ShipHandle {
   constructor(client, summary) { this.client = client; this.summary = summary; }
   get entity() { return this.summary.entity; }
@@ -1304,6 +1435,162 @@ class ShipHandle {
   snapshot() { return this.summary; }
 }
 
+const ENTITY_COMPONENT_ALIASES = new Map([
+  ["hoveroutline", "hoverOutline"],
+  ["outline", "hoverOutline"],
+  ["itemholder", "itemHolder"],
+  ["itemcrate", "itemCrate"],
+  ["expandobox", "expandoBox"],
+  ["expando", "expandoBox"],
+  ["blueprintpreview", "blueprintPreview"],
+  ["blueprint", "blueprintPreview"],
+  ["pusherbeam", "pusherBeam"],
+  ["beam", "pusherBeam"],
+  ["cargohatch", "cargoHatch"],
+  ["navigationunit", "navigationUnit"],
+  ["nav", "navigationUnit"],
+  ["navunit", "navigationUnit"],
+  ["commsstation", "commsStation"],
+  ["fluidtank", "fluidTank"],
+  ["shieldgenerator", "shieldGenerator"],
+  ["generator", "shieldGenerator"],
+  ["shieldprojector", "shieldProjector"],
+  ["shipcontrol", "shipControl"],
+  ["spawnpoint", "spawnPoint"],
+  ["shipsize", "shipSize"],
+  ["mapmarker", "mapMarker"],
+  ["marker", "mapMarker"],
+  ["dockingspring", "dockingSpring"],
+  ["hugethruster", "hugeThruster"]
+]);
+
+const MACHINE_COMPONENTS = [
+  "loader",
+  "pusher",
+  "launcher",
+  "navigationUnit",
+  "fabricator",
+  "processor",
+  "cannon",
+  "thruster",
+  "cargoHatch",
+  "commsStation",
+  "fluidTank",
+  "shieldGenerator",
+  "shieldProjector",
+  "helm",
+  "sign",
+  "spawnPoint",
+  "door",
+  "expandoBox"
+];
+
+function normalizeEntityKey(value) {
+  return String(value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function clonePlain(value) {
+  if (value == null) return value;
+  if (typeof structuredClone === "function") return structuredClone(value);
+  return JSON.parse(JSON.stringify(value));
+}
+
+function deepFreeze(value) {
+  if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
+  Object.freeze(value);
+  for (const item of Object.values(value)) deepFreeze(item);
+  return value;
+}
+
+function componentFor(contents, key) {
+  if (!contents) return null;
+  const component = ENTITY_COMPONENT_ALIASES.get(key) || key;
+  return contents[component] ?? null;
+}
+
+function entityMachineType(contents) {
+  if (!contents) return null;
+  return MACHINE_COMPONENTS.find((component) => contents[component]) || null;
+}
+
+function entityItemType(contents) {
+  return contents?.itemCrate?.itemName || contents?.itemHolder?.itemName || contents?.expandoBox?.itemName || null;
+}
+
+function firstFeatureSource(contents, names) {
+  if (!contents) return null;
+  for (const name of names) {
+    const source = contents[name];
+    if (source != null) return source;
+  }
+  return null;
+}
+
+function sourceWithProperty(contents, names, property) {
+  if (!contents) return null;
+  for (const name of names) {
+    const source = contents[name];
+    if (source && source[property] != null) return source;
+  }
+  return null;
+}
+
+function entityFeature(contents, feature) {
+  const key = normalizeEntityKey(feature);
+  if (!contents || !key) return null;
+  const component = componentFor(contents, key);
+  if (component != null) return component;
+  if (key === "machine") return firstFeatureSource(contents, MACHINE_COMPONENTS);
+  if (key === "inventory") return firstFeatureSource(contents, ["itemHolder", "expandoBox"]);
+  if (key === "item") return firstFeatureSource(contents, ["itemCrate", "itemHolder", "expandoBox"]);
+  if (key === "filter") return firstFeatureSource(contents, ["loader", "pusher", "cargoHatch"]);
+  if (key === "filtermode") {
+    const filterModeSource = sourceWithProperty(contents, ["loader", "pusher", "cargoHatch"], "filterMode");
+    if (filterModeSource) return filterModeSource.filterMode;
+    return sourceWithProperty(contents, ["pusher"], "filteredMode")?.filteredMode ?? null;
+  }
+  if (key === "filterslots") return sourceWithProperty(contents, ["loader", "pusher", "cargoHatch"], "filterSlots")?.filterSlots ?? null;
+  if (key === "filterinventory") return contents.pusher?.filterInventory ?? null;
+  if (key === "beam") return contents.pusherBeam ?? null;
+  if (key === "outline") return contents.hoverOutline ?? null;
+  if (key === "occupied") return sourceWithProperty(contents, ["helm", "commsStation"], "occupied")?.occupied ?? null;
+  if (key === "health") return contents.health ?? null;
+  if (key === "position" || key === "transform") return null;
+  return null;
+}
+
+function entityDomainHandle(client, entity, scope, type, snapshot = null) {
+  const key = normalizeEntityKey(type);
+  const state = snapshot || new EntityHandle(client, entity, scope).snapshot();
+  if (!state) return null;
+  const constructors = new Map([
+    ["loader", LoaderHandle],
+    ["pusher", PusherHandle],
+    ["launcher", LauncherHandle],
+    ["navigationunit", NavigationUnitHandle],
+    ["nav", NavigationUnitHandle],
+    ["navunit", NavigationUnitHandle],
+    ["fabricator", FabricatorHandle],
+    ["processor", ProcessorHandle],
+    ["cannon", CannonHandle],
+    ["thruster", ThrusterHandle],
+    ["commsstation", CommsStationHandle],
+    ["sign", SignHandle],
+    ["shieldgenerator", GeneratorHandle],
+    ["generator", GeneratorHandle],
+    ["cargohatch", CargoHatchHandle],
+    ["shieldprojector", ShieldProjectorHandle],
+    ["fluidtank", FluidTankHandle],
+    ["helm", HelmHandle],
+    ["spawnpoint", SpawnPointHandle],
+    ["door", DoorHandle],
+    ["expandobox", ExpandoBoxHandle],
+    ["expando", ExpandoBoxHandle]
+  ]);
+  const Handle = constructors.get(key);
+  return Handle && state.is(key) ? new Handle(client, entity, scope) : null;
+}
+
 function worldStateFor(client, scope = "ship") {
   if (scope == null || scope === "ship" || scope === "current") return client.worlds.shipWorld();
   if (scope === "overworld") return client.worlds.overworld();
@@ -1312,6 +1599,10 @@ function worldStateFor(client, scope = "ship") {
 
 function summariesFor(client, scope = "ship") {
   return worldStateFor(client, scope)?.entities() || [];
+}
+
+function summaryForEntity(client, scope, entity) {
+  return worldStateFor(client, scope)?.entity(entity) || null;
 }
 
 function entityIdOf(value) {
@@ -1424,11 +1715,16 @@ function emptyMachineSummary() {
     pusherBeams: [],
     launchers: [],
     loaders: [],
+    cargoHatches: [],
     navigationUnits: [],
     commsStations: [],
     fluidTanks: [],
     shieldGenerators: [],
     shieldProjectors: [],
+    helms: [],
+    signs: [],
+    spawnPoints: [],
+    doors: [],
     expandoBoxes: []
   };
 }

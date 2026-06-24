@@ -104,9 +104,25 @@ const overworld = client.overworld();
 const nearbyShips = overworld?.ships({ sort: "distance" });
 ```
 
-Live handles are intentionally lightweight. A handle stores the client, world
-scope, and entity id; getters read the latest decoded state. Use `snapshot()` on
-a handle when you want the current normalized summary object.
+Live handles are intentionally lightweight. A generic `EntityHandle` stores the
+client, world scope, and entity id. Use `snapshot()` when you want a frozen
+`EntitySnapshot`; use `contents`, `has(feature)`, `feature(name)`, and `is(type)`
+for quick inspection. Typed machine handles expose their decoded component as
+`state` and keep behavior/configuration methods on the domain object.
+
+```js
+const entity = ship?.entities.get(119);
+const snapshot = entity?.snapshot();
+
+snapshot?.is("placed_entity");
+snapshot?.is("loader");
+snapshot?.has("filterSlots");
+snapshot?.feature("inventory");
+
+const loader = entity?.as("loader");
+loader?.state;
+loader?.setCycle(8);
+```
 
 Low-level sends remain available under `client.net`:
 
@@ -602,7 +618,7 @@ Navigation-unit helpers send the observed top-level `type: 8` UI/config
 payload for `config_nav_unit`:
 
 ```js
-const nav = client.currentShip()?.machines.summary().navigationUnits[0];
+const nav = client.currentShip()?.machines.state().navigationUnits[0];
 
 nav.setDestination(40); // Raven
 nav.setAutoWarp({
@@ -658,7 +674,7 @@ Methods that accept a scope:
 ```js
 client.world(scope)?.entities.raw();
 client.entity(entityId, scope);
-client.world(scope)?.machines.summary();
+client.world(scope)?.machines.state();
 client.world(scope)?.players.all();
 client.shipControls(scope);
 client.world(scope)?.blocks.all();
@@ -734,7 +750,7 @@ Use when:
 Prefer instead:
 
 - `client.currentShip()?.snapshot()` for only the current ship world.
-- `client.currentShip()?.entities.raw()`, `client.currentShip()?.machines.summary()`, or `client.currentShip()?.players.all()` for
+- `client.currentShip()?.entities.raw()`, `client.currentShip()?.machines.state()`, or `client.currentShip()?.players.all()` for
   high-frequency reads.
 
 ### `client.currentShip()`
@@ -824,7 +840,7 @@ Use when:
 
 Prefer instead:
 
-- `client.currentShip()?.machines.summary()` if you only need machines.
+- `client.currentShip()?.machines.state()` if you only need machines.
 - `client.currentShip()?.entities.raw()` if you only need entity summaries.
 - `client.materials()` if you only need material counts.
 
@@ -882,35 +898,112 @@ Alternative:
 
 ### World entity collections
 
-Returns all normalized entity summaries in the selected world.
+Entity collections have two read styles:
 
 ```js
-const entities = client.currentShip()?.entities.raw();
-const overworldEntities = client.overworld()?.entities.raw();
+const handles = client.currentShip()?.entities.all();        // live EntityHandle[]
+const snapshots = client.currentShip()?.entities.snapshots(); // frozen EntitySnapshot[]
+const states = client.currentShip()?.entities.states();       // alias for snapshots()
 ```
 
-Return shape:
+`entities.raw()` remains the cheap existing read and returns the current normalized
+entity objects without cloning/freezing. Use `snapshots()` when you need immutable
+point-in-time objects.
+
+A handle is the interaction-oriented object:
 
 ```js
-[
-  {
-    entity,
+const entity = client.currentShip()?.entities.get(119);
+
+entity.id;
+entity.exists();
+entity.use();
+entity.is("machine");
+entity.has("inventory");
+entity.feature("filterMode");
+entity.feature("outline");
+entity.feature("beam");
+entity.as("pusher")?.setMode("pull");
+```
+
+Entity ids are scoped to a world. Ship-world entities and overworld entities are
+separate pools, so always get handles through the intended world/domain:
+
+```js
+client.currentShip()?.entities.get(id); // ship-world entity
+client.overworld()?.entities.get(id);   // overworld entity
+```
+
+Generic features currently include direct component names plus common aliases:
+
+```js
+health
+machine
+inventory
+item
+filter
+filterMode
+filterSlots
+filterInventory
+outline       // hoverOutline
+beam          // pusherBeam
+occupied      // helm/commsStation occupancy
+```
+
+Typed conversion helpers return `null` when the scoped entity is not that type:
+
+```js
+entity.as("loader");
+entity.as("pusher");
+entity.as("launcher");
+entity.as("navigationUnit");
+entity.as("fabricator");
+entity.as("commsStation");
+entity.as("sign");
+entity.as("shieldGenerator");
+entity.as("cargoHatch");
+entity.as("cannon");
+entity.as("thruster");
+entity.as("helm");
+entity.as("door");
+entity.as("spawnPoint");
+entity.as("shieldProjector");
+entity.as("fluidTank");
+entity.as("processor");
+entity.as("expandoBox");
+```
+
+A snapshot is the frozen decoded read model for one point in time:
+
+```js
+{
+  id,
+  entity, // deprecated alias for id
+  category,
+  typeId,
+  typeName,
+  markerTypeId,
+  markerTypeName,
+  label,
+  kind,
+  transform,
+  position, // alias for transform
+  rotation,
+  type: {
     category,
-    typeId,
-    typeName,
-    markerTypeId,
-    markerTypeName,
-    label,
-    kind,
-    transform,
-    footprint,
-    contents,
-    occupies,
-    tables
-  }
-]
+    machine,    // e.g. "loader", "pusher", or null
+    item,       // item name when known
+    components  // keys present in contents
+  },
+  footprint,
+  contents,
+  occupies,
+  tables,
+  is(type),
+  has(feature),
+  feature(name)
+}
 ```
-
 Common `contents` fields:
 
 ```js
@@ -961,20 +1054,20 @@ Use when:
 Prefer instead:
 
 - `client.entity(id)` for a known id.
-- `client.currentShip()?.machines.summary()` for known machine categories.
+- `client.currentShip()?.machines.state()` for known machine categories.
 - `client.currentShip()?.players.all()` for player-only reads.
 
 ### `client.entity(entityId, scope?)`
 
-Returns one normalized entity summary, or `null`.
+Returns one frozen `EntitySnapshot`, or `null`.
 
 ```js
 const entity = client.entity(14);
 const overworldEntity = client.entity(2495754, "overworld");
 ```
 
-Return shape is one `EntitySummary`, the same as an item from
-`client.currentShip()?.entities.raw()`.
+Return shape is one `EntitySnapshot`, the same immutable read model returned by
+`client.currentShip()?.entities.get(id).snapshot()`.
 
 Cost:
 
@@ -992,10 +1085,10 @@ Prefer instead:
 
 ### Machine collections
 
-Returns normalized machine summaries grouped by machine kind.
+Returns normalized machine state grouped by machine kind.
 
 ```js
-const machines = client.currentShip()?.machines.summary();
+const machines = client.currentShip()?.machines.state();
 const loaders = machines.loaders;
 ```
 
@@ -1010,6 +1103,7 @@ Return shape:
   cannons,
   thrusters,
   pushers,
+  pusherBeams,
   launchers,
   loaders,
   cargoHatches,
@@ -1018,6 +1112,10 @@ Return shape:
   fluidTanks,
   shieldGenerators,
   shieldProjectors,
+  helms,
+  signs,
+  spawnPoints,
+  doors,
   expandoBoxes
 }
 ```
@@ -1607,7 +1705,7 @@ can grow large.
 For frequent polling:
 
 ```js
-const machines = client.currentShip()?.machines.summary();
+const machines = client.currentShip()?.machines.state();
 const players = client.currentShip()?.players.all();
 const entities = client.currentShip()?.entities.raw();
 ```
@@ -1630,7 +1728,7 @@ const ships = client.overworld()?.ships({ includeWorld: false, sort: "distance" 
 Avoid repeated helper calls inside loops when one call can be reused:
 
 ```js
-const machines = client.currentShip()?.machines.summary();
+const machines = client.currentShip()?.machines.state();
 for (const loader of machines.loaders) {
   // use loader
 }
@@ -1640,7 +1738,7 @@ Instead of:
 
 ```js
 for (const entity of client.currentShip()?.entities.raw()) {
-  const loaders = client.currentShip()?.machines.summary().loaders;
+  const loaders = client.currentShip()?.machines.state().loaders;
 }
 ```
 

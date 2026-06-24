@@ -92,6 +92,13 @@ const client = new DredlessClient(connection);
 await client.waitUntilReady();
 ```
 
+Use `{ connect: false }` only when you want a no-I/O client shell for tests or
+offline world-state inspection:
+
+```js
+const offlineClient = new DredlessClient(connection, { connect: false });
+```
+
 Start connections from a session:
 
 ```js

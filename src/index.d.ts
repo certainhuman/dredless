@@ -311,7 +311,7 @@ export interface ConnectionSnapshot {
 }
 
 export class DredlessClient {
-  constructor(connection: Connection);
+  constructor(connection: Connection, options?: { connect?: boolean });
 
   connection: Connection;
   session: Session;
@@ -342,6 +342,8 @@ export class DredlessClient {
   world(id: number): WorldDomain | null;
   shipWorld(options?: { includeTiles?: boolean; includeModel?: boolean }): WorldSnapshot | null;
   state(options?: { includeTiles?: boolean; includeModel?: boolean }): ClientSnapshot;
+  entities(scope?: number | string): EntitySummary[];
+  entity(entityId: number, scope?: number | string): EntitySnapshot | null;
 
   on(type: string, callback: (...args: unknown[]) => void): this;
   off(type: string, callback: (...args: unknown[]) => void): this;
@@ -443,6 +445,8 @@ export interface OverworldDomain extends WorldDomain {
 
 export interface EntityCollection {
   all(): EntityHandle[];
+  snapshots(): EntitySnapshot[];
+  states(): EntitySnapshot[];
   raw(): EntitySummary[];
   get(entity: number | EntityHandle | EntitySummary): EntityHandle;
 }
@@ -452,7 +456,8 @@ export interface BlockCollection { all(): BlockSummary[]; at(x: number, y: numbe
 export interface MaterialCollection { all(): MaterialSummary[]; }
 
 export interface MachineCollection {
-  summary(): MachineSummary;
+  state(): MachineSummary;
+  raw(): MachineSummary;
   loaders(): LoaderHandle[];
   loader(entity: number | EntityHandle | EntitySummary): LoaderHandle;
   pushers(): PusherHandle[];
@@ -472,23 +477,83 @@ export interface MachineCollection {
   cargoHatches(): CargoHatchHandle[];
   cargoHatch(entity: number | EntityHandle | EntitySummary): CargoHatchHandle;
   cargoEjector(entity: number | EntityHandle | EntitySummary): CargoEjectorHandle;
+  cannons(): CannonHandle[];
+  cannon(entity: number | EntityHandle | EntitySummary): CannonHandle;
+  thrusters(): ThrusterHandle[];
+  thruster(entity: number | EntityHandle | EntitySummary): ThrusterHandle;
+  helms(): HelmHandle[];
+  helm(entity: number | EntityHandle | EntitySummary): HelmHandle;
+  doors(): DoorHandle[];
+  door(entity: number | EntityHandle | EntitySummary): DoorHandle;
+  spawnPoints(): SpawnPointHandle[];
+  spawnPoint(entity: number | EntityHandle | EntitySummary): SpawnPointHandle;
+  shieldProjectors(): ShieldProjectorHandle[];
+  shieldProjector(entity: number | EntityHandle | EntitySummary): ShieldProjectorHandle;
+  fluidTanks(): FluidTankHandle[];
+  fluidTank(entity: number | EntityHandle | EntitySummary): FluidTankHandle;
+  processors(): ProcessorHandle[];
+  processor(entity: number | EntityHandle | EntitySummary): ProcessorHandle;
+  expandoBoxes(): ExpandoBoxHandle[];
+  expandoBox(entity: number | EntityHandle | EntitySummary): ExpandoBoxHandle;
+}
+
+export type EntityFeatureName = string;
+export type EntityTypeName = string;
+
+export interface EntitySnapshotType {
+  category: EntitySummary["category"] | null;
+  machine: string | null;
+  item: string | null;
+  components: string[];
+}
+
+export interface EntitySnapshot extends EntitySummary {
+  id: number;
+  position: TransformSummary | null;
+  rotation: number | null;
+  type: EntitySnapshotType;
+  is(type: EntityTypeName): boolean;
+  has(feature: EntityFeatureName): boolean;
+  feature(feature: EntityFeatureName): unknown | null;
 }
 
 export interface EntityHandle {
+  /** @deprecated Use id. */
   entity: number;
   id: number;
   position: TransformSummary | null;
   health: HealthSummary | null;
   contents: EntityContentsSummary | null;
   exists(): boolean;
-  snapshot(): EntitySummary | null;
+  snapshot(): EntitySnapshot | null;
+  is(type: EntityTypeName): boolean;
+  has(feature: EntityFeatureName): boolean;
+  feature(feature: EntityFeatureName): unknown | null;
+  as(type: EntityTypeName): MachineHandle | null;
+  asLoader(): LoaderHandle | null;
+  asPusher(): PusherHandle | null;
+  asLauncher(): LauncherHandle | null;
+  asNavigationUnit(): NavigationUnitHandle | null;
+  asCommsStation(): CommsStationHandle | null;
+  asSign(): SignHandle | null;
+  asGenerator(): GeneratorHandle | null;
+  asCargoHatch(): CargoHatchHandle | null;
+  asCannon(): CannonHandle | null;
+  asThruster(): ThrusterHandle | null;
+  asHelm(): HelmHandle | null;
+  asDoor(): DoorHandle | null;
+  asSpawnPoint(): SpawnPointHandle | null;
+  asShieldProjector(): ShieldProjectorHandle | null;
+  asFluidTank(): FluidTankHandle | null;
+  asProcessor(): ProcessorHandle | null;
+  asExpandoBox(): ExpandoBoxHandle | null;
   use(options?: { invSlot?: number; hold?: boolean }, command?: Command): DredlessClient;
 }
 
 export interface MachineHandle extends EntityHandle { open(options?: { invSlot?: number; hold?: boolean }, command?: Command): DredlessClient; }
 
 export interface LoaderHandle extends MachineHandle {
-  summary(): LoaderSummary | null;
+  state: LoaderSummary | null;
   configure(config?: LoaderConfig): DredlessClient;
   configureFull(config?: LoaderFullConfig): DredlessClient;
   copy(config?: LoaderFullConfig): DredlessClient;
@@ -512,7 +577,7 @@ export interface LoaderHandle extends MachineHandle {
 }
 
 export interface PusherHandle extends MachineHandle {
-  summary(): PusherSummary | null;
+  state: PusherSummary | null;
   beam: PusherBeamSummary | null;
   configure(config?: PusherConfig): DredlessClient;
   setAngle(angle: number, config?: PusherConfig): DredlessClient;
@@ -530,7 +595,7 @@ export interface PusherHandle extends MachineHandle {
 }
 
 export interface LauncherHandle extends MachineHandle {
-  summary(): LauncherSummary | null;
+  state: LauncherSummary | null;
   setAngle(angle: number): DredlessClient;
   setPower(power: number): DredlessClient;
   angleDegrees: number | undefined;
@@ -539,7 +604,7 @@ export interface LauncherHandle extends MachineHandle {
 }
 
 export interface NavigationUnitHandle extends MachineHandle {
-  summary(): NavigationUnitSummary | null;
+  state: NavigationUnitSummary | null;
   configure(config?: NavigationUnitConfig): DredlessClient;
   copy(config?: NavigationUnitConfig): DredlessClient;
   paste(config?: NavigationUnitConfig): DredlessClient;
@@ -554,6 +619,7 @@ export interface NavigationUnitHandle extends MachineHandle {
 }
 
 export interface FabricatorHandle extends MachineHandle {
+  state: FabricatorSummary | null;
   panel(): PuiEvent | null;
   add(itemId: number, count?: number, index?: number): DredlessClient;
   sub(itemId: number, count?: number, index?: number): DredlessClient;
@@ -565,30 +631,40 @@ export interface FabricatorHandle extends MachineHandle {
 }
 
 export interface CommsStationHandle extends MachineHandle {
-  summary(): CommsStationSummary | null;
+  state: CommsStationSummary | null;
   panel(): CommsEvent | null;
   sendMessage(message?: string): DredlessClient;
 }
 export interface SignHandle extends MachineHandle {
-  summary(): SignSummary | null;
+  state: SignSummary | null;
   setText(text?: string, mode?: SignDisplayMode): DredlessClient;
   text: string | undefined;
   mode: number | undefined;
 }
 
 export interface GeneratorHandle extends MachineHandle {
-  summary(): ShieldGeneratorSummary | null;
+  state: ShieldGeneratorSummary | null;
   solvePuzzle(solution: string | number): DredlessClient;
 }
 
 export interface CargoHatchHandle extends MachineHandle {
-  summary(): CargoHatchSummary | null;
+  state: CargoHatchSummary | null;
   configure(config?: Pick<LoaderFullConfig, "filterMode" | "filterSlots">): DredlessClient;
   copy(config?: Pick<LoaderFullConfig, "filterMode" | "filterSlots">): DredlessClient;
   paste(config?: Pick<LoaderFullConfig, "filterMode" | "filterSlots">): DredlessClient;
   setFilterMode(filterMode: LoaderFilterMode): DredlessClient;
   setFilterItems(filterSlots?: Array<number | null | undefined>): DredlessClient;
 }
+
+export interface CannonHandle extends MachineHandle { state: CannonSummary | null; }
+export interface ThrusterHandle extends MachineHandle { state: ThrusterSummary | null; }
+export interface HelmHandle extends MachineHandle { state: HelmSummary | null; occupied: boolean | undefined; }
+export interface DoorHandle extends MachineHandle { state: DoorSummary | null; rank: number | undefined; open: boolean | undefined; }
+export interface SpawnPointHandle extends MachineHandle { state: SpawnPointSummary | null; rank: number | undefined; }
+export interface ShieldProjectorHandle extends MachineHandle { state: ShieldProjectorSummary | null; active: boolean | undefined; }
+export interface FluidTankHandle extends MachineHandle { state: FluidTankSummary | null; amount: number | null | undefined; }
+export interface ProcessorHandle extends MachineHandle { state: { entity: number; state: ModelRecord } | null; }
+export interface ExpandoBoxHandle extends MachineHandle { state: ExpandoBoxSummary | null; item: number | null | undefined; count: number | null | undefined; }
 
 export interface CargoEjectorHandle extends MachineHandle {
   setDirection(direction: FixedAngleDirection): DredlessClient;
@@ -731,6 +807,9 @@ export interface EntityContentsSummary {
   itemHolder?: ItemHolderSummary;
   expandoBox?: ExpandoBoxSummary;
   hoverOutline?: HoverOutlineSummary;
+  mapMarker?: MapMarkerSummary;
+  dockingSpring?: DockingSpringSummary;
+  hugeThruster?: HugeThrusterSummary;
   blueprintPreview?: BlueprintPreviewSummary;
   itemCrate?: ItemCrateSummary;
   health?: HealthSummary;
@@ -746,7 +825,7 @@ export interface EntityContentsSummary {
   cargoHatch?: CargoHatchSummary;
   navigationUnit?: NavigationUnitSummary;
   commsStation?: CommsStationSummary;
-  fluidTank?: { entity: number; amount: number | null; state: ModelRecord };
+  fluidTank?: FluidTankSummary;
   shieldGenerator?: ShieldGeneratorSummary;
   shieldProjector?: ShieldProjectorSummary;
   helm?: HelmSummary;
@@ -755,6 +834,7 @@ export interface EntityContentsSummary {
   sign?: SignSummary;
   spawnPoint?: SpawnPointSummary;
   door?: DoorSummary;
+  shipSize?: ShipSizeSummary;
 }
 
 export interface EntitySummary {
@@ -1046,6 +1126,51 @@ export interface HoverOutlineSummary {
   state: ModelRecord;
 }
 
+export interface MapMarkerSummary {
+  entity: number;
+  kind: string;
+  title: string | null;
+  key: string | null;
+  description: string | null;
+  color: number | null;
+  colorCss: string | null;
+  accentColor: number | null;
+  accentColorCss: string | null;
+  width: number | null;
+  height: number | null;
+  labelState: ModelRecord;
+  zoneState: ModelRecord;
+}
+
+export interface DockingSpringSummary {
+  entity: number;
+  id: number | null;
+  width: number;
+  height: number;
+  state: ModelRecord;
+}
+
+export interface HugeThrusterSummary {
+  entity: number;
+  width: number;
+  height: number;
+  state: ModelRecord;
+}
+
+export interface ShipSizeSummary {
+  entity: number;
+  width: number | null;
+  height: number | null;
+  rawWidth: number | null;
+  rawHeight: number | null;
+  state: ModelRecord;
+}
+
+export interface FluidTankSummary {
+  entity: number;
+  amount: number | null;
+  state: ModelRecord;
+}
 export interface HealthSummary {
   entity: number;
   hp: number | null;
@@ -1390,9 +1515,13 @@ export interface MachineSummary {
   cargoHatches: CargoHatchSummary[];
   navigationUnits: NavigationUnitSummary[];
   commsStations: CommsStationSummary[];
-  fluidTanks: { entity: number; amount: number | null; state: ModelRecord }[];
+  fluidTanks: FluidTankSummary[];
   shieldGenerators: ShieldGeneratorSummary[];
   shieldProjectors: ShieldProjectorSummary[];
+  helms: HelmSummary[];
+  signs: SignSummary[];
+  spawnPoints: SpawnPointSummary[];
+  doors: DoorSummary[];
   expandoBoxes: ExpandoBoxSummary[];
 }
 
