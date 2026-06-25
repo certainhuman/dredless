@@ -1,8 +1,7 @@
-import fs from "node:fs";
+import { ITEM_SCHEMA } from "./item-schema.js";
 
-const itemSchema = JSON.parse(fs.readFileSync(new URL("../../spec/item_schema.json", import.meta.url), "utf8"));
-const ITEM_TYPE_NAMES = new Map(itemSchema.map((item) => [Number(item.id), item.name]));
-const ITEM_EQUIPMENT_SLOTS = new Map(itemSchema.flatMap((item) => {
+const ITEM_TYPE_NAMES = new Map(ITEM_SCHEMA.map((item) => [Number(item.id), item.name]));
+const ITEM_EQUIPMENT_SLOTS = new Map(ITEM_SCHEMA.flatMap((item) => {
   const slot = equipmentSlotFromDescription(item.desc);
   return slot ? [[Number(item.id), slot]] : [];
 }));
