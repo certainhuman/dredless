@@ -611,8 +611,8 @@ inv.select(inv.slot(2));
 const hotbarSize = inv.hotbarSize(); // protocol general_slots
 const skates = inv.findItem(109);
 const emptyHotbarSlot = inv.firstEmpty({ area: "hotbar" });
-const head = inv.equipment().head;
-const hands = inv.equipment().hands;
+const head = inv.equipmentSlots().head;
+const hands = inv.equipmentSlots().hands;
 ```
 
 Slot reads return handles. Call `snapshot()` when you need immutable point-in-time slot data:

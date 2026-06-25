@@ -414,10 +414,10 @@ export interface ShipManagementDomain {
 export interface InventoryDomain {
   state(): InventoryState | null;
   hotbarSize(): number;
-  slots(): InventorySlotHandle[];
+  allSlots(): InventorySlotHandle[];
   slot(ref: InventorySlotRef): InventorySlotHandle;
-  hotbar(): InventorySlotHandle[];
-  equipment(): { head: InventorySlotHandle; face: InventorySlotHandle; body: InventorySlotHandle; back: InventorySlotHandle; hands: InventorySlotHandle; feet: InventorySlotHandle };
+  hotbarSlots(): InventorySlotHandle[];
+  equipmentSlots(): { head: InventorySlotHandle; face: InventorySlotHandle; body: InventorySlotHandle; back: InventorySlotHandle; hands: InventorySlotHandle; feet: InventorySlotHandle };
   findItem(itemId: number, options?: { area?: InventoryArea }): InventorySlotHandle | null;
   findItems(itemId: number, options?: { area?: InventoryArea }): InventorySlotHandle[];
   firstEmpty(options?: { area?: InventoryArea }): InventorySlotHandle | null;

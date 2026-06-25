@@ -128,12 +128,12 @@ test("inventory domain exposes slot handles and find helpers", () => {
 
   assert.equal(inventory.state(), client.inventoryState);
   assert.equal(inventory.hotbarSize(), 5);
-  assert.equal(inventory.slots().length, 11);
-  assert.equal(inventory.hotbar().length, 5);
-  assert.equal(inventory.equipment().head.index, 16);
-  assert.equal(inventory.equipment().face.index, 17);
-  assert.equal(inventory.equipment().body.index, 18);
-  assert.equal(inventory.equipment().hands.index, 20);
+  assert.equal(inventory.allSlots().length, 11);
+  assert.equal(inventory.hotbarSlots().length, 5);
+  assert.equal(inventory.equipmentSlots().head.index, 16);
+  assert.equal(inventory.equipmentSlots().face.index, 17);
+  assert.equal(inventory.equipmentSlots().body.index, 18);
+  assert.equal(inventory.equipmentSlots().hands.index, 20);
 
   const skates = inventory.slot(1);
   assert.equal(skates.exists(), true);

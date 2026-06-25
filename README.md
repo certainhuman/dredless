@@ -22,7 +22,7 @@ const sign = ship?.machines.signs()[0];
 sign?.open();
 sign?.setText("Dock here", "when-near");
 
-client.on("inventory", () => console.log(client.inventory.hotbar().map((slot) => slot.snapshot())));
+client.on("inventory", () => console.log(client.inventory.hotbarSlots().map((slot) => slot.snapshot())));
 client.on("model", ({ world }) => console.log(world.model.transforms()));
 ```
 

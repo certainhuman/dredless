@@ -1066,10 +1066,10 @@ class InventoryDomain {
   constructor(client) { this.client = client; }
   state() { return this.client.inventoryState; }
   hotbarSize() { return this.state()?.hotbarSize ?? 0; }
-  slots() { return (this.state()?.slots || []).map((slot) => this.slot(slot.index)); }
+  allSlots() { return (this.state()?.slots || []).map((slot) => this.slot(slot.index)); }
   slot(ref) { return new InventorySlotHandle(this, inventorySlotIndexOf(ref)); }
-  hotbar() { return (this.state()?.hotbar || []).map((slot) => this.slot(slot.index)); }
-  equipment() { return { head: this.slot("head"), face: this.slot("face"), body: this.slot("body"), back: this.slot("back"), hands: this.slot("hands"), feet: this.slot("feet") }; }
+  hotbarSlots() { return (this.state()?.hotbar || []).map((slot) => this.slot(slot.index)); }
+  equipmentSlots() { return { head: this.slot("head"), face: this.slot("face"), body: this.slot("body"), back: this.slot("back"), hands: this.slot("hands"), feet: this.slot("feet") }; }
   findItem(itemId, { area = "all" } = {}) { return this.findItems(itemId, { area })[0] || null; }
   findItems(itemId, { area = "all" } = {}) {
     const normalized = Number(itemId);
@@ -1670,9 +1670,9 @@ function inferEquipmentSlotForInventorySource(domain, source) {
 
 function inventoryHandlesForArea(domain, area = "all") {
   switch (area) {
-    case "all": return domain.slots();
-    case "hotbar": return domain.hotbar();
-    case "equipment": return Object.values(domain.equipment());
+    case "all": return domain.allSlots();
+    case "hotbar": return domain.hotbarSlots();
+    case "equipment": return Object.values(domain.equipmentSlots());
     default: throw new RangeError(`Unknown inventory area: ${area}`);
   }
 }
