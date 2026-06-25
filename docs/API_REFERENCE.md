@@ -63,9 +63,9 @@ builders, config builders, codec helpers, and common type shapes.
 const session = await Dredless.createAnonSession();
 const servers = await Dredless.fetchServers();
 const ships = await session.fetchShips(servers[0]);
-const client = await session.start(servers[0], ships[0]);
+const client = await session.startShip(servers[0], ships[0]);
 
-await client.waitUntilReady();
+await client.whenReady();
 ```
 
 The object boundary is:
@@ -179,11 +179,10 @@ interface DredlessNamespace {
   fetchServers: typeof fetchServers;
   fetchShips: typeof fetchShips;
   fetchShipList: typeof fetchShipList;
-  join: typeof join;
-  start: typeof start;
-  newShip: typeof newShip;
-  invite: typeof invite;
-  startInvite: typeof startInvite;
+  joinShip: typeof joinShip;
+  startShip: typeof startShip;
+  startNewShip: typeof startNewShip;
+  joinInvite: typeof joinInvite;
 }
 ```
 
@@ -262,10 +261,10 @@ function fetchShipList(session: Session, server: ServerRef): Promise<ShipList>;
 
 Authenticated convenience wrapper around `session.fetchShipList(server)`.
 
-### `Dredless.join(server, ship?, session?)`
+### `Dredless.joinShip(server, ship?, session?)`
 
 ```ts
-function join(
+function joinShip(
   server: ServerRef,
   ship?: ShipRef,
   session?: Session | null
@@ -277,10 +276,10 @@ to join without loading the full ship world.
 
 If `session` is omitted, an anonymous session is created.
 
-### `Dredless.start(server, ship?, session?)`
+### `Dredless.startShip(server, ship?, session?)`
 
 ```ts
-function start(
+function startShip(
   server: ServerRef,
   ship?: ShipRef,
   session?: Session | null
@@ -291,10 +290,10 @@ Starts a websocket client using normal world loading.
 
 If `session` is omitted, an anonymous session is created.
 
-### `Dredless.newShip(server, name?, color?, session?)`
+### `Dredless.startNewShip(server, name?, color?, session?)`
 
 ```ts
-function newShip(
+function startNewShip(
   server: ServerRef,
   name?: string,
   color?: string,
@@ -304,10 +303,10 @@ function newShip(
 
 Creates/starts a new ship and returns a live client.
 
-### `Dredless.invite(server, code, session?)`
+### `Dredless.joinInvite(server, code, session?)`
 
 ```ts
-function invite(
+function joinInvite(
   server: ServerRef,
   code: string,
   session?: Session | null
@@ -315,18 +314,6 @@ function invite(
 ```
 
 Joins through an invite code and returns a live client.
-
-### `Dredless.startInvite(server, code, session?)`
-
-```ts
-function startInvite(
-  server: ServerRef,
-  code: string,
-  session?: Session | null
-): Promise<DredlessClient>;
-```
-
-Alias-style invite start helper. Returns a live client.
 
 ## `Session`
 
@@ -361,20 +348,19 @@ class Session {
   fetchShips(server: ServerRef): Promise<Ship[]>;
   fetchShipList(server: ServerRef): Promise<ShipList>;
 
-  startJoinConnection(server: ServerRef, ship?: ShipRef): Promise<Connection>;
-  startConnection(server: ServerRef, ship?: ShipRef): Promise<Connection>;
+  joinShipConnection(server: ServerRef, ship?: ShipRef): Promise<Connection>;
+  startShipConnection(server: ServerRef, ship?: ShipRef): Promise<Connection>;
   startNewShipConnection(
     server: ServerRef,
     name?: string,
     color?: string
   ): Promise<Connection>;
-  startInviteConnection(server: ServerRef, code: string): Promise<Connection>;
+  joinInviteConnection(server: ServerRef, code: string): Promise<Connection>;
 
-  join(server: ServerRef, ship?: ShipRef): Promise<DredlessClient>;
-  start(server: ServerRef, ship?: ShipRef): Promise<DredlessClient>;
-  newShip(server: ServerRef, name?: string, color?: string): Promise<DredlessClient>;
-  invite(server: ServerRef, code: string): Promise<DredlessClient>;
-  startInvite(server: ServerRef, code: string): Promise<DredlessClient>;
+  joinShip(server: ServerRef, ship?: ShipRef): Promise<DredlessClient>;
+  startShip(server: ServerRef, ship?: ShipRef): Promise<DredlessClient>;
+  startNewShip(server: ServerRef, name?: string, color?: string): Promise<DredlessClient>;
+  joinInvite(server: ServerRef, code: string): Promise<DredlessClient>;
 
   toJSON(): SessionSnapshot;
 }
@@ -411,10 +397,10 @@ Returns `ShipList`.
 These return `Connection` objects and do not open the websocket:
 
 ```ts
-session.startJoinConnection(server, ship?): Promise<Connection>;
-session.startConnection(server, ship?): Promise<Connection>;
+session.joinShipConnection(server, ship?): Promise<Connection>;
+session.startShipConnection(server, ship?): Promise<Connection>;
 session.startNewShipConnection(server, name?, color?): Promise<Connection>;
-session.startInviteConnection(server, code): Promise<Connection>;
+session.joinInviteConnection(server, code): Promise<Connection>;
 ```
 
 Use these when you want to construct `DredlessClient` yourself.
@@ -424,11 +410,10 @@ Use these when you want to construct `DredlessClient` yourself.
 These return live `DredlessClient` objects:
 
 ```ts
-session.join(server, ship?): Promise<DredlessClient>;
-session.start(server, ship?): Promise<DredlessClient>;
-session.newShip(server, name?, color?): Promise<DredlessClient>;
-session.invite(server, code): Promise<DredlessClient>;
-session.startInvite(server, code): Promise<DredlessClient>;
+session.joinShip(server, ship?): Promise<DredlessClient>;
+session.startShip(server, ship?): Promise<DredlessClient>;
+session.startNewShip(server, name?, color?): Promise<DredlessClient>;
+session.joinInvite(server, code): Promise<DredlessClient>;
 ```
 
 ### `session.toJSON()`
@@ -536,7 +521,7 @@ class DredlessClient {
   management: ShipManagementDomain;
   readyPromise: Promise<this>;
 
-  waitUntilReady(): Promise<this>;
+  whenReady(): Promise<this>;
   close(code?: number, reason?: string): this;
   disconnect(code?: number, reason?: string): this;
 
@@ -572,12 +557,12 @@ const client = new DredlessClient(connection, { connect: false });
 ### Lifecycle endpoints
 
 ```ts
-waitUntilReady(): Promise<this>;
+whenReady(): Promise<this>;
 close(code?: number, reason?: string): this;
 disconnect(code?: number, reason?: string): this;
 ```
 
-`waitUntilReady()` resolves once the ready packet is received and bootstrap
+`whenReady()` resolves once the ready packet is received and bootstrap
 commands have been sent.
 
 ### World/domain endpoints
@@ -2710,9 +2695,9 @@ const PUSHER_FILTER_ITEMS_COMMAND: "filter_items";
 const session = await Dredless.createAnonSession();
 const [server] = await Dredless.fetchServers();
 const [ship] = await session.fetchShips(server);
-const client = await session.start(server, ship);
+const client = await session.startShip(server, ship);
 
-await client.waitUntilReady();
+await client.whenReady();
 
 for (const loader of client.currentShip().machines.loaders()) {
   console.log(loader.id, loader.pick, loader.place, loader.cycle);

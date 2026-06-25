@@ -80,24 +80,20 @@ async function sessionOrAnon(session) {
   return session || createAnonSession();
 }
 
-async function join(server, ship = null, session = null) {
-  return (await sessionOrAnon(session)).join(server, ship);
+export async function joinShip(server, ship = null, session = null) {
+  return (await sessionOrAnon(session)).joinShip(server, ship);
 }
 
-async function start(server, ship = null, session = null) {
-  return (await sessionOrAnon(session)).start(server, ship);
+export async function startShip(server, ship = null, session = null) {
+  return (await sessionOrAnon(session)).startShip(server, ship);
 }
 
-async function newShip(server, name = "", color = "", session = null) {
-  return (await sessionOrAnon(session)).newShip(server, name, color);
+export async function startNewShip(server, name = "", color = "", session = null) {
+  return (await sessionOrAnon(session)).startNewShip(server, name, color);
 }
 
-async function invite(server, code, session = null) {
-  return (await sessionOrAnon(session)).invite(server, code);
-}
-
-async function startInvite(server, code, session = null) {
-  return (await sessionOrAnon(session)).startInvite(server, code);
+export async function joinInvite(server, code, session = null) {
+  return (await sessionOrAnon(session)).joinInvite(server, code);
 }
 
 export const Dredless = {
@@ -113,11 +109,10 @@ export const Dredless = {
   fetchServers,
   fetchShips,
   fetchShipList,
-  join,
-  start,
-  newShip,
-  invite,
-  startInvite
+  joinShip,
+  startShip,
+  startNewShip,
+  joinInvite
 };
 
 export default Dredless;

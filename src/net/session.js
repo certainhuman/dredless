@@ -69,40 +69,36 @@ export class Session {
     return fetchShipList(this, server);
   }
 
-  async startJoinConnection(server, ship = null) {
-    return this.#startConnection(server, ship, true);
+  async joinShipConnection(server, ship = null) {
+    return this.#startShipConnection(server, ship, true);
   }
 
-  async startConnection(server, ship = null) {
-    return this.#startConnection(server, ship, false);
+  async startShipConnection(server, ship = null) {
+    return this.#startShipConnection(server, ship, false);
   }
 
   async startNewShipConnection(server, name = "", color = "") {
-    return this.#startConnection(server, createShipSpec(name, color), false);
+    return this.#startShipConnection(server, createShipSpec(name, color), false);
   }
 
-  async startInviteConnection(server, code) {
-    return this.#startConnection(server, createInviteShipSpec(code), false);
+  async joinInviteConnection(server, code) {
+    return this.#startShipConnection(server, createInviteShipSpec(code), false);
   }
 
-  async join(server, ship = null) {
-    return readyClient(await this.startJoinConnection(server, ship));
+  async joinShip(server, ship = null) {
+    return readyClient(await this.joinShipConnection(server, ship));
   }
 
-  async start(server, ship = null) {
-    return readyClient(await this.startConnection(server, ship));
+  async startShip(server, ship = null) {
+    return readyClient(await this.startShipConnection(server, ship));
   }
 
-  async newShip(server, name = "", color = "") {
+  async startNewShip(server, name = "", color = "") {
     return readyClient(await this.startNewShipConnection(server, name, color));
   }
 
-  async invite(server, code) {
-    return readyClient(await this.startInviteConnection(server, code));
-  }
-
-  async startInvite(server, code) {
-    return this.invite(server, code);
+  async joinInvite(server, code) {
+    return readyClient(await this.joinInviteConnection(server, code));
   }
 
   toJSON() {
@@ -123,7 +119,7 @@ export class Session {
     };
   }
 
-  async #startConnection(server, ship, neverLoad) {
+  async #startShipConnection(server, ship, neverLoad) {
     if (server == null) throw new Error("A server id or server object is required");
     const resolvedServer = await resolveServer(server, this.baseUrl);
     if (!resolvedServer) throw new Error(`Unable to resolve server ${serverId(server)}`);
@@ -249,7 +245,7 @@ export async function createAnonSession(anonKey = null, noticeVersion = null, ba
 
 async function readyClient(connection) {
   const client = new DredlessClient(connection);
-  await client.waitUntilReady();
+  await client.whenReady();
   return client;
 }
 
@@ -314,7 +310,7 @@ function joinRejectMessage(code, { neverLoad, ship, server } = {}) {
     const name = ship?.name ? ` "${ship.name}"` : "";
     const id = ship?.id != null ? ` (${ship.id})` : "";
     const serverText = server?.description ? ` on ${server.description}` : "";
-    return `join rejected: 4007. ${name}${id}${serverText} could not be joined with never_load=true. Use session.start(server, ship) instead of session.join(server, ship) when loading or starting a saved ship.`;
+    return `join rejected: 4007. ${name}${id}${serverText} could not be joined with never_load=true. Use session.startShip(server, ship) instead of session.joinShip(server, ship) when loading or starting a saved ship.`;
   }
   return `join rejected: ${code}`;
 }

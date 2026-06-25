@@ -122,7 +122,7 @@ export class DredlessClient extends EventBus {
     turret_mode: 0
   };
 
-  waitUntilReady() {
+  whenReady() {
     return this.readyPromise;
   }
 

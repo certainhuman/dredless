@@ -8,7 +8,7 @@ Object-oriented headless client primitives for `drednot.io`.
 import Dredless from "dredless";
 
 const servers = await Dredless.fetchServers();
-const client = await Dredless.newShip(servers[0], "bot", "#de9797");
+const client = await Dredless.startNewShip(servers[0], "bot", "#de9797");
 
 client.player.move({ x: 1, y: 0 });
 client.inventory.slot(0).equip("feet");
@@ -89,7 +89,7 @@ Declare an existing joined connection without network I/O:
 ```js
 const connection = new Connection(session, "game-token", 4003, 0);
 const client = new DredlessClient(connection);
-await client.waitUntilReady();
+await client.whenReady();
 ```
 
 Use `{ connect: false }` only when you want a no-I/O client shell for tests or
@@ -102,28 +102,28 @@ const offlineClient = new DredlessClient(connection, { connect: false });
 Start connections from a session:
 
 ```js
-const joinConnection = await session.startJoinConnection(servers[0], ships[0]);
-const startConnection = await session.startConnection(servers[0], ships[0]);
+const joinConnection = await session.joinShipConnection(servers[0], ships[0]);
+const startShipConnection = await session.startShipConnection(servers[0], ships[0]);
 const newShipConnection = await session.startNewShipConnection(servers[0], "myship", "#de9797");
-const inviteConnection = await session.startInviteConnection(servers[0], "2c0YMWSGcR_r4Qzl4RqDoYEI");
+const inviteConnection = await session.joinInviteConnection(servers[0], "2c0YMWSGcR_r4Qzl4RqDoYEI");
 ```
 
 Start ready clients from a session:
 
 ```js
-const joined = await session.join(servers[0], ships[0]);
-const started = await session.start(servers[0], ships[0]);
-const created = await session.newShip(servers[0], "myship", "#24f320ff");
-const invited = await session.startInvite(servers[0], "2c0YMWSGcR_r4Qzl4RqDoYEI");
+const joined = await session.joinShip(servers[0], ships[0]);
+const started = await session.startShip(servers[0], ships[0]);
+const created = await session.startNewShip(servers[0], "myship", "#24f320ff");
+const invited = await session.joinInvite(servers[0], "2c0YMWSGcR_r4Qzl4RqDoYEI");
 ```
 
 Top-level convenience factories create an anonymous session when none is supplied:
 
 ```js
-const joined = await Dredless.join(servers[0]);
-const started = await Dredless.start(servers[0]);
-const created = await Dredless.newShip(servers[0], "myship", "#24f320ff");
-const invited = await Dredless.startInvite(servers[0], "2c0YMWSGcR_r4Qzl4RqDoYEI");
+const joined = await Dredless.joinShip(servers[0]);
+const started = await Dredless.startShip(servers[0]);
+const created = await Dredless.startNewShip(servers[0], "myship", "#24f320ff");
+const invited = await Dredless.joinInvite(servers[0], "2c0YMWSGcR_r4Qzl4RqDoYEI");
 ```
 
 Server is required. If ship is omitted, a new unnamed ship is created.

@@ -252,16 +252,15 @@ export class Session {
   fetchShips(server: ServerRef): Promise<Ship[]>;
   fetchShipList(server: ServerRef): Promise<ShipList>;
 
-  startJoinConnection(server: ServerRef, ship?: ShipRef): Promise<Connection>;
-  startConnection(server: ServerRef, ship?: ShipRef): Promise<Connection>;
+  joinShipConnection(server: ServerRef, ship?: ShipRef): Promise<Connection>;
+  startShipConnection(server: ServerRef, ship?: ShipRef): Promise<Connection>;
   startNewShipConnection(server: ServerRef, name?: string, color?: string): Promise<Connection>;
-  startInviteConnection(server: ServerRef, code: string): Promise<Connection>;
+  joinInviteConnection(server: ServerRef, code: string): Promise<Connection>;
 
-  join(server: ServerRef, ship?: ShipRef): Promise<DredlessClient>;
-  start(server: ServerRef, ship?: ShipRef): Promise<DredlessClient>;
-  newShip(server: ServerRef, name?: string, color?: string): Promise<DredlessClient>;
-  invite(server: ServerRef, code: string): Promise<DredlessClient>;
-  startInvite(server: ServerRef, code: string): Promise<DredlessClient>;
+  joinShip(server: ServerRef, ship?: ShipRef): Promise<DredlessClient>;
+  startShip(server: ServerRef, ship?: ShipRef): Promise<DredlessClient>;
+  startNewShip(server: ServerRef, name?: string, color?: string): Promise<DredlessClient>;
+  joinInvite(server: ServerRef, code: string): Promise<DredlessClient>;
 
   toJSON(): SessionSnapshot;
 }
@@ -341,7 +340,7 @@ export class DredlessClient {
   management: ShipManagementDomain;
   readyPromise: Promise<this>;
 
-  waitUntilReady(): Promise<this>;
+  whenReady(): Promise<this>;
   close(code?: number, reason?: string): this;
   disconnect(code?: number, reason?: string): this;
   currentShip(): ShipDomain | null;
@@ -1690,11 +1689,10 @@ export function fetchGameVersion(): Promise<string>;
 export function fetchServers(): Promise<Server[]>;
 export function fetchShips(session: Session, server: ServerRef): Promise<Ship[]>;
 export function fetchShipList(session: Session, server: ServerRef): Promise<ShipList>;
-export function join(server: ServerRef, ship?: ShipRef, session?: Session | null): Promise<DredlessClient>;
-export function start(server: ServerRef, ship?: ShipRef, session?: Session | null): Promise<DredlessClient>;
-export function newShip(server: ServerRef, name?: string, color?: string, session?: Session | null): Promise<DredlessClient>;
-export function invite(server: ServerRef, code: string, session?: Session | null): Promise<DredlessClient>;
-export function startInvite(server: ServerRef, code: string, session?: Session | null): Promise<DredlessClient>;
+export function joinShip(server: ServerRef, ship?: ShipRef, session?: Session | null): Promise<DredlessClient>;
+export function startShip(server: ServerRef, ship?: ShipRef, session?: Session | null): Promise<DredlessClient>;
+export function startNewShip(server: ServerRef, name?: string, color?: string, session?: Session | null): Promise<DredlessClient>;
+export function joinInvite(server: ServerRef, code: string, session?: Session | null): Promise<DredlessClient>;
 export function buildBlueprintPlacementMessage(placement: BlueprintPlacement): BlueprintPlacementMessage;
 
 export interface DredlessNamespace {
@@ -1710,11 +1708,10 @@ export interface DredlessNamespace {
   fetchServers: typeof fetchServers;
   fetchShips: typeof fetchShips;
   fetchShipList: typeof fetchShipList;
-  join: typeof join;
-  start: typeof start;
-  newShip: typeof newShip;
-  invite: typeof invite;
-  startInvite: typeof startInvite;
+  joinShip: typeof joinShip;
+  startShip: typeof startShip;
+  startNewShip: typeof startNewShip;
+  joinInvite: typeof joinInvite;
 }
 
 export const Dredless: DredlessNamespace;
