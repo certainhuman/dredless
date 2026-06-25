@@ -4,8 +4,10 @@ Object-oriented headless client primitives for `drednot.io`.
 
 ## Quick Start
 
+Node/multi-session usage:
+
 ```js
-import Dredless from "dredless";
+import Dredless from "dredless/node";
 
 const servers = await Dredless.fetchServers();
 const client = await Dredless.startNewShip(servers[0], "bot", "#de9797");
@@ -26,6 +28,25 @@ client.on("inventory", () => console.log(client.inventory.hotbarSlots().map((slo
 client.on("model", ({ world }) => console.log(world.model.transforms()));
 ```
 
+Browser/ambient-session usage:
+
+```js
+import Dredless from "dredless/browser";
+
+await Dredless.createAnonSession();
+const servers = await Dredless.fetchServers();
+const ships = await Dredless.fetchShips(servers[0]);
+const client = await Dredless.startShip(servers[0], ships[0]);
+```
+
+The browser entrypoint uses the current browser cookie jar with `credentials: "include"`. It does not expose Node's explicit multi-session cookie API. Browser `createAnonSession()` and `fetchAnonKey()` are tested in page and content-script contexts; background, popup, worker, and other non-page contexts are unlikely to expose `drednot.io` cookies.
+
+## API Docs
+
+- [Node top-level API](docs/NODE_API.md): explicit session/token/start helpers.
+- [Browser top-level API](docs/BROWSER_API.md): ambient browser-session helpers.
+- [Shared API reference](docs/API_REFERENCE.md): client, world, entity, machine, inventory, management, and protocol APIs.
+
 ## Core Objects
 
 ```js
@@ -34,7 +55,9 @@ import Dredless, {
   AnonSession,
   Connection,
   DredlessClient
-} from "dredless";
+} from "dredless/node";
+
+import BrowserDredless, { BrowserSession } from "dredless/browser";
 ```
 
 - `Session` stores `game_session`, notice/version state, and authenticated HTTP helpers.
@@ -42,7 +65,8 @@ import Dredless, {
 - `Connection` stores the result of `/join`: session, `game_token`, net port, and server id.
 - `DredlessClient` is the live WebSocket client that sends commands and processes packets.
 - `WorldStore` / `WorldState` keep decoded world metadata, normalized tiles, material counts, the world tileset, model packets, and best-effort ECS model tables, plus derived entity and block occupancy summaries for ship and overworld worlds.
-- `Dredless` is the default and named namespace for factories and unauthenticated fetch helpers.
+- `Dredless` from `dredless/node` is the explicit multi-session Node namespace.
+- `Dredless` from `dredless/browser` assumes the current browser session/cookies.
 
 ## Sessions
 

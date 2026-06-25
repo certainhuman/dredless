@@ -1,5 +1,5 @@
 import { DEFAULT_BASE_URL } from "../constants.js";
-import { isBrowser, normalizeBaseUrl, hostName } from "../runtime.js";
+import { normalizeBaseUrl, hostName } from "../runtime.js";
 
 export function cookiePrefix(baseUrl = DEFAULT_BASE_URL) {
   const host = hostName(baseUrl);
@@ -21,7 +21,31 @@ export function parseCookies(text = "") {
 }
 
 export function browserCookies() {
-  return isBrowser() ? parseCookies(document.cookie || "") : new Map();
+  return canReadDocumentCookie() ? parseCookies(document.cookie || "") : new Map();
+}
+
+export function canReadDocumentCookie() {
+  try {
+    return typeof document !== "undefined" && typeof document.cookie === "string";
+  } catch (_) {
+    return false;
+  }
+}
+
+export function hasCookieStore() {
+  return typeof globalThis.cookieStore !== "undefined" && typeof globalThis.cookieStore.getAll === "function";
+}
+
+export async function readBrowserCookie(name) {
+  if (hasCookieStore()) {
+    try {
+      const cookie = typeof globalThis.cookieStore.get === "function" ? await globalThis.cookieStore.get(name) : null;
+      if (cookie?.value != null) return cookie.value;
+    } catch (_) {
+      // Fall through to document.cookie below.
+    }
+  }
+  return browserCookies().get(name) || "";
 }
 
 export function setCookieValues(baseUrl, source = {}) {

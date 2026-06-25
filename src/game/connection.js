@@ -5,12 +5,12 @@ import { cookieName } from "../net/cookies.js";
 export class Connection {
   constructor(session, gameToken, netPort, serverId, server = null) {
     if (!session) throw new Error("Connection requires a session");
-    if (!gameToken) throw new Error("Connection requires a game token");
+    if (!gameToken && !session.ambientAuth) throw new Error("Connection requires a game token");
     if (netPort == null) throw new Error("Connection requires a net port");
 
     this.session = session;
     this.baseUrl = normalizeBaseUrl(session.baseUrl || DEFAULT_BASE_URL);
-    this.gameToken = String(gameToken);
+    this.gameToken = gameToken ? String(gameToken) : "";
     this.netPort = Number(netPort);
     this.server = serverId && typeof serverId === "object" ? serverId : server;
     this.serverId = Number(serverId && typeof serverId === "object" ? serverId.index ?? serverId.id : serverId);
