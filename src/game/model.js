@@ -11,9 +11,7 @@ import {
   navigationZoneFromBaseId
 } from "./overworld.js";
 import { maybeSolveGeneratorMazeSeed } from "./generator-maze.js";
-import fs from "node:fs";
-
-const itemSchema = JSON.parse(fs.readFileSync(new URL("../../spec/item_schema.json", import.meta.url), "utf8"));
+import { itemNameFromId } from "./items.js";
 
 class ModelReader {
   constructor(bytes) {
@@ -394,8 +392,6 @@ const WIRE_TAG_TABLES = new Map([
 
 const MASK_ONLY_TABLES = new Set([13, 22, 23, 27, 28, 30, 32, 36, 40, 46, 48, 52, 58, 64, 65, 66, 68, 73, 74]);
 
-const ENTITY_TYPE_NAMES = new Map(itemSchema.map((item) => [Number(item.id), item.name]));
-
 const ENTITY_FOOTPRINTS = new Map([
   [240, { width: 2, height: 2 }],
   [247, { width: 2, height: 2 }],
@@ -568,7 +564,7 @@ function decodeText(blob) {
 }
 
 function entityNameFromType(typeId) {
-  return typeId == null ? null : ENTITY_TYPE_NAMES.get(Number(typeId)) || null;
+  return itemNameFromId(typeId);
 }
 
 function markerTypeIdForTables(tableIds) {

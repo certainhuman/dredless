@@ -9,9 +9,8 @@ import { buildBlueprintPlacementMessage } from "./protocol/blueprint.js";
 import { buildCommsMessage, normalizeCommsEvent } from "./protocol/comms.js";
 import { buildSignedCommandPacket } from "./protocol/commands.js";
 import {
-  buildEquipItemCommand,
   buildInventoryDragCommand,
-  buildUnequipItemCommand,
+  normalizeEquipmentSlot,
   normalizeInventoryEvent
 } from "./protocol/inventory.js";
 import {
@@ -406,10 +405,8 @@ export class DredlessClient extends EventBus {
 
   inputSettings() {
     return {
-      wrenchMode: this.#inputSettings.wrench_mode,
-      wrenchModeName: wrenchModeName(this.#inputSettings.wrench_mode),
-      turretMode: this.#inputSettings.turret_mode,
-      turretModeName: turretModeName(this.#inputSettings.turret_mode),
+      wrenchMode: wrenchModeName(this.#inputSettings.wrench_mode),
+      turretMode: turretModeName(this.#inputSettings.turret_mode),
       viewWidth: this.#inputSettings.vx ?? null,
       viewHeight: this.#inputSettings.vy ?? null,
       screenWidth: this.#inputSettings.scr_w ?? null,
@@ -418,12 +415,12 @@ export class DredlessClient extends EventBus {
   }
 
   setInputSettings(settings = {}, { send = true } = {}) {
-    const wrench = settings.wrenchMode ?? settings.wrench_mode;
-    const turret = settings.turretMode ?? settings.turret_mode;
-    const viewWidth = settings.viewWidth ?? settings.vx;
-    const viewHeight = settings.viewHeight ?? settings.vy;
-    const screenWidth = settings.screenWidth ?? settings.scr_w;
-    const screenHeight = settings.screenHeight ?? settings.scr_h;
+    const wrench = settings.wrenchMode;
+    const turret = settings.turretMode;
+    const viewWidth = settings.viewWidth;
+    const viewHeight = settings.viewHeight;
+    const screenWidth = settings.screenWidth;
+    const screenHeight = settings.screenHeight;
     if (wrench != null) this.#inputSettings.wrench_mode = normalizeWrenchMode(wrench);
     if (turret != null) this.#inputSettings.turret_mode = normalizeTurretMode(turret);
     if (viewWidth != null) this.#inputSettings.vx = normalizePositiveFinite(viewWidth, "viewWidth");
@@ -540,25 +537,6 @@ export class DredlessClient extends EventBus {
     });
   }
 
-  selectSlot(invSlot = 0, command = {}) {
-    return this.send({ ...command, inv_slot: invSlot });
-  }
-
-  drag(source, target, split = false, command = {}) {
-    return this.moveInventoryItem(source, target, { split }, command);
-  }
-
-  moveInventoryItem(source, target, { split = false } = {}, command = {}) {
-    return this.send({ ...command, ...buildInventoryDragCommand(source, target, split) });
-  }
-
-  equipItem(source, equipmentSlot, { split = false } = {}, command = {}) {
-    return this.send({ ...command, ...buildEquipItemCommand(source, equipmentSlot, split) });
-  }
-
-  unequipItem(equipmentSlot, target = 0, { split = false } = {}, command = {}) {
-    return this.send({ ...command, ...buildUnequipItemCommand(equipmentSlot, target, split) });
-  }
 
   close(code = 1000, reason = "client") {
     try { this.ws?.close(code, reason); } catch (_) {}
@@ -1057,7 +1035,7 @@ class PlayerDomain {
   placeHeldItem(options = {}, command = {}) { return this.client.placeHeldItem(options, command); }
   placeBlueprint(placement, options = {}, command = {}) { return this.client.placeBlueprint(placement, options, command); }
   rotateHeldItem(options = {}, command = {}) { return this.client.rotateHeldItem(options, command); }
-  selectSlot(invSlot = 0, command = {}) { return this.client.selectSlot(invSlot, command); }
+  selectSlot(invSlot = 0, command = {}) { return this.client.send({ ...command, inv_slot: inventorySlotIndexOf(invSlot) }); }
   inputSettings() { return this.client.inputSettings(); }
   setInputSettings(settings = {}, options = {}) { return this.client.setInputSettings(settings, options); }
   setView(width, height, options = {}) { return this.client.setView(width, height, options); }
@@ -1085,14 +1063,56 @@ class ShipManagementDomain {
 }
 class InventoryDomain {
   constructor(client) { this.client = client; }
-  current() { return this.client.inventoryState; }
-  slots() { return this.current()?.slots || []; }
-  hotbar() { return this.current()?.hotbar || []; }
-  equipment() { return this.current()?.equipment || { back: null, hands: null, feet: null }; }
-  drag(source, target, { split = false } = {}, command = {}) { return this.client.moveInventoryItem(source, target, { split }, command); }
-  move(source, target, options = {}, command = {}) { return this.drag(source, target, options, command); }
-  equip(source, equipmentSlot, options = {}, command = {}) { return this.client.equipItem(source, equipmentSlot, options, command); }
-  unequip(equipmentSlot, target = 0, options = {}, command = {}) { return this.client.unequipItem(equipmentSlot, target, options, command); }
+  state() { return this.client.inventoryState; }
+  hotbarSize() { return this.state()?.hotbarSize ?? 0; }
+  slots() { return (this.state()?.slots || []).map((slot) => this.slot(slot.index)); }
+  slot(ref) { return new InventorySlotHandle(this, inventorySlotIndexOf(ref)); }
+  hotbar() { return (this.state()?.hotbar || []).map((slot) => this.slot(slot.index)); }
+  equipment() { return { head: this.slot("head"), face: this.slot("face"), back: this.slot("back"), hands: this.slot("hands"), feet: this.slot("feet") }; }
+  findItem(itemId, { area = "all" } = {}) { return this.findItems(itemId, { area })[0] || null; }
+  findItems(itemId, { area = "all" } = {}) {
+    const normalized = Number(itemId);
+    if (!Number.isFinite(normalized)) return [];
+    return inventoryHandlesForArea(this, area).filter((slot) => slot.itemId === normalized);
+  }
+  firstEmpty({ area = "all" } = {}) { return inventoryHandlesForArea(this, area).find((slot) => slot.empty) || null; }
+  move(source, target, { split = false } = {}, command = {}) {
+    return this.client.send({
+      ...command,
+      ...buildInventoryDragCommand(inventorySlotIndexOf(source, "source"), inventorySlotIndexOf(target, "target"), split)
+    });
+  }
+  equip(source, equipmentSlot, { split = false } = {}, command = {}) {
+    return this.move(source, normalizeEquipmentSlot(equipmentSlot), { split }, command);
+  }
+  unequip(equipmentSlot, target = 0, { split = false } = {}, command = {}) {
+    return this.move(normalizeEquipmentSlot(equipmentSlot), target, { split }, command);
+  }
+  select(slot, command = {}) { return this.client.send({ ...command, inv_slot: inventorySlotIndexOf(slot) }); }
+}
+
+class InventorySlotHandle {
+  constructor(domain, index) {
+    this.domain = domain;
+    this.client = domain.client;
+    this.index = index;
+  }
+  get state() { return this.domain.state()?.slots?.find((slot) => slot.index === this.index) || null; }
+  get kind() { return this.state?.kind ?? null; }
+  get equipmentSlot() { return this.state?.equipmentSlot ?? null; }
+  get itemId() { return this.state?.itemId ?? null; }
+  get itemName() { return this.state?.itemName ?? null; }
+  get count() { return this.state?.count ?? 0; }
+  get empty() { return this.state?.empty ?? true; }
+  exists() { return Boolean(this.state); }
+  snapshot() { return this.state ? Object.freeze({ ...this.state }) : null; }
+  moveTo(target, options = {}, command = {}) { return this.domain.move(this, target, options, command); }
+  equip(equipmentSlot, options = {}, command = {}) { return this.domain.equip(this, equipmentSlot, options, command); }
+  unequip(target = 0, options = {}, command = {}) {
+    if (!this.equipmentSlot) throw new RangeError(`inventory slot ${this.index} is not an equipment slot`);
+    return this.domain.unequip(this.equipmentSlot, target, options, command);
+  }
+  select(command = {}) { return this.domain.select(this, command); }
 }
 
 class WorldDomain {
@@ -1608,6 +1628,29 @@ function summaryForEntity(client, scope, entity) {
 function entityIdOf(value) {
   if (value && typeof value === "object") return Number(value.entity ?? value.id);
   return Number(value);
+}
+function inventorySlotIndexOf(value, name = "slot") {
+  if (value && typeof value === "object") {
+    if (value.index != null) return normalizeInventorySlotIndex(value.index, name);
+    if (value.entity != null || value.id != null) throw new TypeError(`${name} must be an inventory slot, slot snapshot, equipment slot, or index`);
+  }
+  if (typeof value === "string") return normalizeEquipmentSlot(value);
+  return normalizeInventorySlotIndex(value, name);
+}
+
+function normalizeInventorySlotIndex(value, name = "slot") {
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < 0) throw new RangeError(`${name} must be a non-negative inventory slot index`);
+  return number;
+}
+
+function inventoryHandlesForArea(domain, area = "all") {
+  switch (area) {
+    case "all": return domain.slots();
+    case "hotbar": return domain.hotbar();
+    case "equipment": return Object.values(domain.equipment());
+    default: throw new RangeError(`Unknown inventory area: ${area}`);
+  }
 }
 const WRENCH_MODES = new Map([
   [0, "drop-all-items"],

@@ -1,4 +1,4 @@
-export type EquipmentSlot = 19 | 20 | 21 | "back" | "hand" | "hands" | "foot" | "feet";
+export type EquipmentSlot = 16 | 17 | 19 | 20 | 21 | "head" | "hat" | "face" | "mask" | "back" | "hand" | "hands" | "foot" | "feet";
 
 export interface InventoryDragCommand {
   drag: {
@@ -8,38 +8,40 @@ export interface InventoryDragCommand {
   };
 }
 
-export interface InventorySlot {
+export interface InventorySlotSnapshot {
   index: number;
   itemId: number | null;
+  itemName: string | null;
   count: number;
-  kind: "hotbar" | "inventory" | "equipment";
-  equipmentSlot: "back" | "hands" | "feet" | null;
+  kind: "hotbar" | "equipment";
+  equipmentSlot: "head" | "face" | "back" | "hands" | "feet" | null;
+  empty: boolean;
 }
 
 export interface InventoryState {
   type: "inventory";
   filter?: number;
-  items: unknown[];
-  item_counts: unknown[];
-  general_slots: number;
-  slots: InventorySlot[];
-  hotbar: InventorySlot[];
-  inventory: InventorySlot[];
+  hotbarSize: number;
+  slots: InventorySlotSnapshot[];
+  hotbar: InventorySlotSnapshot[];
   equipment: {
-    back: InventorySlot | null;
-    hands: InventorySlot | null;
-    feet: InventorySlot | null;
+    head: InventorySlotSnapshot;
+    face: InventorySlotSnapshot;
+    back: InventorySlotSnapshot;
+    hands: InventorySlotSnapshot;
+    feet: InventorySlotSnapshot;
   };
 }
-
-export function normalizeEquipmentSlot(slot: EquipmentSlot): 19 | 20 | 21;
-export function equipmentSlotName(slot: number): "back" | "hands" | "feet" | null;
+export function normalizeEquipmentSlot(slot: EquipmentSlot): 16 | 17 | 19 | 20 | 21;
+export function equipmentSlotName(slot: number): "head" | "face" | "back" | "hands" | "feet" | null;
 export function buildInventoryDragCommand(source: number, target: number, split?: boolean): InventoryDragCommand;
 export function buildEquipItemCommand(source: number, slot: EquipmentSlot, split?: boolean): InventoryDragCommand;
 export function buildUnequipItemCommand(slot: EquipmentSlot, target?: number, split?: boolean): InventoryDragCommand;
 export function normalizeInventoryEvent(event: unknown): InventoryState;
 
 export const EQUIPMENT_SLOT_INDEXES: Readonly<{
+  head: 16;
+  face: 17;
   back: 19;
   hands: 20;
   feet: 21;

@@ -11,7 +11,7 @@ const servers = await Dredless.fetchServers();
 const client = await Dredless.newShip(servers[0], "bot", "#de9797");
 
 client.player.move({ x: 1, y: 0 });
-client.inventory.equip(0, "feet");
+client.inventory.slot(0).equip("feet");
 client.player.placeBlueprint({ x: 28, y: 18, width: 3, height: 3, source: "DSA:..." }, { invSlot: 2 });
 
 const ship = client.currentShip();
@@ -22,7 +22,7 @@ const sign = ship?.machines.signs()[0];
 sign?.open();
 sign?.setText("Dock here", "when-near");
 
-client.on("inventory", () => console.log(client.inventory.hotbar()));
+client.on("inventory", () => console.log(client.inventory.hotbar().map((slot) => slot.snapshot())));
 client.on("model", ({ world }) => console.log(world.model.transforms()));
 ```
 

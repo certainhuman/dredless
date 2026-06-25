@@ -36,7 +36,9 @@ export type ShipRef = number | string | Ship | ShipSpec | null;
 export type ShipPrivacy = 0 | 1 | boolean | "public" | "private";
 export type ShipPlayerRank = 0 | 1 | 3 | "guest" | "crew" | "captain";
 export type SignDisplayMode = 0 | 1 | 2 | "always" | "when-near" | "whenNear" | "near" | "on-hover" | "onHover" | "hover";
-export type EquipmentSlot = 19 | 20 | 21 | "back" | "hand" | "hands" | "foot" | "feet";
+export type EquipmentSlot = 16 | 17 | 19 | 20 | 21 | "head" | "hat" | "face" | "mask" | "back" | "hand" | "hands" | "foot" | "feet";
+export type InventoryArea = "all" | "hotbar" | "equipment";
+export type InventorySlotRef = number | EquipmentSlot | InventorySlotHandle | InventorySlotSnapshot;
 export type ReadWorldScope = "ship" | "current" | "overworld" | number;
 
 export interface ShipConfigEvent {
@@ -410,16 +412,36 @@ export interface ShipManagementDomain {
   playerList(): PlayerListEvent | null;
 }
 export interface InventoryDomain {
-  current(): InventoryState | null;
-  slots(): InventorySlot[];
-  hotbar(): InventorySlot[];
-  equipment(): InventoryState["equipment"];
-  drag(source: number, target: number, options?: { split?: boolean }, command?: Command): DredlessClient;
-  move(source: number, target: number, options?: { split?: boolean }, command?: Command): DredlessClient;
-  equip(source: number, equipmentSlot: EquipmentSlot, options?: { split?: boolean }, command?: Command): DredlessClient;
-  unequip(equipmentSlot: EquipmentSlot, target?: number, options?: { split?: boolean }, command?: Command): DredlessClient;
+  state(): InventoryState | null;
+  hotbarSize(): number;
+  slots(): InventorySlotHandle[];
+  slot(ref: InventorySlotRef): InventorySlotHandle;
+  hotbar(): InventorySlotHandle[];
+  equipment(): { head: InventorySlotHandle; face: InventorySlotHandle; back: InventorySlotHandle; hands: InventorySlotHandle; feet: InventorySlotHandle };
+  findItem(itemId: number, options?: { area?: InventoryArea }): InventorySlotHandle | null;
+  findItems(itemId: number, options?: { area?: InventoryArea }): InventorySlotHandle[];
+  firstEmpty(options?: { area?: InventoryArea }): InventorySlotHandle | null;
+  move(source: InventorySlotRef, target: InventorySlotRef, options?: { split?: boolean }, command?: Command): DredlessClient;
+  equip(source: InventorySlotRef, equipmentSlot: EquipmentSlot, options?: { split?: boolean }, command?: Command): DredlessClient;
+  unequip(equipmentSlot: EquipmentSlot, target?: InventorySlotRef, options?: { split?: boolean }, command?: Command): DredlessClient;
+  select(slot: InventorySlotRef, command?: Command): DredlessClient;
 }
 
+export interface InventorySlotHandle {
+  index: number;
+  kind: "hotbar" | "equipment" | null;
+  equipmentSlot: "head" | "face" | "back" | "hands" | "feet" | null;
+  itemId: number | null;
+  itemName: string | null;
+  count: number;
+  empty: boolean;
+  exists(): boolean;
+  snapshot(): InventorySlotSnapshot | null;
+  moveTo(target: InventorySlotRef, options?: { split?: boolean }, command?: Command): DredlessClient;
+  equip(equipmentSlot: EquipmentSlot, options?: { split?: boolean }, command?: Command): DredlessClient;
+  unequip(target?: InventorySlotRef, options?: { split?: boolean }, command?: Command): DredlessClient;
+  select(command?: Command): DredlessClient;
+}
 export interface WorldDomain {
   id: number | null;
   entities: EntityCollection;
@@ -746,54 +768,46 @@ export type TurretMode = 0 | 1 | "continuous-fire" | "volley-fire";
 
 export interface InputSettings {
   wrenchMode?: WrenchMode;
-  wrench_mode?: WrenchMode;
   turretMode?: TurretMode;
-  turret_mode?: TurretMode;
   viewWidth?: number;
   viewHeight?: number;
   screenWidth?: number;
   screenHeight?: number;
-  vx?: number;
-  vy?: number;
-  scr_w?: number;
-  scr_h?: number;
 }
 
 export interface CurrentInputSettings {
-  wrenchMode: 0 | 1 | 2;
-  wrenchModeName: "drop-all-items" | "grab-primary-items" | "grab-all-items" | null;
-  turretMode: 0 | 1;
-  turretModeName: "continuous-fire" | "volley-fire" | null;
+  wrenchMode: "drop-all-items" | "grab-primary-items" | "grab-all-items" | null;
+  turretMode: "continuous-fire" | "volley-fire" | null;
   viewWidth: number | null;
   viewHeight: number | null;
   screenWidth: number | null;
   screenHeight: number | null;
 }
 
-export interface InventorySlot {
+export interface InventorySlotSnapshot {
   index: number;
   itemId: number | null;
+  itemName: string | null;
   count: number;
-  kind: "hotbar" | "inventory" | "equipment";
-  equipmentSlot: "back" | "hands" | "feet" | null;
+  kind: "hotbar" | "equipment";
+  equipmentSlot: "head" | "face" | "back" | "hands" | "feet" | null;
+  empty: boolean;
 }
 
 export interface InventoryState {
   type: "inventory";
   filter?: number;
-  items: unknown[];
-  item_counts: unknown[];
-  general_slots: number;
-  slots: InventorySlot[];
-  hotbar: InventorySlot[];
-  inventory: InventorySlot[];
+  hotbarSize: number;
+  slots: InventorySlotSnapshot[];
+  hotbar: InventorySlotSnapshot[];
   equipment: {
-    back: InventorySlot | null;
-    hands: InventorySlot | null;
-    feet: InventorySlot | null;
+    head: InventorySlotSnapshot;
+    face: InventorySlotSnapshot;
+    back: InventorySlotSnapshot;
+    hands: InventorySlotSnapshot;
+    feet: InventorySlotSnapshot;
   };
 }
-
 export interface PuiEvent {
   type: "pui";
   filter?: number;
@@ -1534,8 +1548,8 @@ export function buildSignedCommandPacket(command: Command, sessionId: number): U
 export function buildInventoryDragCommand(source: number, target: number, split?: boolean): InventoryDragCommand;
 export function buildEquipItemCommand(source: number, slot: EquipmentSlot, split?: boolean): InventoryDragCommand;
 export function buildUnequipItemCommand(slot: EquipmentSlot, target?: number, split?: boolean): InventoryDragCommand;
-export function normalizeEquipmentSlot(slot: EquipmentSlot): 19 | 20 | 21;
-export function equipmentSlotName(slot: number): "back" | "hands" | "feet" | null;
+export function normalizeEquipmentSlot(slot: EquipmentSlot): 16 | 17 | 19 | 20 | 21;
+export function equipmentSlotName(slot: number): "head" | "face" | "back" | "hands" | "feet" | null;
 export function normalizeInventoryEvent(event: unknown): InventoryState;
 export function buildShipManagementMessage(act: string, arg?: unknown, extra?: Record<string, unknown> | null): ShipManagementMessage;
 export function buildShipPrivacyMessage(privacy: ShipPrivacy): ShipManagementMessage;

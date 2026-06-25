@@ -69,7 +69,7 @@ Primary domains:
 
 ```js
 client.player       // movement, aim, held item use, placement, input settings
-client.inventory    // current inventory state plus drag/equip/unequip actions
+client.inventory    // inventory slot handles, state, movement, equip/unequip actions
 client.management   // ship privacy, invite reset, player list, starter recovery
 client.net          // low-level websocket/send primitives
 client.debug        // raw packets, model tables, decode errors, PUI panels
@@ -84,7 +84,7 @@ Domain-object examples:
 ```js
 client.player.move({ x: 1, y: 0 });
 client.player.aim({ x: 300, y: 200 });
-client.inventory.equip(0, "feet");
+client.inventory.slot(0).equip("feet");
 
 const ship = client.currentShip();
 const loader = ship?.machines.loaders()[0];
@@ -595,24 +595,34 @@ a scanner-specific websocket response; it only sent normal signed input frames.
 That suggests the official client can produce the blueprint scan output locally
 from already-loaded ship state, at least for this sample.
 
-Inventory movement uses the signed type `0` `drag` field. `drag()` is the
-low-level wrapper; `moveInventoryItem()` is the same operation with an options
-object. Equipment slots are absolute inventory slots in the official protocol:
-`19`/`"back"`, `20`/`"hands"`, and `21`/`"feet"`.
+Inventory movement uses the signed type `0` `drag` field internally. Use the slot-oriented public API on `client.inventory`; `buildInventoryDragCommand()` remains available for low-level protocol payloads. Equipment slots are absolute inventory slots in the official protocol: `16`/`"head"`, `17`/`"face"`, `19`/`"back"`, `20`/`"hands"`, and `21`/`"feet"`.
 
 ```js
-client.inventory.move(0, 4);
-client.inventory.move(1, 2, { split: true });
-client.inventory.equip(0, "back");
-client.inventory.equip(0, "hands");
-client.inventory.equip(0, "feet");
-client.unequipItem("hands", 0);
+const inv = client.inventory;
+
+inv.move(0, 4);
+inv.move(inv.slot(1), inv.slot(2), { split: true });
+inv.equip(0, "back");
+inv.equip(inv.slot(1), "hands");
+inv.unequip("hands", 0);
+inv.select(inv.slot(2));
+
+const hotbarSize = inv.hotbarSize(); // protocol general_slots
+const skates = inv.findItem(109);
+const emptyHotbarSlot = inv.firstEmpty({ area: "hotbar" });
+const head = inv.equipment().head;
+const hands = inv.equipment().hands;
 ```
 
-Official-client equipment captures confirm double-click equip emits the same
-drag command as manual drag. Backpack and Hover Pack equip to slot `19`,
-Construction Gauntlets equip to slot `20`, Speed Skates equip to slot `21`, and
-unequipping gauntlets sends `drag={ source:20, target:0, split:false }`.
+Slot reads return handles. Call `snapshot()` when you need immutable point-in-time slot data:
+
+```js
+const slot = client.inventory.slot("hands");
+console.log(slot.itemId, slot.itemName, slot.count, slot.empty);
+console.log(slot.snapshot());
+```
+
+Official-client equipment captures confirm double-click equip emits the same drag command as manual drag. Lesser Cap equips to slot `16`, Goblin Mask equips to slot `17`, Backpack and Hover Pack equip to slot `19`, Construction Gauntlets equip to slot `20`, Speed Skates equip to slot `21`, and unequipping gauntlets sends `drag={ source:20, target:0, split:false }`.
 
 Navigation-unit helpers send the observed top-level `type: 8` UI/config
 payload for `config_nav_unit`:
