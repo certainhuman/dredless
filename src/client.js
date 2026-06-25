@@ -1251,6 +1251,7 @@ class MachineCollection {
   generator(entity) { return new GeneratorHandle(this.client, entityIdOf(entity), this.scope); }
   cargoHatches() { return this.state().cargoHatches.map((item) => new CargoHatchHandle(this.client, item.entity, this.scope)); }
   cargoHatch(entity) { return new CargoHatchHandle(this.client, entityIdOf(entity), this.scope); }
+  cargoEjectors() { return this.state().cargoEjectors.map((item) => new CargoEjectorHandle(this.client, item.entity, this.scope)); }
   cargoEjector(entity) { return new CargoEjectorHandle(this.client, entityIdOf(entity), this.scope); }
   cannons() { return this.state().cannons.map((item) => new CannonHandle(this.client, item.entity, this.scope)); }
   cannon(entity) { return new CannonHandle(this.client, entityIdOf(entity), this.scope); }
@@ -1266,8 +1267,6 @@ class MachineCollection {
   shieldProjector(entity) { return new ShieldProjectorHandle(this.client, entityIdOf(entity), this.scope); }
   fluidTanks() { return this.state().fluidTanks.map((item) => new FluidTankHandle(this.client, item.entity, this.scope)); }
   fluidTank(entity) { return new FluidTankHandle(this.client, entityIdOf(entity), this.scope); }
-  processors() { return this.state().processors.map((item) => new ProcessorHandle(this.client, item.entity, this.scope)); }
-  processor(entity) { return new ProcessorHandle(this.client, entityIdOf(entity), this.scope); }
   expandoBoxes() { return this.state().expandoBoxes.map((item) => new ExpandoBoxHandle(this.client, item.entity, this.scope)); }
   expandoBox(entity) { return new ExpandoBoxHandle(this.client, entityIdOf(entity), this.scope); }
 }
@@ -1302,7 +1301,7 @@ class EntityHandle {
   asSpawnPoint() { return this.as("spawnPoint"); }
   asShieldProjector() { return this.as("shieldProjector"); }
   asFluidTank() { return this.as("fluidTank"); }
-  asProcessor() { return this.as("processor"); }
+  asCargoEjector() { return this.as("cargoEjector"); }
   asExpandoBox() { return this.as("expandoBox"); }
   use(options = {}, command = {}) { return this.client.player.useEntity(this.id, options, command); }
 }
@@ -1333,6 +1332,13 @@ class LoaderHandle extends MachineHandle {
   get waitForStack() { return this.state?.waitForStack; }
   get filterMode() { return this.state?.filterMode; }
   get filterSlots() { return this.state?.filterSlots || []; }
+  get active() { return this.state?.active; }
+  get heldItem() {
+    const state = this.state;
+    if (!state || state.heldItemId == null) return null;
+    return { itemId: state.heldItemId, itemName: state.heldItemName, count: state.heldCount };
+  }
+  get progress() { return this.state?.progress; }
 }
 
 class PusherHandle extends MachineHandle {
@@ -1379,6 +1385,13 @@ class NavigationUnitHandle extends MachineHandle {
 
 class FabricatorHandle extends MachineHandle {
   get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.fabricator || null; }
+  get progress() { return this.state?.progress; }
+  get active() { return this.state?.active; }
+  get craftingItem() {
+    const state = this.state;
+    if (!state || state.craftingItemId == null) return null;
+    return { itemId: state.craftingItemId, itemName: state.craftingItemName, count: state.craftingCount };
+  }
   panel() { return this.client.puiPanels.get(this.id) || null; }
   add(itemId, count = 1, index = -1) { return this.client.craftAdd(itemId, count, index); }
   sub(itemId, count = 1, index = 0) { return this.client.craftSub(itemId, count, index); }
@@ -1408,6 +1421,7 @@ class GeneratorHandle extends MachineHandle {
 
 class CargoHatchHandle extends MachineHandle {
   get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.cargoHatch || null; }
+  get openFraction() { return this.state?.openFraction; }
   configure(config = {}) { return this.client.sendCargoHatchFullConfig(this.id, config); }
   copy(config = {}) { return this.client.copyCargoHatchConfig(this.id, config); }
   paste(config = {}) { return this.client.pasteCargoHatchConfig(this.id, config); }
@@ -1449,10 +1463,6 @@ class FluidTankHandle extends MachineHandle {
   get amount() { return this.state?.amount; }
 }
 
-class ProcessorHandle extends MachineHandle {
-  get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.processor || null; }
-}
-
 class ExpandoBoxHandle extends MachineHandle {
   get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.expandoBox || null; }
   get item() { return this.state?.itemId; }
@@ -1460,6 +1470,9 @@ class ExpandoBoxHandle extends MachineHandle {
 }
 
 class CargoEjectorHandle extends MachineHandle {
+  get state() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.cargoEjector || null; }
+  get progress() { return this.state?.progress; }
+  get active() { return this.state?.active; }
   setDirection(direction) { return this.client.setCargoEjectorDirection(this.id, direction); }
   copy(direction = "right") { return this.client.copyCargoEjectorConfig(this.id, direction); }
   paste(direction = "right") { return this.client.pasteCargoEjectorConfig(this.id, direction); }
@@ -1488,6 +1501,8 @@ const ENTITY_COMPONENT_ALIASES = new Map([
   ["pusherbeam", "pusherBeam"],
   ["beam", "pusherBeam"],
   ["cargohatch", "cargoHatch"],
+  ["cargoejector", "cargoEjector"],
+  ["ejector", "cargoEjector"],
   ["navigationunit", "navigationUnit"],
   ["nav", "navigationUnit"],
   ["navunit", "navigationUnit"],
@@ -1511,7 +1526,7 @@ const MACHINE_COMPONENTS = [
   "launcher",
   "navigationUnit",
   "fabricator",
-  "processor",
+  "cargoEjector",
   "cannon",
   "thruster",
   "cargoHatch",
@@ -1637,7 +1652,7 @@ function entityFeature(summary, contents, feature) {
   if (key === "launcherconfig") return contents.launcher ?? null;
   if (key === "navigationconfig") return contents.navigationUnit ?? null;
   if (key === "fabricatorqueue") return contents.fabricator?.rows ?? null;
-  if (key === "progress") return contents.fabricator?.progress ?? null;
+  if (key === "progress") return contents.fabricator?.progress ?? contents.cargoEjector?.progress ?? contents.loader?.progress ?? contents.cargoHatch?.openFraction ?? null;
   return null;
 }
 
@@ -1653,7 +1668,8 @@ function entityDomainHandle(client, entity, scope, type, snapshot = null) {
     ["nav", NavigationUnitHandle],
     ["navunit", NavigationUnitHandle],
     ["fabricator", FabricatorHandle],
-    ["processor", ProcessorHandle],
+    ["cargoejector", CargoEjectorHandle],
+    ["ejector", CargoEjectorHandle],
     ["cannon", CannonHandle],
     ["thruster", ThrusterHandle],
     ["commsstation", CommsStationHandle],
@@ -1848,7 +1864,7 @@ function emptyMachineSummary() {
     itemHolders: [],
     health: [],
     fabricators: [],
-    processors: [],
+    cargoEjectors: [],
     cannons: [],
     thrusters: [],
     pushers: [],

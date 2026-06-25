@@ -1075,7 +1075,7 @@ interface EntityHandle {
   asSpawnPoint(): SpawnPointHandle | null;
   asShieldProjector(): ShieldProjectorHandle | null;
   asFluidTank(): FluidTankHandle | null;
-  asProcessor(): ProcessorHandle | null;
+  asCargoEjector(): CargoEjectorHandle | null;
   asExpandoBox(): ExpandoBoxHandle | null;
   use(options?: { invSlot?: number; hold?: boolean }, command?: Command): DredlessClient;
 }
@@ -1162,7 +1162,7 @@ interface EntityContentsSummary {
   health?: HealthSummary;
   bot?: BotSummary;
   fabricator?: FabricatorSummary;
-  processor?: { entity: number; state: ModelRecord };
+  cargoEjector?: CargoEjectorSummary;
   cannon?: CannonSummary;
   thruster?: ThrusterSummary;
   pusher?: PusherSummary;
@@ -1215,6 +1215,7 @@ interface MachineCollection {
   generator(entity: number | EntityHandle | EntitySummary): GeneratorHandle;
   cargoHatches(): CargoHatchHandle[];
   cargoHatch(entity: number | EntityHandle | EntitySummary): CargoHatchHandle;
+  cargoEjectors(): CargoEjectorHandle[];
   cargoEjector(entity: number | EntityHandle | EntitySummary): CargoEjectorHandle;
   cannons(): CannonHandle[];
   cannon(entity: number | EntityHandle | EntitySummary): CannonHandle;
@@ -1230,8 +1231,6 @@ interface MachineCollection {
   shieldProjector(entity: number | EntityHandle | EntitySummary): ShieldProjectorHandle;
   fluidTanks(): FluidTankHandle[];
   fluidTank(entity: number | EntityHandle | EntitySummary): FluidTankHandle;
-  processors(): ProcessorHandle[];
-  processor(entity: number | EntityHandle | EntitySummary): ProcessorHandle;
   expandoBoxes(): ExpandoBoxHandle[];
   expandoBox(entity: number | EntityHandle | EntitySummary): ExpandoBoxHandle;
 }
@@ -1246,7 +1245,7 @@ interface MachineSummary {
   itemHolders: ItemHolderSummary[];
   health: HealthSummary[];
   fabricators: FabricatorSummary[];
-  processors: { entity: number; state: ModelRecord }[];
+  cargoEjectors: CargoEjectorSummary[];
   cannons: CannonSummary[];
   thrusters: ThrusterSummary[];
   pushers: PusherSummary[];
@@ -1358,6 +1357,11 @@ interface LoaderSummary {
   filterMode: number | null;
   filterModeName: string | null;
   filterSlots: (number | null)[] | null;
+  heldItemId: number | null;
+  heldItemName: string | null;
+  heldCount: number | null;
+  active: boolean;
+  progress: number | null;
   state: ModelRecord;
   filterState: ModelRecord;
   filterSlotsState: ModelRecord;
@@ -1516,6 +1520,11 @@ interface FabricatorSummary {
   state: ModelRecord;
   rows: { itemId: number | null; itemName: string | null; count: number | null }[];
   progress: number | null;
+  progressRaw: number | null;
+  active: boolean;
+  craftingItemId: number | null;
+  craftingItemName: string | null;
+  craftingCount: number | null;
 }
 ```
 
@@ -1619,6 +1628,7 @@ interface CargoHatchSummary {
   filterMode: number;
   filterModeName: string | null;
   filterSlots: (number | null)[] | null;
+  openFraction: number | null;
   filterState: ModelRecord;
   filterSlotsState: ModelRecord;
 }
@@ -1661,17 +1671,24 @@ interface FluidTankHandle extends MachineHandle {
   amount: number | null | undefined;
 }
 
-interface ProcessorHandle extends MachineHandle {
-  state: { entity: number; state: ModelRecord } | null;
-}
-
 interface ExpandoBoxHandle extends MachineHandle {
   state: ExpandoBoxSummary | null;
   item: number | null | undefined;
   count: number | null | undefined;
 }
 
+interface CargoEjectorSummary {
+  entity: number;
+  typeId: number;
+  typeName: string | null;
+  progress: number | null;
+  active: boolean | null;
+}
+
 interface CargoEjectorHandle extends MachineHandle {
+  state: CargoEjectorSummary | null;
+  progress: number | null | undefined;
+  active: boolean | null | undefined;
   setDirection(direction: FixedAngleDirection): DredlessClient;
   copy(direction?: FixedAngleDirection): DredlessClient;
   paste(direction?: FixedAngleDirection): DredlessClient;

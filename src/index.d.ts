@@ -507,6 +507,7 @@ export interface MachineCollection {
   generator(entity: EntityRef): GeneratorHandle;
   cargoHatches(): CargoHatchHandle[];
   cargoHatch(entity: EntityRef): CargoHatchHandle;
+  cargoEjectors(): CargoEjectorHandle[];
   cargoEjector(entity: EntityRef): CargoEjectorHandle;
   cannons(): CannonHandle[];
   cannon(entity: EntityRef): CannonHandle;
@@ -522,8 +523,6 @@ export interface MachineCollection {
   shieldProjector(entity: EntityRef): ShieldProjectorHandle;
   fluidTanks(): FluidTankHandle[];
   fluidTank(entity: EntityRef): FluidTankHandle;
-  processors(): ProcessorHandle[];
-  processor(entity: EntityRef): ProcessorHandle;
   expandoBoxes(): ExpandoBoxHandle[];
   expandoBox(entity: EntityRef): ExpandoBoxHandle;
 }
@@ -534,7 +533,7 @@ export type EntityPublicType =
   | "launcher"
   | "navigationUnit"
   | "fabricator"
-  | "processor"
+  | "cargoEjector"
   | "cannon"
   | "thruster"
   | "cargoHatch"
@@ -618,7 +617,7 @@ export interface EntityHandle {
   asSpawnPoint(): SpawnPointHandle | null;
   asShieldProjector(): ShieldProjectorHandle | null;
   asFluidTank(): FluidTankHandle | null;
-  asProcessor(): ProcessorHandle | null;
+  asCargoEjector(): CargoEjectorHandle | null;
   asExpandoBox(): ExpandoBoxHandle | null;
   use(options?: { invSlot?: number; hold?: boolean }, command?: Command): DredlessClient;
 }
@@ -647,6 +646,9 @@ export interface LoaderHandle extends MachineHandle {
   waitForStack: boolean | undefined;
   filterMode: number | undefined;
   filterSlots: Array<number | null>;
+  active: boolean | undefined;
+  heldItem: { itemId: number; itemName: string | null; count: number | null } | null;
+  progress: number | null | undefined;
 }
 
 export interface PusherHandle extends MachineHandle {
@@ -693,6 +695,9 @@ export interface NavigationUnitHandle extends MachineHandle {
 
 export interface FabricatorHandle extends MachineHandle {
   state: FabricatorSummary | null;
+  progress: number | null | undefined;
+  active: boolean | undefined;
+  craftingItem: { itemId: number; itemName: string | null; count: number | null } | null;
   panel(): PuiEvent | null;
   add(itemId: number, count?: number, index?: number): DredlessClient;
   sub(itemId: number, count?: number, index?: number): DredlessClient;
@@ -722,6 +727,7 @@ export interface GeneratorHandle extends MachineHandle {
 
 export interface CargoHatchHandle extends MachineHandle {
   state: CargoHatchSummary | null;
+  openFraction: number | null | undefined;
   configure(config?: Pick<LoaderFullConfig, "filterMode" | "filterSlots">): DredlessClient;
   copy(config?: Pick<LoaderFullConfig, "filterMode" | "filterSlots">): DredlessClient;
   paste(config?: Pick<LoaderFullConfig, "filterMode" | "filterSlots">): DredlessClient;
@@ -736,10 +742,12 @@ export interface DoorHandle extends MachineHandle { state: DoorSummary | null; r
 export interface SpawnPointHandle extends MachineHandle { state: SpawnPointSummary | null; rank: number | undefined; }
 export interface ShieldProjectorHandle extends MachineHandle { state: ShieldProjectorSummary | null; active: boolean | undefined; }
 export interface FluidTankHandle extends MachineHandle { state: FluidTankSummary | null; amount: number | null | undefined; }
-export interface ProcessorHandle extends MachineHandle { state: { entity: number; state: ModelRecord } | null; }
 export interface ExpandoBoxHandle extends MachineHandle { state: ExpandoBoxSummary | null; item: number | null | undefined; count: number | null | undefined; }
 
 export interface CargoEjectorHandle extends MachineHandle {
+  state: CargoEjectorSummary | null;
+  progress: number | null | undefined;
+  active: boolean | null | undefined;
   setDirection(direction: FixedAngleDirection): DredlessClient;
   copy(direction?: FixedAngleDirection): DredlessClient;
   paste(direction?: FixedAngleDirection): DredlessClient;
@@ -869,6 +877,14 @@ export interface PuiEvent {
   world?: number | null;
 }
 
+export interface CargoEjectorSummary {
+  entity: number;
+  typeId: number;
+  typeName: string | null;
+  progress: number | null;
+  active: boolean | null;
+}
+
 export interface EntityContentsSummary {
   itemHolder?: ItemHolderSummary;
   expandoBox?: ExpandoBoxSummary;
@@ -881,7 +897,7 @@ export interface EntityContentsSummary {
   health?: HealthSummary;
   bot?: BotSummary;
   fabricator?: FabricatorSummary;
-  processor?: { entity: number; state: ModelRecord };
+  cargoEjector?: CargoEjectorSummary;
   cannon?: CannonSummary;
   thruster?: ThrusterSummary;
   pusher?: PusherSummary;
@@ -1263,6 +1279,11 @@ export interface FabricatorSummary {
   state: ModelRecord;
   rows: { itemId: number | null; itemName: string | null; count: number | null }[];
   progress: number | null;
+  progressRaw: number | null;
+  active: boolean;
+  craftingItemId: number | null;
+  craftingItemName: string | null;
+  craftingCount: number | null;
 }
 
 export interface CannonSummary {
@@ -1308,6 +1329,11 @@ export interface LoaderSummary {
   filterMode: number | null;
   filterModeName: string | null;
   filterSlots: (number | null)[] | null;
+  heldItemId: number | null;
+  heldItemName: string | null;
+  heldCount: number | null;
+  active: boolean;
+  progress: number | null;
   state: ModelRecord;
   filterState: ModelRecord;
   filterSlotsState: ModelRecord;
@@ -1320,6 +1346,7 @@ export interface CargoHatchSummary {
   filterMode: number;
   filterModeName: string | null;
   filterSlots: (number | null)[] | null;
+  openFraction: number | null;
   filterState: ModelRecord;
   filterSlotsState: ModelRecord;
 }
@@ -1575,7 +1602,7 @@ export interface MachineSummary {
   itemHolders: ItemHolderSummary[];
   health: HealthSummary[];
   fabricators: FabricatorSummary[];
-  processors: { entity: number; state: ModelRecord }[];
+  cargoEjectors: CargoEjectorSummary[];
   cannons: CannonSummary[];
   thrusters: ThrusterSummary[];
   pushers: PusherSummary[];

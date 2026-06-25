@@ -993,7 +993,7 @@ entity.as("door");
 entity.as("spawnPoint");
 entity.as("shieldProjector");
 entity.as("fluidTank");
-entity.as("processor");
+entity.as("cargoEjector");
 entity.as("expandoBox");
 ```
 
@@ -1110,7 +1110,7 @@ Return shape:
   itemHolders,
   health,
   fabricators,
-  processors,
+  cargoEjectors,
   cannons,
   thrusters,
   pushers,
