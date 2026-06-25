@@ -30,11 +30,11 @@ export {
   buildSetPlayerRankMessage,
   buildShipPrivacyMessage,
   buildStarterRecoveryMessage,
-  normalizeCaptainSubrankEvent,
-  normalizePlayerListEvent,
+  normalizeCaptainSubrank,
+  normalizeShipPlayerList,
   normalizePlayerRank,
   normalizePrivacy,
-  normalizeShipConfigEvent
+  normalizeShipConfig
 } from "./protocol/ship-management.js";
 export {
   buildSignTextMessage,

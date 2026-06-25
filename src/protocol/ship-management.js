@@ -70,11 +70,10 @@ export function buildDemoteSelfMessage() {
   return buildShipManagementMessage(DEMOTE_SELF_ACTION);
 }
 
-export function normalizeShipConfigEvent(event = {}) {
+export function normalizeShipConfig(event = {}) {
   const source = event && typeof event === "object" ? event : {};
   const config = source.config && typeof source.config === "object" ? source.config : {};
   return {
-    type: "config",
     privacy: config.privacy ?? null,
     privacyName: config.privacy === 0 ? "public" : config.privacy === 1 ? "private" : null,
     inviteKey: config.invite_key ?? null,
@@ -83,36 +82,40 @@ export function normalizeShipConfigEvent(event = {}) {
   };
 }
 
-export function normalizeCaptainSubrankEvent(event = {}) {
+export function normalizeCaptainSubrank(event = {}) {
   const source = event && typeof event === "object" ? event : {};
   return {
-    type: "captain_subrank",
     subrank: source.subrank ?? null,
     enableCheats: Boolean(source.enable_cheats)
   };
 }
 
-export function normalizePlayerListEvent(event = {}, previous = null) {
+export function normalizeShipPlayerList(event = {}, previous = null, currentCaptainSubrank = null) {
   const source = event && typeof event === "object" ? event : {};
-  const changes = Array.isArray(source.player_list) ? source.player_list.map(normalizePlayerListEntry) : [];
+  const changes = Array.isArray(source.player_list) ? source.player_list.map(normalizePlayerListChange) : [];
+  const removedPlayers = changes
+    .filter((change) => change.remove && Number.isFinite(Number(change.refId)))
+    .map((change) => Number(change.refId));
+  const changedPlayers = changes.filter((change) => !change.remove).map(({ remove: _remove, ...change }) => change);
   const players = mergePlayerListChanges(previous?.players, changes);
   const ownerCaptainRank = ownerRankForPlayers(players);
+  applyPlayerControlState(players, currentCaptainSubrank);
+  applyPlayerControlState(changedPlayers, currentCaptainSubrank);
   return {
-    type: "player_list",
     ownerCaptainRank,
     shipOwners: players.filter((player) => player.isShipOwner),
     players,
-    changes,
-    removedPlayers: changes.filter((player) => player.removed)
+    changes: changedPlayers,
+    removedPlayers
   };
 }
 
 function mergePlayerListChanges(previousPlayers, changes) {
-  if (!Array.isArray(previousPlayers) || !previousPlayers.length) return changes.filter((player) => !player.removed).map((player) => ({ ...player }));
+  if (!Array.isArray(previousPlayers) || !previousPlayers.length) return changes.filter((change) => !change.remove).map(({ remove: _remove, ...player }) => ({ ...player }));
 
   const existing = new Map();
   for (const player of previousPlayers) {
-    if (player?.refId == null || player.removed) continue;
+    if (player?.refId == null) continue;
     existing.set(player.refId, { ...player, isShipOwner: false });
   }
 
@@ -120,15 +123,19 @@ function mergePlayerListChanges(previousPlayers, changes) {
   const merged = [];
   for (const change of changes) {
     if (change.refId == null) {
-      if (!change.removed) merged.push({ ...change, isShipOwner: false });
+      if (!change.remove) {
+        const { remove: _remove, ...player } = change;
+        merged.push({ ...player, isShipOwner: false });
+      }
       continue;
     }
     changedRefs.add(change.refId);
-    if (change.removed) {
+    if (change.remove) {
       existing.delete(change.refId);
       continue;
     }
-    const player = { ...(existing.get(change.refId) || {}), ...change, removed: false, isShipOwner: false };
+    const { remove: _remove, ...changePlayer } = change;
+    const player = { ...(existing.get(change.refId) || {}), ...changePlayer, isShipOwner: false };
     existing.set(change.refId, player);
     merged.push(player);
   }
@@ -141,34 +148,59 @@ function mergePlayerListChanges(previousPlayers, changes) {
   return merged;
 }
 
-function normalizePlayerListEntry(entry = {}) {
+function normalizePlayerListChange(entry = {}) {
   const source = entry && typeof entry === "object" ? entry : {};
+  if (source._removed) return { refId: source.ref_id ?? null, remove: true };
   return {
     refId: source.ref_id ?? null,
-    removed: Boolean(source._removed),
+    remove: false,
     discrim: source.discrim ?? null,
     discrimColor: source.discrim_color ?? null,
     teamRank: source.team_rank ?? null,
     captainRank: source.captain_rank ?? null,
     isCaptain: Number(source.captain_rank) > 0,
     isShipOwner: false,
+    canBeManaged: false,
     time: source.time ?? null,
     items: Array.isArray(source.items) ? source.items.slice() : [],
     aliasDiscrims: Array.isArray(source.alias_discrims) ? source.alias_discrims.slice() : [],
-    extraAliases: source.extra_aliases ?? null,
+    extraAliasCount: normalizeNonNegativeNumber(source.extra_aliases),
     onlineCount: source.online_count ?? null
   };
 }
 
+function normalizeNonNegativeNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
 function ownerRankForPlayers(players) {
   const ranks = players
-    .filter((player) => !player.removed && Number(player.captainRank) > 0)
+    .filter((player) => Number(player.captainRank) > 0)
     .map((player) => Number(player.captainRank))
     .filter(Number.isFinite);
   if (!ranks.length) return null;
   const ownerRank = Math.min(...ranks);
-  for (const player of players) player.isShipOwner = !player.removed && Number(player.captainRank) === ownerRank;
+  for (const player of players) player.isShipOwner = Number(player.captainRank) === ownerRank;
   return ownerRank;
+}
+
+function applyPlayerControlState(players, currentCaptainSubrank) {
+  const currentRank = currentCaptainRank(currentCaptainSubrank);
+  for (const player of players) player.canBeManaged = playerCanBeManagedBy(player, currentRank);
+}
+
+function currentCaptainRank(currentCaptainSubrank) {
+  const rank = Number(currentCaptainSubrank?.subrank);
+  return Number.isFinite(rank) && rank > 0 ? rank : null;
+}
+
+function playerCanBeManagedBy(player, currentRank) {
+  if (!Number.isFinite(currentRank) || !player) return false;
+  const targetCaptainRank = Number(player.captainRank);
+  if (Number.isFinite(targetCaptainRank) && targetCaptainRank > 0) return currentRank < targetCaptainRank;
+  const targetTeamRank = Number(player.teamRank);
+  return targetTeamRank === 0 || targetTeamRank === 1;
 }
 
 export {

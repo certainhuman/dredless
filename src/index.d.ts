@@ -35,14 +35,14 @@ export type ServerRef = number | Server;
 export type ShipRef = number | string | Ship | ShipSpec | null;
 export type ShipPrivacy = 0 | 1 | boolean | "public" | "private";
 export type ShipPlayerRank = 0 | 1 | 3 | "guest" | "crew" | "captain";
+export type PlayerShipRank = "guest" | "crew" | "crew-invite-pending-deprecated" | "captain" | "banned";
 export type SignDisplayMode = 0 | 1 | 2 | "always" | "when-near" | "whenNear" | "near" | "on-hover" | "onHover" | "hover";
 export type EquipmentSlot = 16 | 17 | 18 | 19 | 20 | 21 | "head" | "hat" | "face" | "mask" | "body" | "back" | "hand" | "hands" | "foot" | "feet";
 export type InventoryArea = "all" | "hotbar" | "equipment";
 export type InventorySlotRef = number | EquipmentSlot | InventorySlotHandle | InventorySlotSnapshot;
 export type ReadWorldScope = "ship" | "current" | "overworld" | number;
 
-export interface ShipConfigEvent {
-  type: "config";
+export interface ShipConfig {
   privacy: number | null;
   privacyName: "public" | "private" | null;
   inviteKey: string | null;
@@ -50,35 +50,40 @@ export interface ShipConfigEvent {
   patronPerks: unknown[];
 }
 
-export interface CaptainSubrankEvent {
-  type: "captain_subrank";
+export interface CaptainSubrank {
   subrank: number | null;
   enableCheats: boolean;
 }
 
+export interface CurrentPlayerRank {
+  shipRank: PlayerShipRank | null;
+  subrank: number | null;
+  isCaptain: boolean;
+  patronTier: "bronze" | "silver" | "gold" | "plat" | "flux" | null;
+}
+
 export interface PlayerListEntry {
   refId: number | null;
-  removed: boolean;
   discrim: string | null;
   discrimColor: number | null;
   teamRank: number | null;
   captainRank: number | null;
   isCaptain: boolean;
   isShipOwner: boolean;
+  canBeManaged: boolean;
   time: number | null;
   items: unknown[];
   aliasDiscrims: unknown[];
-  extraAliases: unknown;
+  extraAliasCount: number;
   onlineCount: number | null;
 }
 
-export interface PlayerListEvent {
-  type: "player_list";
+export interface ShipPlayerList {
   ownerCaptainRank: number | null;
   shipOwners: PlayerListEntry[];
   players: PlayerListEntry[];
   changes: PlayerListEntry[];
-  removedPlayers: PlayerListEntry[];
+  removedPlayers: number[];
 }
 
 export interface ShipReadOptions {
@@ -340,6 +345,7 @@ export class DredlessClient {
   disconnect(code?: number, reason?: string): this;
   currentShip(): ShipDomain | null;
   ship(): ShipDomain | null;
+  currentPlayerEntity(): EntityHandle | null;
   overworld(): OverworldDomain | null;
   world(id: number): WorldDomain | null;
   shipWorld(options?: { includeTiles?: boolean; includeModel?: boolean }): WorldSnapshot | null;
@@ -378,6 +384,10 @@ export interface ClientDebugDomain {
 }
 
 export interface PlayerDomain {
+  current(): PlayerSummary | null;
+  entity(): EntityHandle | null;
+  name(): string | null;
+  rank(): CurrentPlayerRank;
   move(vector?: { x?: number; y?: number }, command?: Command): DredlessClient;
   aim(point?: { x?: number; y?: number; mx?: number; my?: number }, command?: Command): DredlessClient;
   action(flags?: Command, command?: Command): DredlessClient;
@@ -401,15 +411,12 @@ export interface ShipManagementDomain {
   setPrivacy(privacy: ShipPrivacy): DredlessClient;
   recoverStarterItem(itemId: number): DredlessClient;
   setPlayerRank(refId: number, rank: ShipPlayerRank): DredlessClient;
-  promotePlayerToCaptain(refId: number): DredlessClient;
-  demotePlayerToCrew(refId: number): DredlessClient;
-  demotePlayerToGuest(refId: number): DredlessClient;
   kickPlayer(refId: number): DredlessClient;
   banPlayer(refId: number): DredlessClient;
   demoteSelf(): DredlessClient;
-  config(): ShipConfigEvent | null;
-  captainSubrank(): CaptainSubrankEvent | null;
-  playerList(): PlayerListEvent | null;
+  config(): ShipConfig | null;
+  hasCheats(): boolean;
+  playerList(): ShipPlayerList | null;
 }
 export interface InventoryDomain {
   state(): InventoryState | null;
@@ -473,7 +480,7 @@ export interface EntityCollection {
   get(entity: number | EntityHandle | EntitySummary): EntityHandle;
 }
 
-export interface PlayerCollection { all(): PlayerSummary[]; }
+export interface PlayerCollection { all(): PlayerSummary[]; current(): PlayerSummary | null; }
 export interface BlockCollection { all(): BlockSummary[]; at(x: number, y: number): BlockSummary | null; }
 export interface MaterialCollection { all(): MaterialSummary[]; }
 
@@ -728,9 +735,9 @@ export interface ClientSnapshot {
   sessionMessages: unknown[];
   scannerResults: ScannerResult[];
   lastScannerResult: ScannerResult | null;
-  shipConfig: ShipConfigEvent | null;
-  captainSubrank: CaptainSubrankEvent | null;
-  playerList: PlayerListEvent | null;
+  shipConfig: ShipConfig | null;
+  captainSubrank: CaptainSubrank | null;
+  playerList: ShipPlayerList | null;
   outfits: { sid: number; outfit: unknown }[];
   commandAcks: CommandAck[];
   lastCommandAck: CommandAck | null;
@@ -1414,11 +1421,10 @@ export interface PlayerSummary {
   heldItemName: string | null;
   repairTargetDistance: number | null;
   repairTargetAngle: number | null;
-  teamRank: number | null;
-  teamRankName: string | null;
-  gameRank: number | null;
-  gameRankName: string | null;
+  shipRank: PlayerShipRank | null;
   patronTier: "bronze" | "silver" | "gold" | "plat" | "flux" | null;
+  isDeveloper: boolean;
+  isPatron: boolean;
   piloting: boolean;
   muted: boolean;
   actionPreview: PlayerActionPreviewSummary | null;
@@ -1563,9 +1569,9 @@ export function buildBanPlayerMessage(refId: number): ShipManagementMessage;
 export function buildDemoteSelfMessage(): ShipManagementMessage;
 export function normalizePrivacy(privacy: ShipPrivacy): 0 | 1;
 export function normalizePlayerRank(rank: ShipPlayerRank): 0 | 1 | 3;
-export function normalizeShipConfigEvent(event: unknown): ShipConfigEvent;
-export function normalizeCaptainSubrankEvent(event: unknown): CaptainSubrankEvent;
-export function normalizePlayerListEvent(event: unknown, previous?: PlayerListEvent | null): PlayerListEvent;
+export function normalizeShipConfig(event: unknown): ShipConfig;
+export function normalizeCaptainSubrank(event: unknown): CaptainSubrank;
+export function normalizeShipPlayerList(event: unknown, previous?: ShipPlayerList | null, currentCaptainSubrank?: CaptainSubrank | null): ShipPlayerList;
 export function buildSignTextMessage(text?: string, mode?: SignDisplayMode): SignTextMessage;
 export function normalizeSignDisplayMode(mode?: SignDisplayMode): 0 | 1 | 2;
 export function signDisplayModeName(mode: number): "always" | "when-near" | "on-hover" | null;

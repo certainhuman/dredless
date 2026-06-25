@@ -4,6 +4,8 @@ import test from "node:test";
 import { DredlessClient } from "../src/client.js";
 import { Connection } from "../src/game/connection.js";
 
+const encoder = new TextEncoder();
+
 function createClientWithPusher() {
   const session = {
     baseUrl: "https://drednot.io",
@@ -13,6 +15,8 @@ function createClientWithPusher() {
   const client = new DredlessClient(new Connection(session, "token", 1, 0, { domain: "localhost" }), { connect: false });
   const world = client.worlds.get(1);
   client.worlds.currentWorldId = 1;
+  client.sid = 99;
+  client.captainSubrank = { subrank: 2, enableCheats: true };
   world.isOverworld = false;
   world.model.setWorldKind(false);
   world.model.tables.set(0, new Map([[27, { q20: 1400, q24: 260, q28: 0 }]]));
@@ -35,6 +39,7 @@ function createClientWithPusher() {
   world.model.tables.set(47, new Map([[33, { q21: 1 }]]));
   world.model.tables.set(62, new Map([[34, { q21: 1 }]]));
   world.model.tables.set(50, new Map([[35, { q20: 2, q24: 63 }]]));
+  world.model.tables.set(55, new Map([[99, { q28: 109, q72: 3, q76: 0, blob92: encoder.encode("Captain Test") }]]));
   return client;
 }
 
@@ -89,4 +94,18 @@ test("entity API exposes frozen snapshots, features, and typed domain handles", 
   assert.equal(ship.entities.get(33).asDoor().open, true);
   assert.equal(ship.entities.get(34).asShieldProjector().active, true);
   assert.equal(ship.entities.get(35).asThruster().state.fuel, 63);
+
+  assert.equal(client.currentPlayerEntity().id, 99);
+  assert.equal(ship.players.current().name, "Captain Test");
+  assert.equal(client.player.entity().id, 99);
+  assert.equal(client.player.name(), "Captain Test");
+  assert.deepEqual(client.player.rank(), {
+    shipRank: "captain",
+    subrank: 2,
+    isCaptain: true,
+    patronTier: null
+  });
+  assert.equal(ship.players.current().isDeveloper, false);
+  assert.equal(ship.players.current().isPatron, false);
+  assert.equal(client.management.hasCheats(), true);
 });

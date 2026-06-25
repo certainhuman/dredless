@@ -24,9 +24,9 @@ import {
   buildSetPlayerRankMessage,
   buildShipPrivacyMessage,
   buildStarterRecoveryMessage,
-  normalizeCaptainSubrankEvent,
-  normalizePlayerListEvent,
-  normalizeShipConfigEvent
+  normalizeCaptainSubrank,
+  normalizeShipPlayerList,
+  normalizeShipConfig
 } from "./protocol/ship-management.js";
 import { buildSignTextMessage } from "./protocol/sign.js";
 import {
@@ -616,6 +616,11 @@ export class DredlessClient extends EventBus {
     return this.worlds.currentShipEntity();
   }
 
+  currentPlayerEntity() {
+    const player = currentPlayerSummary(this);
+    return player ? new EntityHandle(this, player.entity, "current") : null;
+  }
+
   entities(scope = "ship") {
     return this.#readWorld(scope)?.entities() || [];
   }
@@ -827,17 +832,18 @@ export class DredlessClient extends EventBus {
     const submessage = packet?.submessage;
     if (!submessage || typeof submessage !== "object") return;
     if (submessage.type === "config") {
-      this.shipConfig = normalizeShipConfigEvent(submessage);
+      this.shipConfig = normalizeShipConfig(submessage);
       this.emit("ship-config", this.shipConfig, packet);
       return;
     }
     if (submessage.type === "captain_subrank") {
-      this.captainSubrank = normalizeCaptainSubrankEvent(submessage);
+      this.captainSubrank = normalizeCaptainSubrank(submessage);
+      if (this.playerList) this.playerList = normalizeShipPlayerList({}, this.playerList, this.captainSubrank);
       this.emit("captain-subrank", this.captainSubrank, packet);
       return;
     }
     if (submessage.type === "player_list") {
-      this.playerList = normalizePlayerListEvent(submessage, this.playerList);
+      this.playerList = normalizeShipPlayerList(submessage, this.playerList, this.captainSubrank);
       this.emit("player-list", this.playerList, packet);
     }
   }
@@ -1028,6 +1034,10 @@ class ClientDebugDomain {
 
 class PlayerDomain {
   constructor(client) { this.client = client; }
+  current() { return currentPlayerSummary(this.client); }
+  entity() { return this.client.currentPlayerEntity(); }
+  name() { return this.current()?.name ?? null; }
+  rank() { return currentPlayerRank(this.client); }
   move({ x = 0, y = 0 } = {}, command = {}) { return this.client.move(x, y, command); }
   aim({ x = 0, y = 0, mx = x, my = y } = {}, command = {}) { return this.client.aim(mx, my, command); }
   action(flags = {}, command = {}) { return this.client.action(flags, command); }
@@ -1052,14 +1062,11 @@ class ShipManagementDomain {
   setPrivacy(privacy) { return this.client.setShipPrivacy(privacy); }
   recoverStarterItem(itemId) { return this.client.recoverStarterItem(itemId); }
   setPlayerRank(refId, rank) { return this.client.setPlayerRank(refId, rank); }
-  promotePlayerToCaptain(refId) { return this.client.promotePlayerToCaptain(refId); }
-  demotePlayerToCrew(refId) { return this.client.demotePlayerToCrew(refId); }
-  demotePlayerToGuest(refId) { return this.client.demotePlayerToGuest(refId); }
   kickPlayer(refId) { return this.client.kickPlayer(refId); }
   banPlayer(refId) { return this.client.banPlayer(refId); }
   demoteSelf() { return this.client.demoteSelf(); }
   config() { return this.client.shipConfig; }
-  captainSubrank() { return this.client.captainSubrank; }
+  hasCheats() { return Boolean(this.client.captainSubrank?.enableCheats); }
   playerList() { return this.client.playerList; }
 }
 class InventoryDomain {
@@ -1202,6 +1209,7 @@ class EntityCollection {
 class PlayerCollection {
   constructor(client, scope) { this.client = client; this.scope = scope; }
   all() { return worldStateFor(this.client, this.scope)?.model.players() || []; }
+  current() { return currentPlayerSummary(this.client, this.scope); }
 }
 
 class BlockCollection {
@@ -1650,6 +1658,23 @@ function normalizeInventorySlotIndex(value, name = "slot") {
   return number;
 }
 
+function currentPlayerSummary(client, scope = "current") {
+  const sid = Number(client?.sid);
+  if (!Number.isFinite(sid)) return null;
+  return worldStateFor(client, scope)?.model.players().find((player) => player.entity === sid) || null;
+}
+
+function currentPlayerRank(client) {
+  const player = currentPlayerSummary(client);
+  const subrank = client?.captainSubrank?.subrank ?? null;
+  const shipRank = player?.shipRank ?? null;
+  return {
+    shipRank,
+    subrank: shipRank === "captain" ? subrank : null,
+    isCaptain: shipRank === "captain",
+    patronTier: player?.patronTier ?? null
+  };
+}
 function normalizeEquipArguments(equipmentSlot, options = {}, command = {}) {
   if (equipmentSlot && typeof equipmentSlot === "object") {
     return { equipmentSlot: null, split: Boolean(equipmentSlot.split), command: options || {} };

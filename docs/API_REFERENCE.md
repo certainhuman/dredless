@@ -548,6 +548,7 @@ class DredlessClient {
   state(options?: { includeTiles?: boolean; includeModel?: boolean }): ClientSnapshot;
   entities(scope?: number | string): EntitySummary[];
   entity(entityId: number, scope?: number | string): EntitySnapshot | null;
+  currentPlayerEntity(): EntityHandle | null;
 
   on(type: string, callback: (...args: unknown[]) => void): this;
   off(type: string, callback: (...args: unknown[]) => void): this;
@@ -584,6 +585,7 @@ commands have been sent.
 ```ts
 currentShip(): ShipDomain | null;
 ship(): ShipDomain | null;
+currentPlayerEntity(): EntityHandle | null;
 overworld(): OverworldDomain | null;
 world(id: number): WorldDomain | null;
 shipWorld(options?): WorldSnapshot | null;
@@ -591,6 +593,9 @@ shipWorld(options?): WorldSnapshot | null;
 
 Use `currentShip()` for the currently loaded ship world. Use `overworld()` for
 zone-level objects such as nearby ships and overworld entities.
+
+`currentPlayerEntity()` returns the current player entity handle in the loaded
+ship world, or `null` before the player entity is known.
 
 ### Compatibility entity endpoints
 
@@ -648,9 +653,9 @@ interface ClientSnapshot {
   sessionMessages: unknown[];
   scannerResults: ScannerResult[];
   lastScannerResult: ScannerResult | null;
-  shipConfig: ShipConfigEvent | null;
-  captainSubrank: CaptainSubrankEvent | null;
-  playerList: PlayerListEvent | null;
+  shipConfig: ShipConfig | null;
+  captainSubrank: CaptainSubrank | null;
+  playerList: ShipPlayerList | null;
   outfits: { sid: number; outfit: unknown }[];
   commandAcks: CommandAck[];
   lastCommandAck: CommandAck | null;
@@ -747,6 +752,10 @@ Player input and action domain.
 
 ```ts
 interface PlayerDomain {
+  current(): PlayerSummary | null;
+  entity(): EntityHandle | null;
+  name(): string | null;
+  rank(): CurrentPlayerRank;
   move(vector?: { x?: number; y?: number }, command?: Command): DredlessClient;
   aim(point?: { x?: number; y?: number; mx?: number; my?: number }, command?: Command): DredlessClient;
   action(flags?: Command, command?: Command): DredlessClient;
@@ -882,15 +891,12 @@ interface ShipManagementDomain {
   setPrivacy(privacy: ShipPrivacy): DredlessClient;
   recoverStarterItem(itemId: number): DredlessClient;
   setPlayerRank(refId: number, rank: ShipPlayerRank): DredlessClient;
-  promotePlayerToCaptain(refId: number): DredlessClient;
-  demotePlayerToCrew(refId: number): DredlessClient;
-  demotePlayerToGuest(refId: number): DredlessClient;
   kickPlayer(refId: number): DredlessClient;
   banPlayer(refId: number): DredlessClient;
   demoteSelf(): DredlessClient;
-  config(): ShipConfigEvent | null;
-  captainSubrank(): CaptainSubrankEvent | null;
-  playerList(): PlayerListEvent | null;
+  config(): ShipConfig | null;
+  hasCheats(): boolean;
+  playerList(): ShipPlayerList | null;
 }
 ```
 
@@ -899,13 +905,13 @@ Input aliases:
 ```ts
 type ShipPrivacy = 0 | 1 | boolean | "public" | "private";
 type ShipPlayerRank = 0 | 1 | 3 | "guest" | "crew" | "captain";
+type PlayerShipRank = "guest" | "crew" | "crew-invite-pending-deprecated" | "captain" | "banned";
 ```
 
 Output shapes:
 
 ```ts
-interface ShipConfigEvent {
-  type: "config";
+interface ShipConfig {
   privacy: number | null;
   privacyName: "public" | "private" | null;
   inviteKey: string | null;
@@ -913,35 +919,40 @@ interface ShipConfigEvent {
   patronPerks: unknown[];
 }
 
-interface CaptainSubrankEvent {
-  type: "captain_subrank";
+interface CaptainSubrank {
   subrank: number | null;
   enableCheats: boolean;
 }
 
+interface CurrentPlayerRank {
+  shipRank: PlayerShipRank | null;
+  subrank: number | null;
+  isCaptain: boolean;
+  patronTier: "bronze" | "silver" | "gold" | "plat" | "flux" | null;
+}
+
 interface PlayerListEntry {
   refId: number | null;
-  removed: boolean;
   discrim: string | null;
   discrimColor: number | null;
   teamRank: number | null;
   captainRank: number | null;
   isCaptain: boolean;
   isShipOwner: boolean;
+  canBeManaged: boolean;
   time: number | null;
   items: unknown[];
   aliasDiscrims: unknown[];
-  extraAliases: unknown;
+  extraAliasCount: number;
   onlineCount: number | null;
 }
 
-interface PlayerListEvent {
-  type: "player_list";
+interface ShipPlayerList {
   ownerCaptainRank: number | null;
   shipOwners: PlayerListEntry[];
   players: PlayerListEntry[];
   changes: PlayerListEntry[];
-  removedPlayers: PlayerListEntry[];
+  removedPlayers: number[];
 }
 ```
 
@@ -1846,6 +1857,7 @@ interface ShipWarpSummary {
 ```ts
 interface PlayerCollection {
   all(): PlayerSummary[];
+  current(): PlayerSummary | null;
 }
 
 interface BlockCollection {
@@ -1868,11 +1880,10 @@ interface PlayerSummary {
   heldItemName: string | null;
   repairTargetDistance: number | null;
   repairTargetAngle: number | null;
-  teamRank: number | null;
-  teamRankName: string | null;
-  gameRank: number | null;
-  gameRankName: string | null;
+  shipRank: PlayerShipRank | null;
   patronTier: "bronze" | "silver" | "gold" | "plat" | "flux" | null;
+  isDeveloper: boolean;
+  isPatron: boolean;
   piloting: boolean;
   muted: boolean;
   actionPreview: PlayerActionPreviewSummary | null;
@@ -2461,9 +2472,9 @@ function buildBanPlayerMessage(refId: number): ShipManagementMessage;
 function buildDemoteSelfMessage(): ShipManagementMessage;
 function normalizePrivacy(privacy: ShipPrivacy): 0 | 1;
 function normalizePlayerRank(rank: ShipPlayerRank): 0 | 1 | 3;
-function normalizeShipConfigEvent(event: unknown): ShipConfigEvent;
-function normalizeCaptainSubrankEvent(event: unknown): CaptainSubrankEvent;
-function normalizePlayerListEvent(event: unknown, previous?: PlayerListEvent | null): PlayerListEvent;
+function normalizeShipConfig(event: unknown): ShipConfig;
+function normalizeCaptainSubrank(event: unknown): CaptainSubrank;
+function normalizeShipPlayerList(event: unknown, previous?: ShipPlayerList | null, currentCaptainSubrank?: CaptainSubrank | null): ShipPlayerList;
 ```
 
 Message output:

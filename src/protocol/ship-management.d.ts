@@ -8,8 +8,7 @@ export interface ShipManagementMessage {
   rank?: unknown;
 }
 
-export interface ShipConfigEvent {
-  type: "config";
+export interface ShipConfig {
   privacy: number | null;
   privacyName: "public" | "private" | null;
   inviteKey: string | null;
@@ -17,35 +16,33 @@ export interface ShipConfigEvent {
   patronPerks: unknown[];
 }
 
-export interface CaptainSubrankEvent {
-  type: "captain_subrank";
+export interface CaptainSubrank {
   subrank: number | null;
   enableCheats: boolean;
 }
 
 export interface PlayerListEntry {
   refId: number | null;
-  removed: boolean;
   discrim: string | null;
   discrimColor: number | null;
   teamRank: number | null;
   captainRank: number | null;
   isCaptain: boolean;
   isShipOwner: boolean;
+  canBeManaged: boolean;
   time: number | null;
   items: unknown[];
   aliasDiscrims: unknown[];
-  extraAliases: unknown;
+  extraAliasCount: number;
   onlineCount: number | null;
 }
 
-export interface PlayerListEvent {
-  type: "player_list";
+export interface ShipPlayerList {
   ownerCaptainRank: number | null;
   shipOwners: PlayerListEntry[];
   players: PlayerListEntry[];
   changes: PlayerListEntry[];
-  removedPlayers: PlayerListEntry[];
+  removedPlayers: number[];
 }
 
 export function buildShipManagementMessage(act: string, arg?: unknown, extra?: Record<string, unknown> | null): ShipManagementMessage;
@@ -59,9 +56,9 @@ export function buildBanPlayerMessage(refId: number): ShipManagementMessage;
 export function buildDemoteSelfMessage(): ShipManagementMessage;
 export function normalizePrivacy(privacy: ShipPrivacy): 0 | 1;
 export function normalizePlayerRank(rank: ShipPlayerRank): 0 | 1 | 3;
-export function normalizeShipConfigEvent(event: unknown): ShipConfigEvent;
-export function normalizeCaptainSubrankEvent(event: unknown): CaptainSubrankEvent;
-export function normalizePlayerListEvent(event: unknown, previous?: PlayerListEvent | null): PlayerListEvent;
+export function normalizeShipConfig(event: unknown): ShipConfig;
+export function normalizeCaptainSubrank(event: unknown): CaptainSubrank;
+export function normalizeShipPlayerList(event: unknown, previous?: ShipPlayerList | null, currentCaptainSubrank?: CaptainSubrank | null): ShipPlayerList;
 
 export const BAN_ACTION: "ban";
 export const DEMOTE_SELF_ACTION: "demote_self";

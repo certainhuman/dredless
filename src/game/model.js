@@ -466,14 +466,12 @@ const TEAM_RANK_NAMES = new Map([
   [4, "Banned"]
 ]);
 
-const GAME_RANK_NAMES = new Map([
-  [0, "Guest"],
-  [1, "GameMaster"],
-  [2, "PatronBronze"],
-  [3, "PatronSilver"],
-  [4, "PatronGold"],
-  [5, "PatronPlat"],
-  [6, "PatronFlux"]
+const PLAYER_SHIP_RANKS = new Map([
+  [0, "guest"],
+  [1, "crew"],
+  [2, "crew-invite-pending-deprecated"],
+  [3, "captain"],
+  [4, "banned"]
 ]);
 
 const PUSHER_MODE_NAMES = new Map([
@@ -1282,11 +1280,10 @@ function summarizePlayer(entity, record, previewRecord = null, blueprintItems = 
     heldItemName: entityNameFromType(heldItemId),
     repairTargetDistance: record.q56 == null ? null : record.q56 / 10,
     repairTargetAngle: record.q80 == null ? null : record.q80 / 100,
-    teamRank,
-    teamRankName: TEAM_RANK_NAMES.get(teamRank) || null,
-    gameRank,
-    gameRankName: GAME_RANK_NAMES.get(gameRank) || null,
+    shipRank: PLAYER_SHIP_RANKS.get(teamRank) || null,
     patronTier: patronTierName(gameRank),
+    isDeveloper: gameRank === 1,
+    isPatron: gameRank >= 2 && gameRank <= 6,
     piloting: Boolean(record.q107),
     muted: Boolean(record.q112),
     actionPreview: summarizePlayerPreview(entity, previewRecord, blueprintItems),

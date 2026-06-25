@@ -191,9 +191,9 @@ client.management.setPrivacy("private");
 client.management.recoverStarterItem(216); // Helm (Starter, Packaged)
 client.management.requestPlayerList();
 client.management.resetInvite();
-client.management.promotePlayerToCaptain(10);
-client.management.demotePlayerToCrew(10);
-client.management.demotePlayerToGuest(10);
+client.management.setPlayerRank(10, "captain");
+client.management.setPlayerRank(10, "crew");
+client.management.setPlayerRank(10, "guest");
 client.management.kickPlayer(10);
 client.management.banPlayer(10);
 client.management.demoteSelf();
@@ -240,9 +240,14 @@ appears to render from the latest `config` session submessage. Guest and crew
 joins do not receive `config.invite_key`; when a guest/crew is promoted to
 captain, the server sends `type:"config"` with `invite_key` before the
 `captain_subrank` update. Captain subrank
-session packets are normalized into `client.management.captainSubrank()` and emitted as
-`"captain-subrank"`. `captainSubrank.subrank` uses the same lower-is-stronger
-rank scale as player-list `captainRank`.
+session packets are exposed through `client.player.rank()` and emitted as
+`"captain-subrank"`. `client.player.rank().subrank` uses the same lower-is-stronger
+rank scale as player-list `captainRank`; `client.management.hasCheats()` exposes the related cheats flag.
+Player-list entries also include `canBeManaged`, which is true when the current
+player is a captain who can manage that target: crew/guest targets, or captain
+targets with a numerically higher, lower-authority `captainRank`. `aliasDiscrims`
+contains displayed possible aliases; `extraAliasCount` is the number of additional
+aliases omitted from that displayed list.
 
 Item Launcher helpers also use the type `5` entity/PUI command channel. Open
 the launcher with a normal entity use first; the server replies with a PUI panel
@@ -445,6 +450,9 @@ command. The official client does not send a separate settings packet for these
 controls; it changes repeated fields on normal input commands:
 
 ```js
+client.player.name();
+client.player.rank();
+client.player.entity();
 client.player.setWrenchMode("grab-all-items");
 client.player.setTurretMode("volley-fire");
 client.player.setScreenSize(2840, 1634);
@@ -687,6 +695,7 @@ client.world(scope)?.entities.raw();
 client.entity(entityId, scope);
 client.world(scope)?.machines.state();
 client.world(scope)?.players.all();
+client.world(scope)?.players.current();
 client.shipControls(scope);
 client.world(scope)?.blocks.all();
 client.world(scope)?.materials.all();
@@ -1068,6 +1077,19 @@ Prefer instead:
 - `client.currentShip()?.machines.state()` for known machine categories.
 - `client.currentShip()?.players.all()` for player-only reads.
 
+### `client.currentPlayerEntity()`
+
+Returns an `EntityHandle` for the current player in the loaded ship world, or
+`null` before the client knows its player entity.
+
+```js
+const me = client.currentPlayerEntity();
+const hp = me?.snapshot()?.contents?.health;
+```
+
+Use `client.player.current()` when you only need the player summary, and
+`client.player.name()` or `client.player.rank()` for common current-player fields.
+
 ### `client.entity(entityId, scope?)`
 
 Returns one frozen `EntitySnapshot`, or `null`.
@@ -1318,11 +1340,10 @@ Return shape:
     heldItemName,
     repairTargetDistance,
     repairTargetAngle,
-    teamRank,
-    teamRankName,
-    gameRank,
-    gameRankName,
+    shipRank,
     patronTier,
+    isDeveloper,
+    isPatron,
     piloting,
     muted,
     actionPreview,
@@ -1813,9 +1834,9 @@ Open comms UI state is exposed separately as the latest current comms panel and
 plain `text`.
 Comms bubble packets are stored on each world as recent `commsBubbles`, with
 source entity, message text, color, and display duration.
-Player summaries include display `name`, held item, ship `teamRank`, account
-`gameRank`, patron tier when present, `piloting` while the player is occupying a
-helm, the muted flag when the server sends it, and repair-tool aim as
+Player summaries include display `name`, held item, `shipRank`, derived
+patron tier when present, `isDeveloper`, `isPatron`, `piloting` while the player
+is occupying a helm, the muted flag when the server sends it, and repair-tool aim as
 `repairTargetAngle` plus `repairTargetDistance` when that state is present.
 When a player is placing or breaking blocks/entities, `actionPreview` contains
 the replicated preview center, outline size, progress, color, and best-effort
@@ -1875,8 +1896,3 @@ Normalized ships returned by fetch helpers include:
   ships
 }
 ```
-
-
-
-
-
