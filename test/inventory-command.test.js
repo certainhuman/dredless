@@ -74,6 +74,7 @@ test("equipment slot aliases normalize to absolute inventory slot indexes", () =
   assert.equal(normalizeEquipmentSlot("hat"), 16);
   assert.equal(normalizeEquipmentSlot("face"), 17);
   assert.equal(normalizeEquipmentSlot("mask"), 17);
+  assert.equal(normalizeEquipmentSlot("body"), 18);
   assert.equal(normalizeEquipmentSlot("back"), 19);
   assert.equal(normalizeEquipmentSlot("hand"), 20);
   assert.equal(normalizeEquipmentSlot("hands"), 20);
@@ -81,6 +82,7 @@ test("equipment slot aliases normalize to absolute inventory slot indexes", () =
   assert.equal(normalizeEquipmentSlot("feet"), 21);
   assert.equal(equipmentSlotName(16), "head");
   assert.equal(equipmentSlotName(17), "face");
+  assert.equal(equipmentSlotName(18), "body");
   assert.equal(equipmentSlotName(19), "back");
   assert.equal(equipmentSlotName(20), "hands");
   assert.equal(equipmentSlotName(21), "feet");
@@ -99,13 +101,15 @@ test("normalizeInventoryEvent exposes normalized slots without raw protocol arra
   assert.equal(inventory.slots[0].empty, true);
   assert.equal(inventory.slots[1].itemId, 109);
   assert.equal(inventory.slots[1].itemName, "Speed Skates");
-  assert.deepEqual(inventory.slots.map((slot) => slot.index), [0, 1, 2, 3, 4, 16, 17, 19, 20, 21]);
+  assert.deepEqual(inventory.slots.map((slot) => slot.index), [0, 1, 2, 3, 4, 16, 17, 18, 19, 20, 21]);
   assert.equal(inventory.equipment.head.itemId, 313);
   assert.equal(inventory.equipment.head.itemName, "Lesser Cap");
   assert.equal(inventory.equipment.head.equipmentSlot, "head");
   assert.equal(inventory.equipment.face.itemId, 320);
   assert.equal(inventory.equipment.face.itemName, "Goblin Mask");
   assert.equal(inventory.equipment.face.equipmentSlot, "face");
+  assert.equal(inventory.equipment.body.itemId, null);
+  assert.equal(inventory.equipment.body.equipmentSlot, "body");
   assert.equal(inventory.equipment.back.itemId, null);
   assert.equal(inventory.equipment.hands.itemId, 112);
   assert.equal(inventory.equipment.hands.itemName, "Construction Gauntlets");
@@ -124,10 +128,11 @@ test("inventory domain exposes slot handles and find helpers", () => {
 
   assert.equal(inventory.state(), client.inventoryState);
   assert.equal(inventory.hotbarSize(), 5);
-  assert.equal(inventory.slots().length, 10);
+  assert.equal(inventory.slots().length, 11);
   assert.equal(inventory.hotbar().length, 5);
   assert.equal(inventory.equipment().head.index, 16);
   assert.equal(inventory.equipment().face.index, 17);
+  assert.equal(inventory.equipment().body.index, 18);
   assert.equal(inventory.equipment().hands.index, 20);
 
   const skates = inventory.slot(1);
@@ -163,6 +168,8 @@ test("inventory slot refs send expected movement, equipment, and selection comma
   inventory.slot(1).moveTo("back");
   inventory.slot(1).equip("hands");
   inventory.slot("hands").unequip(3);
+  inventory.slot(1).equip();
+  inventory.slot(1).equip({ split: true });
   inventory.select(inventory.slot(1));
   inventory.slot(6).select();
   client.player.selectSlot(2);
@@ -177,10 +184,13 @@ test("inventory slot refs send expected movement, equipment, and selection comma
     { source: 1, target: 19, split: false },
     { source: 1, target: 20, split: false },
     { source: 20, target: 3, split: false },
+    { source: 1, target: 21, split: false },
+    { source: 1, target: 21, split: true },
     undefined,
     undefined,
     undefined
   ]);
   assert.deepEqual(sent.slice(-3).map((command) => command.inv_slot), [1, 6, 2]);
   assert.throws(() => inventory.slot(1).unequip(0), /not an equipment slot/);
+  assert.throws(() => inventory.slot(0).equip(), /empty/);
 });

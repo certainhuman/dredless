@@ -4,6 +4,7 @@ import { EventBus } from "./events.js";
 import { cookieHeader } from "./net/cookies.js";
 import { fetchServers } from "./net/servers.js";
 import { Connection } from "./game/connection.js";
+import { itemEquipmentSlotFromId } from "./game/items.js";
 import { WorldStore } from "./game/world.js";
 import { buildBlueprintPlacementMessage } from "./protocol/blueprint.js";
 import { buildCommsMessage, normalizeCommsEvent } from "./protocol/comms.js";
@@ -1068,7 +1069,7 @@ class InventoryDomain {
   slots() { return (this.state()?.slots || []).map((slot) => this.slot(slot.index)); }
   slot(ref) { return new InventorySlotHandle(this, inventorySlotIndexOf(ref)); }
   hotbar() { return (this.state()?.hotbar || []).map((slot) => this.slot(slot.index)); }
-  equipment() { return { head: this.slot("head"), face: this.slot("face"), back: this.slot("back"), hands: this.slot("hands"), feet: this.slot("feet") }; }
+  equipment() { return { head: this.slot("head"), face: this.slot("face"), body: this.slot("body"), back: this.slot("back"), hands: this.slot("hands"), feet: this.slot("feet") }; }
   findItem(itemId, { area = "all" } = {}) { return this.findItems(itemId, { area })[0] || null; }
   findItems(itemId, { area = "all" } = {}) {
     const normalized = Number(itemId);
@@ -1082,8 +1083,10 @@ class InventoryDomain {
       ...buildInventoryDragCommand(inventorySlotIndexOf(source, "source"), inventorySlotIndexOf(target, "target"), split)
     });
   }
-  equip(source, equipmentSlot, { split = false } = {}, command = {}) {
-    return this.move(source, normalizeEquipmentSlot(equipmentSlot), { split }, command);
+  equip(source, equipmentSlot = null, options = {}, command = {}) {
+    const args = normalizeEquipArguments(equipmentSlot, options, command);
+    const target = args.equipmentSlot == null ? inferEquipmentSlotForInventorySource(this, source) : args.equipmentSlot;
+    return this.move(source, normalizeEquipmentSlot(target), { split: args.split }, args.command);
   }
   unequip(equipmentSlot, target = 0, { split = false } = {}, command = {}) {
     return this.move(normalizeEquipmentSlot(equipmentSlot), target, { split }, command);
@@ -1107,7 +1110,10 @@ class InventorySlotHandle {
   exists() { return Boolean(this.state); }
   snapshot() { return this.state ? Object.freeze({ ...this.state }) : null; }
   moveTo(target, options = {}, command = {}) { return this.domain.move(this, target, options, command); }
-  equip(equipmentSlot, options = {}, command = {}) { return this.domain.equip(this, equipmentSlot, options, command); }
+  equip(equipmentSlot = null, options = {}, command = {}) {
+    if (equipmentSlot && typeof equipmentSlot === "object") return this.domain.equip(this, null, equipmentSlot, options);
+    return this.domain.equip(this, equipmentSlot, options, command);
+  }
   unequip(target = 0, options = {}, command = {}) {
     if (!this.equipmentSlot) throw new RangeError(`inventory slot ${this.index} is not an equipment slot`);
     return this.domain.unequip(this.equipmentSlot, target, options, command);
@@ -1644,6 +1650,24 @@ function normalizeInventorySlotIndex(value, name = "slot") {
   return number;
 }
 
+function normalizeEquipArguments(equipmentSlot, options = {}, command = {}) {
+  if (equipmentSlot && typeof equipmentSlot === "object") {
+    return { equipmentSlot: null, split: Boolean(equipmentSlot.split), command: options || {} };
+  }
+  return { equipmentSlot, split: Boolean(options?.split), command };
+}
+
+function inferEquipmentSlotForInventorySource(domain, source) {
+  const handle = source instanceof InventorySlotHandle ? source : domain.slot(source);
+  if (!handle.exists() || handle.itemId == null) throw new RangeError(`inventory slot ${handle.index} is empty; pass equipmentSlot explicitly`);
+  const equipmentSlot = itemEquipmentSlotFromId(handle.itemId);
+  if (!equipmentSlot) {
+    const label = handle.itemName ? ` (${handle.itemName})` : "";
+    throw new RangeError(`item ${handle.itemId}${label} does not map to an equipment slot; pass equipmentSlot explicitly`);
+  }
+  return equipmentSlot;
+}
+
 function inventoryHandlesForArea(domain, area = "all") {
   switch (area) {
     case "all": return domain.slots();
@@ -1822,11 +1846,3 @@ function distanceBetween(a, b) {
   if (!a || !b || typeof a.x !== "number" || typeof a.y !== "number" || typeof b.x !== "number" || typeof b.y !== "number") return null;
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
-
-
-
-
-
-
-
-

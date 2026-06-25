@@ -36,7 +36,7 @@ export type ShipRef = number | string | Ship | ShipSpec | null;
 export type ShipPrivacy = 0 | 1 | boolean | "public" | "private";
 export type ShipPlayerRank = 0 | 1 | 3 | "guest" | "crew" | "captain";
 export type SignDisplayMode = 0 | 1 | 2 | "always" | "when-near" | "whenNear" | "near" | "on-hover" | "onHover" | "hover";
-export type EquipmentSlot = 16 | 17 | 19 | 20 | 21 | "head" | "hat" | "face" | "mask" | "back" | "hand" | "hands" | "foot" | "feet";
+export type EquipmentSlot = 16 | 17 | 18 | 19 | 20 | 21 | "head" | "hat" | "face" | "mask" | "body" | "back" | "hand" | "hands" | "foot" | "feet";
 export type InventoryArea = "all" | "hotbar" | "equipment";
 export type InventorySlotRef = number | EquipmentSlot | InventorySlotHandle | InventorySlotSnapshot;
 export type ReadWorldScope = "ship" | "current" | "overworld" | number;
@@ -417,12 +417,12 @@ export interface InventoryDomain {
   slots(): InventorySlotHandle[];
   slot(ref: InventorySlotRef): InventorySlotHandle;
   hotbar(): InventorySlotHandle[];
-  equipment(): { head: InventorySlotHandle; face: InventorySlotHandle; back: InventorySlotHandle; hands: InventorySlotHandle; feet: InventorySlotHandle };
+  equipment(): { head: InventorySlotHandle; face: InventorySlotHandle; body: InventorySlotHandle; back: InventorySlotHandle; hands: InventorySlotHandle; feet: InventorySlotHandle };
   findItem(itemId: number, options?: { area?: InventoryArea }): InventorySlotHandle | null;
   findItems(itemId: number, options?: { area?: InventoryArea }): InventorySlotHandle[];
   firstEmpty(options?: { area?: InventoryArea }): InventorySlotHandle | null;
   move(source: InventorySlotRef, target: InventorySlotRef, options?: { split?: boolean }, command?: Command): DredlessClient;
-  equip(source: InventorySlotRef, equipmentSlot: EquipmentSlot, options?: { split?: boolean }, command?: Command): DredlessClient;
+  equip(source: InventorySlotRef, equipmentSlot?: EquipmentSlot | { split?: boolean }, options?: { split?: boolean } | Command, command?: Command): DredlessClient;
   unequip(equipmentSlot: EquipmentSlot, target?: InventorySlotRef, options?: { split?: boolean }, command?: Command): DredlessClient;
   select(slot: InventorySlotRef, command?: Command): DredlessClient;
 }
@@ -430,7 +430,7 @@ export interface InventoryDomain {
 export interface InventorySlotHandle {
   index: number;
   kind: "hotbar" | "equipment" | null;
-  equipmentSlot: "head" | "face" | "back" | "hands" | "feet" | null;
+  equipmentSlot: "head" | "face" | "body" | "back" | "hands" | "feet" | null;
   itemId: number | null;
   itemName: string | null;
   count: number;
@@ -438,7 +438,7 @@ export interface InventorySlotHandle {
   exists(): boolean;
   snapshot(): InventorySlotSnapshot | null;
   moveTo(target: InventorySlotRef, options?: { split?: boolean }, command?: Command): DredlessClient;
-  equip(equipmentSlot: EquipmentSlot, options?: { split?: boolean }, command?: Command): DredlessClient;
+  equip(equipmentSlot?: EquipmentSlot | { split?: boolean }, options?: { split?: boolean } | Command, command?: Command): DredlessClient;
   unequip(target?: InventorySlotRef, options?: { split?: boolean }, command?: Command): DredlessClient;
   select(command?: Command): DredlessClient;
 }
@@ -790,7 +790,7 @@ export interface InventorySlotSnapshot {
   itemName: string | null;
   count: number;
   kind: "hotbar" | "equipment";
-  equipmentSlot: "head" | "face" | "back" | "hands" | "feet" | null;
+  equipmentSlot: "head" | "face" | "body" | "back" | "hands" | "feet" | null;
   empty: boolean;
 }
 
@@ -803,6 +803,7 @@ export interface InventoryState {
   equipment: {
     head: InventorySlotSnapshot;
     face: InventorySlotSnapshot;
+    body: InventorySlotSnapshot;
     back: InventorySlotSnapshot;
     hands: InventorySlotSnapshot;
     feet: InventorySlotSnapshot;
@@ -1548,8 +1549,8 @@ export function buildSignedCommandPacket(command: Command, sessionId: number): U
 export function buildInventoryDragCommand(source: number, target: number, split?: boolean): InventoryDragCommand;
 export function buildEquipItemCommand(source: number, slot: EquipmentSlot, split?: boolean): InventoryDragCommand;
 export function buildUnequipItemCommand(slot: EquipmentSlot, target?: number, split?: boolean): InventoryDragCommand;
-export function normalizeEquipmentSlot(slot: EquipmentSlot): 16 | 17 | 19 | 20 | 21;
-export function equipmentSlotName(slot: number): "head" | "face" | "back" | "hands" | "feet" | null;
+export function normalizeEquipmentSlot(slot: EquipmentSlot): 16 | 17 | 18 | 19 | 20 | 21;
+export function equipmentSlotName(slot: number): "head" | "face" | "body" | "back" | "hands" | "feet" | null;
 export function normalizeInventoryEvent(event: unknown): InventoryState;
 export function buildShipManagementMessage(act: string, arg?: unknown, extra?: Record<string, unknown> | null): ShipManagementMessage;
 export function buildShipPrivacyMessage(privacy: ShipPrivacy): ShipManagementMessage;
@@ -1636,9 +1637,3 @@ export interface DredlessNamespace {
 
 export const Dredless: DredlessNamespace;
 export default Dredless;
-
-
-
-
-
-

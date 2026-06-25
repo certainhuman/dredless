@@ -803,7 +803,7 @@ Inventory read and slot movement domain.
 ```ts
 type InventoryArea = "all" | "hotbar" | "equipment";
 type InventorySlotRef = number | EquipmentSlot | InventorySlotHandle | InventorySlotSnapshot;
-type EquipmentSlot = 16 | 17 | 19 | 20 | 21 | "head" | "hat" | "face" | "mask" | "back" | "hand" | "hands" | "foot" | "feet";
+type EquipmentSlot = 16 | 17 | 18 | 19 | 20 | 21 | "head" | "hat" | "face" | "mask" | "body" | "back" | "hand" | "hands" | "foot" | "feet";
 
 interface InventoryDomain {
   state(): InventoryState | null;
@@ -811,12 +811,12 @@ interface InventoryDomain {
   slots(): InventorySlotHandle[];
   slot(ref: InventorySlotRef): InventorySlotHandle;
   hotbar(): InventorySlotHandle[];
-  equipment(): { head: InventorySlotHandle; face: InventorySlotHandle; back: InventorySlotHandle; hands: InventorySlotHandle; feet: InventorySlotHandle };
+  equipment(): { head: InventorySlotHandle; face: InventorySlotHandle; body: InventorySlotHandle; back: InventorySlotHandle; hands: InventorySlotHandle; feet: InventorySlotHandle };
   findItem(itemId: number, options?: { area?: InventoryArea }): InventorySlotHandle | null;
   findItems(itemId: number, options?: { area?: InventoryArea }): InventorySlotHandle[];
   firstEmpty(options?: { area?: InventoryArea }): InventorySlotHandle | null;
   move(source: InventorySlotRef, target: InventorySlotRef, options?: { split?: boolean }, command?: Command): DredlessClient;
-  equip(source: InventorySlotRef, equipmentSlot: EquipmentSlot, options?: { split?: boolean }, command?: Command): DredlessClient;
+  equip(source: InventorySlotRef, equipmentSlot?: EquipmentSlot | { split?: boolean }, options?: { split?: boolean } | Command, command?: Command): DredlessClient;
   unequip(equipmentSlot: EquipmentSlot, target?: InventorySlotRef, options?: { split?: boolean }, command?: Command): DredlessClient;
   select(slot: InventorySlotRef, command?: Command): DredlessClient;
 }
@@ -828,7 +828,7 @@ Slot handles expose live slot reads and convenience actions:
 interface InventorySlotHandle {
   index: number;
   kind: "hotbar" | "equipment" | null;
-  equipmentSlot: "head" | "face" | "back" | "hands" | "feet" | null;
+  equipmentSlot: "head" | "face" | "body" | "back" | "hands" | "feet" | null;
   itemId: number | null;
   itemName: string | null;
   count: number;
@@ -836,13 +836,13 @@ interface InventorySlotHandle {
   exists(): boolean;
   snapshot(): InventorySlotSnapshot | null;
   moveTo(target: InventorySlotRef, options?: { split?: boolean }, command?: Command): DredlessClient;
-  equip(equipmentSlot: EquipmentSlot, options?: { split?: boolean }, command?: Command): DredlessClient;
+  equip(equipmentSlot?: EquipmentSlot | { split?: boolean }, options?: { split?: boolean } | Command, command?: Command): DredlessClient;
   unequip(target?: InventorySlotRef, options?: { split?: boolean }, command?: Command): DredlessClient;
   select(command?: Command): DredlessClient;
 }
 ```
 
-Inventory state is normalized and does not expose raw `items`, `item_counts`, or `general_slots` arrays. `hotbarSize` is the protocol-provided hotbar slot count from `general_slots`; equipment slots are separate fixed absolute indexes (`16`, `17`, `19`, `20`, `21`).
+Inventory state is normalized and does not expose raw `items`, `item_counts`, or `general_slots` arrays. `hotbarSize` is the protocol-provided hotbar slot count from `general_slots`; equipment slots are separate fixed absolute indexes (`16`, `17`, `18`, `19`, `20`, `21`). `equip()` may omit the equipment slot; in that case it infers the target from the item schema and throws if the source slot is empty or the item is not equipment.
 
 ```ts
 interface InventorySlotSnapshot {
@@ -851,7 +851,7 @@ interface InventorySlotSnapshot {
   itemName: string | null;
   count: number;
   kind: "hotbar" | "equipment";
-  equipmentSlot: "head" | "face" | "back" | "hands" | "feet" | null;
+  equipmentSlot: "head" | "face" | "body" | "back" | "hands" | "feet" | null;
   empty: boolean;
 }
 
@@ -864,6 +864,7 @@ interface InventoryState {
   equipment: {
     head: InventorySlotSnapshot;
     face: InventorySlotSnapshot;
+    body: InventorySlotSnapshot;
     back: InventorySlotSnapshot;
     hands: InventorySlotSnapshot;
     feet: InventorySlotSnapshot;
@@ -2392,8 +2393,8 @@ function buildSignedCommandPacket(command: Command, sessionId: number): Uint8Arr
 Module: `dredless/protocol/inventory` or root.
 
 ```ts
-function normalizeEquipmentSlot(slot: EquipmentSlot): 16 | 17 | 19 | 20 | 21;
-function equipmentSlotName(slot: number): "head" | "face" | "back" | "hands" | "feet" | null;
+function normalizeEquipmentSlot(slot: EquipmentSlot): 16 | 17 | 18 | 19 | 20 | 21;
+function equipmentSlotName(slot: number): "head" | "face" | "body" | "back" | "hands" | "feet" | null;
 function buildInventoryDragCommand(source: number, target: number, split?: boolean): InventoryDragCommand;
 function buildEquipItemCommand(source: number, slot: EquipmentSlot, split?: boolean): InventoryDragCommand;
 function buildUnequipItemCommand(slot: EquipmentSlot, target?: number, split?: boolean): InventoryDragCommand;
@@ -2622,6 +2623,9 @@ const COMMS_MESSAGE_TYPE: 3;
 
 ```ts
 const EQUIPMENT_SLOT_INDEXES: Readonly<{
+  head: 16;
+  face: 17;
+  body: 18;
   back: 19;
   hands: 20;
   feet: 21;

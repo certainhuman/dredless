@@ -595,7 +595,7 @@ a scanner-specific websocket response; it only sent normal signed input frames.
 That suggests the official client can produce the blueprint scan output locally
 from already-loaded ship state, at least for this sample.
 
-Inventory movement uses the signed type `0` `drag` field internally. Use the slot-oriented public API on `client.inventory`; `buildInventoryDragCommand()` remains available for low-level protocol payloads. Equipment slots are absolute inventory slots in the official protocol: `16`/`"head"`, `17`/`"face"`, `19`/`"back"`, `20`/`"hands"`, and `21`/`"feet"`.
+Inventory movement uses the signed type `0` `drag` field internally. Use the slot-oriented public API on `client.inventory`; `buildInventoryDragCommand()` remains available for low-level protocol payloads. Equipment slots are absolute inventory slots in the official protocol: `16`/`"head"`, `17`/`"face"`, `18`/`"body"`, `19`/`"back"`, `20`/`"hands"`, and `21`/`"feet"`.
 
 ```js
 const inv = client.inventory;
@@ -603,6 +603,7 @@ const inv = client.inventory;
 inv.move(0, 4);
 inv.move(inv.slot(1), inv.slot(2), { split: true });
 inv.equip(0, "back");
+inv.equip(inv.slot(1)); // infers target equipment slot from the held item schema
 inv.equip(inv.slot(1), "hands");
 inv.unequip("hands", 0);
 inv.select(inv.slot(2));
