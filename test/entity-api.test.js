@@ -21,6 +21,7 @@ function createClientWithPusher() {
   world.model.setWorldKind(false);
   world.model.tables.set(0, new Map([[27, { q20: 1400, q24: 260, q28: 0 }]]));
   world.model.tables.set(72, new Map([[27, { q20: -2, q24: 1, q28: 900, q32: 300, q40: 0 }]]));
+  world.model.tables.set(5, new Map([[27, { q20: 100, q24: 75 }]]));
   world.model.tables.set(77, new Map([[27, { q20: 100, q24: null, q28: 103 }]]));
   world.model.tables.set(42, new Map([[27, { q20: 240, q24: 1 }]]));
   world.model.tables.set(3, new Map([[27, { q20: 10, q24: 10 }]]));
@@ -51,6 +52,7 @@ test("entity API exposes frozen snapshots, features, and typed domain handles", 
   assert.equal(snapshot.id, 27);
   assert.equal(snapshot.entity, 27);
   assert.equal(snapshot.position.x, 35);
+  assert.equal(snapshot.type, "pusher");
   assert.equal(snapshot.is("placed_entity"), true);
   assert.equal(snapshot.is("machine"), true);
   assert.equal(snapshot.is("pusher"), true);
@@ -60,14 +62,39 @@ test("entity API exposes frozen snapshots, features, and typed domain handles", 
   assert.equal(snapshot.feature("beam").length, 24);
   assert.equal(snapshot.feature("outline").width, 1);
   assert.deepEqual(snapshot.feature("filterSlots"), [100, null, 103]);
+  assert.deepEqual(snapshot.features.filter((feature) => [
+    "health",
+    "position",
+    "outline",
+    "filter",
+    "filterMode",
+    "filterSlots",
+    "filterInventory",
+    "beam",
+    "pusherConfig"
+  ].includes(feature)), [
+    "health",
+    "position",
+    "outline",
+    "filter",
+    "filterMode",
+    "filterSlots",
+    "filterInventory",
+    "beam",
+    "pusherConfig"
+  ]);
+  assert.equal(Object.hasOwn(snapshot, "contents"), false);
+  assert.equal(snapshot.contents, undefined);
   assert.equal(Object.isFrozen(snapshot), true);
-  assert.equal(Object.isFrozen(snapshot.contents.pusher), true);
 
   const entity = ship.entities.get(snapshot);
   assert.equal(entity.id, 27);
+  assert.equal(entity.type, "pusher");
   assert.equal(entity.is("pusher"), true);
   assert.equal(entity.has("filterSlots"), true);
   assert.deepEqual(entity.feature("filterSlots"), [100, null, 103]);
+  assert.equal("contents" in entity, false);
+  assert.equal(entity.contents, undefined);
 
   const pusher = entity.as("pusher");
   assert.ok(pusher);
@@ -75,6 +102,10 @@ test("entity API exposes frozen snapshots, features, and typed domain handles", 
   assert.equal(pusher.state.mode, 0);
   assert.equal(pusher.mode, 0);
   assert.equal(entity.as("loader"), null);
+
+  const raw = client.debug.entity("ship", 27);
+  assert.ok(raw.contents.pusher);
+  assert.equal(client.debug.entities("ship")[0].contents.pusher.entity, 27);
 
   const machines = ship.machines.state();
   assert.equal(machines.pushers.length, 1);

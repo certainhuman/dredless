@@ -41,6 +41,7 @@ export type EquipmentSlot = 16 | 17 | 18 | 19 | 20 | 21 | "head" | "hat" | "face
 export type InventoryArea = "all" | "hotbar" | "equipment";
 export type InventorySlotRef = number | EquipmentSlot | InventorySlotHandle | InventorySlotSnapshot;
 export type ReadWorldScope = "ship" | "current" | "overworld" | number;
+export type EntityRef = number | EntityHandle | EntitySummary | EntityDebugSummary;
 
 export interface ShipConfig {
   privacy: number | null;
@@ -350,7 +351,7 @@ export class DredlessClient {
   world(id: number): WorldDomain | null;
   shipWorld(options?: { includeTiles?: boolean; includeModel?: boolean }): WorldSnapshot | null;
   state(options?: { includeTiles?: boolean; includeModel?: boolean }): ClientSnapshot;
-  entities(scope?: number | string): EntitySummary[];
+  entities(scope?: number | string): EntitySnapshot[];
   entity(entityId: number, scope?: number | string): EntitySnapshot | null;
 
   on(type: string, callback: (...args: unknown[]) => void): this;
@@ -379,6 +380,8 @@ export interface ClientDebugDomain {
   worldStore(): WorldStore;
   modelTable(worldId: number, tableId: number): Map<number, ModelRecord>;
   modelRecord(worldId: number, tableId: number, entityId: number): ModelRecord | null;
+  entities(scope?: ReadWorldScope): EntityDebugSummary[];
+  entity(scope: ReadWorldScope, entity: EntityRef): EntityDebugSummary | null;
   puiPanels(): PuiEvent[];
   commsPanels(): CommsEvent[];
 }
@@ -391,7 +394,7 @@ export interface PlayerDomain {
   move(vector?: { x?: number; y?: number }, command?: Command): DredlessClient;
   aim(point?: { x?: number; y?: number; mx?: number; my?: number }, command?: Command): DredlessClient;
   action(flags?: Command, command?: Command): DredlessClient;
-  useEntity(entity: number | EntityHandle | EntitySummary, options?: { invSlot?: number; hold?: boolean }, command?: Command): DredlessClient;
+  useEntity(entity: EntityRef, options?: { invSlot?: number; hold?: boolean }, command?: Command): DredlessClient;
   useHeldItem(options?: { invSlot?: number; hold?: boolean }, command?: Command): DredlessClient;
   placeHeldItem(options?: { invSlot?: number; hold?: boolean }, command?: Command): DredlessClient;
   placeBlueprint(placement: BlueprintPlacement, options?: { invSlot?: number; hold?: boolean; mx?: number; my?: number }, command?: Command): DredlessClient;
@@ -469,15 +472,14 @@ export interface ShipDomain extends WorldDomain {
 export interface OverworldDomain extends WorldDomain {
   ships(options?: ShipReadOptions): ShipHandle[];
   shipByHex(hexCode: string, options?: ShipReadOptions): ShipHandle | null;
-  shipByEntity(entity: number | EntityHandle | EntitySummary, options?: ShipReadOptions): ShipHandle | null;
+  shipByEntity(entity: EntityRef, options?: ShipReadOptions): ShipHandle | null;
 }
 
 export interface EntityCollection {
   all(): EntityHandle[];
   snapshots(): EntitySnapshot[];
   states(): EntitySnapshot[];
-  raw(): EntitySummary[];
-  get(entity: number | EntityHandle | EntitySummary): EntityHandle;
+  get(entity: EntityRef): EntityHandle;
 }
 
 export interface PlayerCollection { all(): PlayerSummary[]; current(): PlayerSummary | null; }
@@ -488,59 +490,100 @@ export interface MachineCollection {
   state(): MachineSummary;
   raw(): MachineSummary;
   loaders(): LoaderHandle[];
-  loader(entity: number | EntityHandle | EntitySummary): LoaderHandle;
+  loader(entity: EntityRef): LoaderHandle;
   pushers(): PusherHandle[];
-  pusher(entity: number | EntityHandle | EntitySummary): PusherHandle;
+  pusher(entity: EntityRef): PusherHandle;
   launchers(): LauncherHandle[];
-  launcher(entity: number | EntityHandle | EntitySummary): LauncherHandle;
+  launcher(entity: EntityRef): LauncherHandle;
   navigationUnits(): NavigationUnitHandle[];
-  navigationUnit(entity?: number | EntityHandle | EntitySummary | null): NavigationUnitHandle | null;
+  navigationUnit(entity?: EntityRef | null): NavigationUnitHandle | null;
   fabricators(): FabricatorHandle[];
-  fabricator(entity: number | EntityHandle | EntitySummary): FabricatorHandle;
+  fabricator(entity: EntityRef): FabricatorHandle;
   commsStations(): CommsStationHandle[];
-  commsStation(entity?: number | EntityHandle | EntitySummary | null): CommsStationHandle | null;
+  commsStation(entity?: EntityRef | null): CommsStationHandle | null;
   signs(): SignHandle[];
-  sign(entity: number | EntityHandle | EntitySummary): SignHandle;
+  sign(entity: EntityRef): SignHandle;
   generators(): GeneratorHandle[];
-  generator(entity: number | EntityHandle | EntitySummary): GeneratorHandle;
+  generator(entity: EntityRef): GeneratorHandle;
   cargoHatches(): CargoHatchHandle[];
-  cargoHatch(entity: number | EntityHandle | EntitySummary): CargoHatchHandle;
-  cargoEjector(entity: number | EntityHandle | EntitySummary): CargoEjectorHandle;
+  cargoHatch(entity: EntityRef): CargoHatchHandle;
+  cargoEjector(entity: EntityRef): CargoEjectorHandle;
   cannons(): CannonHandle[];
-  cannon(entity: number | EntityHandle | EntitySummary): CannonHandle;
+  cannon(entity: EntityRef): CannonHandle;
   thrusters(): ThrusterHandle[];
-  thruster(entity: number | EntityHandle | EntitySummary): ThrusterHandle;
+  thruster(entity: EntityRef): ThrusterHandle;
   helms(): HelmHandle[];
-  helm(entity: number | EntityHandle | EntitySummary): HelmHandle;
+  helm(entity: EntityRef): HelmHandle;
   doors(): DoorHandle[];
-  door(entity: number | EntityHandle | EntitySummary): DoorHandle;
+  door(entity: EntityRef): DoorHandle;
   spawnPoints(): SpawnPointHandle[];
-  spawnPoint(entity: number | EntityHandle | EntitySummary): SpawnPointHandle;
+  spawnPoint(entity: EntityRef): SpawnPointHandle;
   shieldProjectors(): ShieldProjectorHandle[];
-  shieldProjector(entity: number | EntityHandle | EntitySummary): ShieldProjectorHandle;
+  shieldProjector(entity: EntityRef): ShieldProjectorHandle;
   fluidTanks(): FluidTankHandle[];
-  fluidTank(entity: number | EntityHandle | EntitySummary): FluidTankHandle;
+  fluidTank(entity: EntityRef): FluidTankHandle;
   processors(): ProcessorHandle[];
-  processor(entity: number | EntityHandle | EntitySummary): ProcessorHandle;
+  processor(entity: EntityRef): ProcessorHandle;
   expandoBoxes(): ExpandoBoxHandle[];
-  expandoBox(entity: number | EntityHandle | EntitySummary): ExpandoBoxHandle;
+  expandoBox(entity: EntityRef): ExpandoBoxHandle;
 }
 
-export type EntityFeatureName = string;
-export type EntityTypeName = string;
+export type EntityPublicType =
+  | "loader"
+  | "pusher"
+  | "launcher"
+  | "navigationUnit"
+  | "fabricator"
+  | "processor"
+  | "cannon"
+  | "thruster"
+  | "cargoHatch"
+  | "commsStation"
+  | "fluidTank"
+  | "shieldGenerator"
+  | "shieldProjector"
+  | "helm"
+  | "sign"
+  | "spawnPoint"
+  | "door"
+  | "expandoBox"
+  | "player"
+  | "ship"
+  | "bot"
+  | "looseItem"
+  | "mapMarker"
+  | "dockingSpring"
+  | "hugeThruster"
+  | "blueprintPreview"
+  | "unknown";
 
-export interface EntitySnapshotType {
-  category: EntitySummary["category"] | null;
-  machine: string | null;
-  item: string | null;
-  components: string[];
-}
+export type EntityFeatureName =
+  | "health"
+  | "position"
+  | "outline"
+  | "inventory"
+  | "item"
+  | "filter"
+  | "filterMode"
+  | "filterSlots"
+  | "filterInventory"
+  | "beam"
+  | "occupied"
+  | "loaderConfig"
+  | "pusherConfig"
+  | "launcherConfig"
+  | "navigationConfig"
+  | "fabricatorQueue"
+  | "progress"
+  | string;
+export type EntityTypeName = EntityPublicType | string;
 
 export interface EntitySnapshot extends EntitySummary {
   id: number;
   position: TransformSummary | null;
   rotation: number | null;
-  type: EntitySnapshotType;
+  type: EntityPublicType | string;
+  features: string[];
   is(type: EntityTypeName): boolean;
   has(feature: EntityFeatureName): boolean;
   feature(feature: EntityFeatureName): unknown | null;
@@ -552,7 +595,8 @@ export interface EntityHandle {
   id: number;
   position: TransformSummary | null;
   health: HealthSummary | null;
-  contents: EntityContentsSummary | null;
+  type: EntityPublicType | string;
+  features: string[];
   exists(): boolean;
   snapshot(): EntitySnapshot | null;
   is(type: EntityTypeName): boolean;
@@ -870,15 +914,20 @@ export interface EntitySummary {
   kind: string[];
   transform: TransformSummary | null;
   footprint: { width: number; height: number; source: "type" | "marker" | "heuristic" | "default" | "crate" | "huge_thruster" | "hover_outline" };
-  contents: EntityContentsSummary | null;
+  type: EntityPublicType | string;
+  features: string[];
   occupies: { x: number; y: number }[];
   tables: { tableId: number; name: string | null; record: ModelRecord }[];
+}
+
+export interface EntityDebugSummary extends Omit<EntitySummary, "type" | "features"> {
+  contents: EntityContentsSummary | null;
 }
 
 export interface BlockSummary {
   x: number;
   y: number;
-  entities: EntitySummary[];
+  entities: EntityDebugSummary[];
 }
 
 export class WorldStore {
@@ -891,7 +940,7 @@ export class WorldStore {
   ids(): number[];
   overworld(): WorldState | null;
   shipWorld(): WorldState | null;
-  currentShipEntity(): EntitySummary | null;
+  currentShipEntity(): EntityDebugSummary | null;
 }
 
 export class WorldState {
@@ -927,8 +976,8 @@ export class WorldState {
   table(id: number): Map<number, ModelRecord>;
   record(tableId: number, entityId: number): ModelRecord | null;
   tileDefinition(material: number): TileDefinition | null;
-  entity(entityId: number): EntitySummary | null;
-  entities(): EntitySummary[];
+  entity(entityId: number): EntityDebugSummary | null;
+  entities(): EntityDebugSummary[];
   blocks(): BlockSummary[];
 }
 
@@ -1004,7 +1053,7 @@ export interface WorldSnapshot {
   meta: unknown;
   materials: MaterialSummary[];
   model: ModelSnapshot;
-  entities: EntitySummary[];
+  entities: EntityDebugSummary[];
   blocks: BlockSummary[];
   transforms: TransformSummary[];
   machines: MachineSummary;
@@ -1071,8 +1120,8 @@ export class ModelState {
 
   table(id: number): Map<number, ModelRecord>;
   record(tableId: number, entityId: number): ModelRecord | null;
-  entity(entityId: number): EntitySummary | null;
-  entities(): EntitySummary[];
+  entity(entityId: number): EntityDebugSummary | null;
+  entities(): EntityDebugSummary[];
   blocks(): BlockSummary[];
   apply(bytes: Uint8Array | ArrayBuffer | number[]): unknown;
   snapshot(options?: { includeTables?: boolean }): ModelSnapshot;
@@ -1095,7 +1144,7 @@ export interface ModelSnapshot {
   removedEntities: number[];
   lastUpdate: unknown;
   errors: unknown[];
-  entities: EntitySummary[];
+  entities: EntityDebugSummary[];
   blocks: BlockSummary[];
   tables: unknown[];
 }
@@ -1503,7 +1552,7 @@ export interface ShipReadSummary {
   hasWorldData: boolean;
   world: WorldSnapshot | null;
   control: ShipControlSummary;
-  entitySummary: EntitySummary;
+  entitySummary: EntityDebugSummary;
 }
 
 export interface ShipShieldSummary {

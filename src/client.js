@@ -622,7 +622,7 @@ export class DredlessClient extends EventBus {
   }
 
   entities(scope = "ship") {
-    return this.#readWorld(scope)?.entities() || [];
+    return summariesFor(this, scope).map((summary) => new EntitySnapshot(summary));
   }
 
   entity(entityId, scope = "ship") {
@@ -1028,6 +1028,11 @@ class ClientDebugDomain {
   worldStore() { return this.client.worlds; }
   modelTable(worldId, tableId) { return this.client.worlds.worlds.get(Number(worldId))?.model.table(tableId) || new Map(); }
   modelRecord(worldId, tableId, entityId) { return this.client.worlds.worlds.get(Number(worldId))?.model.record(tableId, entityId) || null; }
+  entities(scope = "ship") { return summariesFor(this.client, scope); }
+  entity(scope = "ship", entity = null) {
+    if (entity == null) return null;
+    return summaryForEntity(this.client, scope, entityIdOf(entity));
+  }
   puiPanels() { return [...this.client.puiPanels.values()]; }
   commsPanels() { return [...this.client.commsPanels.values()]; }
 }
@@ -1156,36 +1161,38 @@ class OverworldDomain extends WorldDomain {
 }
 
 class EntitySnapshot {
+  #contents;
+
   constructor(summary) {
     const data = clonePlain(summary || {});
+    this.#contents = data.contents || null;
+    delete data.contents;
     Object.assign(this, data);
     this.id = Number(data.entity ?? data.id);
     this.entity = this.id;
     this.position = data.transform || null;
     this.rotation = data.transform?.rotation ?? null;
-    this.type = Object.freeze({
-      category: data.category || null,
-      machine: entityMachineType(data.contents),
-      item: entityItemType(data.contents),
-      components: Object.freeze(Object.keys(data.contents || {}))
-    });
+    this.type = entityPublicType(data, this.#contents);
+    this.features = Object.freeze(entityFeatures(data, this.#contents));
+    deepFreeze(this.#contents);
     deepFreeze(this);
   }
 
   is(type) {
     const key = normalizeEntityKey(type);
     if (!key) return false;
+    const publicType = normalizeEntityKey(this.type);
+    if (key === publicType) return true;
     if (key === normalizeEntityKey(this.category)) return true;
     if (key === "placedentity" && this.category === "placed_entity") return true;
     if (key === "looseitem" && this.category === "loose_item") return true;
-    if (key === "ship" && (this.category === "ship_control" || this.contents?.shipControl)) return true;
-    if (key === "machine") return Boolean(this.type.machine);
-    if (key === "item") return Boolean(this.contents?.itemHolder || this.contents?.itemCrate || this.contents?.expandoBox);
-    if (key === "bot") return Boolean(this.contents?.bot);
-    if (key === "player") return Boolean(this.contents?.player || this.category === "player");
-    if (key === normalizeEntityKey(this.type.machine)) return true;
+    if (key === "ship" && (this.category === "ship_control" || this.#contents?.shipControl)) return true;
+    if (key === "machine") return Boolean(entityMachineType(this.#contents));
+    if (key === "item") return Boolean(this.#contents?.itemHolder || this.#contents?.itemCrate || this.#contents?.expandoBox);
+    if (key === "bot") return Boolean(this.#contents?.bot);
+    if (key === "player") return Boolean(this.#contents?.player || this.category === "player");
     if (this.kind?.some((kind) => normalizeEntityKey(kind) === key)) return true;
-    return Boolean(componentFor(this.contents, key));
+    return Boolean(componentFor(this.#contents, key));
   }
 
   has(feature) {
@@ -1193,7 +1200,7 @@ class EntitySnapshot {
   }
 
   feature(feature) {
-    return entityFeature(this.contents, feature);
+    return entityFeature(this, this.#contents, feature);
   }
 }
 
@@ -1202,7 +1209,6 @@ class EntityCollection {
   all() { return summariesFor(this.client, this.scope).map((summary) => new EntityHandle(this.client, summary.entity, this.scope)); }
   snapshots() { return summariesFor(this.client, this.scope).map((summary) => new EntitySnapshot(summary)); }
   states() { return this.snapshots(); }
-  raw() { return summariesFor(this.client, this.scope); }
   get(entity) { return new EntityHandle(this.client, entityIdOf(entity), this.scope); }
 }
 
@@ -1275,7 +1281,8 @@ class EntityHandle {
   }
   get position() { return summaryForEntity(this.client, this.scope, this.id)?.transform || null; }
   get health() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.health || null; }
-  get contents() { return summaryForEntity(this.client, this.scope, this.id)?.contents || null; }
+  get type() { return this.snapshot()?.type ?? "unknown"; }
+  get features() { return this.snapshot()?.features ?? []; }
   is(type) { return this.snapshot()?.is(type) ?? false; }
   has(feature) { return this.snapshot()?.has(feature) ?? false; }
   feature(feature) { return this.snapshot()?.feature(feature) ?? null; }
@@ -1519,6 +1526,26 @@ const MACHINE_COMPONENTS = [
   "expandoBox"
 ];
 
+const ENTITY_FEATURES = [
+  "health",
+  "position",
+  "outline",
+  "inventory",
+  "item",
+  "filter",
+  "filterMode",
+  "filterSlots",
+  "filterInventory",
+  "beam",
+  "occupied",
+  "loaderConfig",
+  "pusherConfig",
+  "launcherConfig",
+  "navigationConfig",
+  "fabricatorQueue",
+  "progress"
+];
+
 function normalizeEntityKey(value) {
   return String(value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
@@ -1547,10 +1574,6 @@ function entityMachineType(contents) {
   return MACHINE_COMPONENTS.find((component) => contents[component]) || null;
 }
 
-function entityItemType(contents) {
-  return contents?.itemCrate?.itemName || contents?.itemHolder?.itemName || contents?.expandoBox?.itemName || null;
-}
-
 function firstFeatureSource(contents, names) {
   if (!contents) return null;
   for (const name of names) {
@@ -1569,9 +1592,29 @@ function sourceWithProperty(contents, names, property) {
   return null;
 }
 
-function entityFeature(contents, feature) {
+function entityPublicType(summary, contents) {
+  const machine = entityMachineType(contents);
+  if (machine) return machine;
+  if (contents?.player || summary?.category === "player") return "player";
+  if (contents?.shipControl || summary?.category === "ship_control") return "ship";
+  if (contents?.bot) return "bot";
+  if (summary?.category === "loose_item" || contents?.itemCrate || contents?.itemHolder) return "looseItem";
+  if (contents?.mapMarker) return "mapMarker";
+  if (contents?.dockingSpring) return "dockingSpring";
+  if (contents?.hugeThruster) return "hugeThruster";
+  if (contents?.blueprintPreview) return "blueprintPreview";
+  return "unknown";
+}
+
+function entityFeatures(summary, contents) {
+  return ENTITY_FEATURES.filter((feature) => entityFeature(summary, contents, feature) != null);
+}
+
+function entityFeature(summary, contents, feature) {
   const key = normalizeEntityKey(feature);
-  if (!contents || !key) return null;
+  if (!key) return null;
+  if (key === "position" || key === "transform") return summary?.position || summary?.transform || null;
+  if (!contents) return null;
   const component = componentFor(contents, key);
   if (component != null) return component;
   if (key === "machine") return firstFeatureSource(contents, MACHINE_COMPONENTS);
@@ -1589,7 +1632,12 @@ function entityFeature(contents, feature) {
   if (key === "outline") return contents.hoverOutline ?? null;
   if (key === "occupied") return sourceWithProperty(contents, ["helm", "commsStation"], "occupied")?.occupied ?? null;
   if (key === "health") return contents.health ?? null;
-  if (key === "position" || key === "transform") return null;
+  if (key === "loaderconfig") return contents.loader ?? null;
+  if (key === "pusherconfig") return contents.pusher ?? null;
+  if (key === "launcherconfig") return contents.launcher ?? null;
+  if (key === "navigationconfig") return contents.navigationUnit ?? null;
+  if (key === "fabricatorqueue") return contents.fabricator?.rows ?? null;
+  if (key === "progress") return contents.fabricator?.progress ?? null;
   return null;
 }
 

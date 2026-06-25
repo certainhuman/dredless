@@ -4,6 +4,8 @@ export {
   type ModelRecord,
   type ModelSnapshot,
   type EntitySummary,
+  type EntityDebugSummary,
+  type EntityContentsSummary,
   type BlockSummary,
   type TransformSummary,
   type ItemHolderSummary,
