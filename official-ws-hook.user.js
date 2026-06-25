@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Dredless Official WebSocket Capture
+// @name         Dredless WebSocket Capture
 // @namespace    dredless
 // @version      0.3.2
-// @description  Capture official drednot.io WebSocket traffic from window.tpgaClient.repsocket.websocket.
+// @description  Capture drednot.io WebSocket traffic from window.tpgaClient.repsocket.websocket.
 // @match        https://drednot.io/*
 // @match        https://test.drednot.io/*
 // @run-at       document-idle
@@ -12,15 +12,15 @@
 
 (() => {
   const VERSION = "0.3.2";
-  const GLOBAL_KEY = "__dredlessOfficialWsCapture";
-  const PUBLIC_KEY = "dredlessOfficialCapture";
+  const GLOBAL_KEY = "__dredlessWsCapture";
+  const PUBLIC_KEY = "dredlessCapture";
   const global = globalThis;
 
   const previous = global[GLOBAL_KEY];
   if (previous?.version === VERSION) {
     previous.install();
     previous.showUi();
-    console.info("dredless official websocket userscript already installed", previous.summary());
+    console.info("websocket userscript already installed", previous.summary());
     return previous;
   }
   previous?.restore?.();
@@ -80,7 +80,7 @@
     records.push(record);
     if (records.length > options.maxRecords) records.splice(0, records.length - options.maxRecords);
     if (options.log) {
-      console.debug("dredless official ws", record.event, record.direction ?? "", record.data?.kind ?? "");
+      console.debug("dredless ws", record.event, record.direction ?? "", record.data?.kind ?? "");
     }
     refreshUiSoon();
     return record;
