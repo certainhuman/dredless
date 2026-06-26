@@ -205,6 +205,19 @@ offline with:
 npm run benchmark -- captures/near-ship.jsonl
 ```
 
+The benchmark accepts normal decoded capture records and raw official-client
+`official-ws-frame` records. In addition to packet apply cost, it can exercise
+public client read APIs:
+
+```sh
+npm run benchmark -- loader-delta-multi.jsonl --mode=apply,snapshot,client-snapshot,client-entities,client-entity-snapshots,client-ships,client-mixed --read-every=5
+```
+
+Client modes replay packets into a `DredlessClient` and periodically call the
+selected read API. `read` reports time spent inside the read API; `apply` reports
+remaining replay/model-update time. This makes API-facing snapshot and entity
+read regressions visible separately from wire decode cost.
+
 Capture the official browser client's websocket instead with the userscript in
 `official-ws-hook.user.js`. Install it in Firefox with Violentmonkey or another
 userscript manager, then open `https://drednot.io/` and join a ship. A small

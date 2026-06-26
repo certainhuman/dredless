@@ -1180,6 +1180,10 @@ export interface ModelSnapshot {
   errors: unknown[];
   entities: EntityDebugSummary[];
   blocks: BlockSummary[];
+  transforms: TransformSummary[];
+  players: PlayerSummary[];
+  shipControls: ShipControlSummary[];
+  machines: MachineSummary;
   tables: unknown[];
 }
 

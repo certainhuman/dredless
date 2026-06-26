@@ -303,10 +303,10 @@ export class WorldState {
       model,
       entities: model.entities,
       blocks: model.blocks,
-      transforms: this.model.transforms(),
-      machines: this.model.machines(),
-      players: this.model.players(),
-      shipControls: this.model.shipControls(),
+      transforms: model.transforms,
+      machines: model.machines,
+      players: model.players,
+      shipControls: model.shipControls,
       commsBubbles: this.commsBubbles.slice(),
       tiles: includeTiles ? [...this.tiles.values()] : undefined
     };

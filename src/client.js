@@ -640,12 +640,12 @@ export class DredlessClient extends EventBus {
   }
 
   entities(scope = "ship") {
-    return summariesFor(this, scope).map((summary) => new EntitySnapshot(summary));
+    return summariesFor(this, scope).map(entitySnapshotFor);
   }
 
   entity(entityId, scope = "ship") {
     const summary = this.#readWorld(scope)?.entity(entityId) || null;
-    return summary ? new EntitySnapshot(summary) : null;
+    return entitySnapshotFor(summary);
   }
 
   blocks(scope = "ship") {
@@ -1273,6 +1273,18 @@ class OverworldDomain extends WorldDomain {
   shipByEntity(entity, options = {}) { const summary = this.client.shipByEntity(entityIdOf(entity), options); return summary ? new ShipHandle(this.client, summary) : null; }
 }
 
+const ENTITY_SNAPSHOT_CACHE = new WeakMap();
+
+function entitySnapshotFor(summary) {
+  if (!summary || typeof summary !== "object") return null;
+  let snapshot = ENTITY_SNAPSHOT_CACHE.get(summary);
+  if (!snapshot) {
+    snapshot = new EntitySnapshot(summary);
+    ENTITY_SNAPSHOT_CACHE.set(summary, snapshot);
+  }
+  return snapshot;
+}
+
 class EntitySnapshot {
   #contents;
 
@@ -1320,7 +1332,7 @@ class EntitySnapshot {
 class EntityCollection {
   constructor(client, scope) { this.client = client; this.scope = scope; }
   all() { return summariesFor(this.client, this.scope).map((summary) => new EntityHandle(this.client, summary.entity, this.scope)); }
-  snapshots() { return summariesFor(this.client, this.scope).map((summary) => new EntitySnapshot(summary)); }
+  snapshots() { return summariesFor(this.client, this.scope).map(entitySnapshotFor); }
   states() { return this.snapshots(); }
   get(entity) { return new EntityHandle(this.client, entityIdOf(entity), this.scope); }
 }
@@ -1389,7 +1401,7 @@ class EntityHandle {
   exists() { return Boolean(this.snapshot()); }
   snapshot() {
     const summary = worldStateFor(this.client, this.scope)?.entity(this.id) || null;
-    return summary ? new EntitySnapshot(summary) : null;
+    return entitySnapshotFor(summary);
   }
   get position() { return summaryForEntity(this.client, this.scope, this.id)?.transform || null; }
   get health() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.health || null; }
