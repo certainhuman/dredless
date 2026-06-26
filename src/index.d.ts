@@ -317,15 +317,33 @@ export interface ConnectionSnapshot {
   session: SessionSnapshot;
 }
 
+export type WebSocketAttachMode = "observe" | "bootstrap" | "readonly";
+
+export interface AttachWebSocketOptions {
+  mode?: WebSocketAttachMode;
+  connected?: boolean | null;
+  ready?: boolean;
+  sid?: number | null;
+  baseUrl?: string | null;
+  session?: Session | null;
+  serverId?: number | null;
+  server?: Server | null;
+  netPort?: number | null;
+  gameToken?: string;
+}
+
 export class DredlessClient {
   constructor(connection: Connection, options?: { connect?: boolean });
+  static attachWebSocket(websocket: unknown, options?: AttachWebSocketOptions): DredlessClient;
 
-  connection: Connection;
-  session: Session;
-  baseUrl: string;
-  serverId: number;
+  connection: Connection | null;
+  session: Session | null;
+  baseUrl: string | null;
+  attachMode: WebSocketAttachMode | null;
+  attached: boolean;
+  serverId: number | null;
   server: Server | null;
-  netPort: number;
+  netPort: number | null;
   gameToken: string;
   ws: unknown;
   sid: number | null;
@@ -763,12 +781,13 @@ export interface ShipHandle {
   snapshot(): ShipReadSummary;
 }
 export interface ClientSnapshot {
-  baseUrl: string;
-  session: SessionSnapshot;
-  connection: ConnectionSnapshot;
-  serverId: number;
+  baseUrl: string | null;
+  session: SessionSnapshot | Session | null;
+  connection: ConnectionSnapshot | null;
+  attachMode: WebSocketAttachMode | null;
+  serverId: number | null;
   server: Server | null;
-  netPort: number;
+  netPort: number | null;
   sid: number | null;
   ready: boolean;
   connected: boolean;

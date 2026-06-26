@@ -7,3 +7,4 @@ watch.log
 /_tmp_*.mjs
 /drednot-official-client/
 /package-lock.json
+/tools/ws-observer-extension/dist/

@@ -59,17 +59,18 @@ import { decodeMsgpack, encodeMsgpack, cloneCommand } from "./protocol/msgpack.j
 import { toUint8Array } from "./protocol/binary.js";
 
 export class DredlessClient extends EventBus {
-  constructor(connection, { connect = true } = {}) {
+  constructor(connection, { connect = true, attach = false, mode = null, baseUrl = null, session = null, serverId = null, server = null, netPort = null, gameToken = "" } = {}) {
     super();
-    if (!(connection instanceof Connection)) throw new Error("DredlessClient requires a Connection");
+    const attachMode = attach ? normalizeAttachMode(mode) : null;
+    if (!(connection instanceof Connection) && !attachMode) throw new Error("DredlessClient requires a Connection");
 
-    this.connection = connection;
-    this.session = connection.session;
-    this.baseUrl = connection.baseUrl;
-    this.serverId = connection.serverId;
-    this.server = connection.server;
-    this.netPort = connection.netPort;
-    this.gameToken = connection.gameToken;
+    this.connection = connection || null;
+    this.session = connection?.session ?? session ?? null;
+    this.baseUrl = connection?.baseUrl ?? baseUrl ?? this.session?.baseUrl ?? null;
+    this.serverId = connection?.serverId ?? serverId ?? server?.index ?? null;
+    this.server = connection?.server ?? server ?? null;
+    this.netPort = connection?.netPort ?? netPort ?? null;
+    this.gameToken = connection?.gameToken ?? gameToken ?? "";
     this.ws = null;
     this.sid = null;
     this.connected = false;
@@ -107,7 +108,17 @@ export class DredlessClient extends EventBus {
       this.#rejectReady = reject;
     });
 
+    this.attachMode = attachMode;
+    this.attached = Boolean(attachMode);
     if (connect) this.#connect().catch((error) => this.#fail(error));
+  }
+
+  static attachWebSocket(websocket, options = {}) {
+    if (!websocket) throw new Error("DredlessClient.attachWebSocket requires a websocket");
+    const mode = normalizeAttachMode(options.mode);
+    const client = new DredlessClient(null, { ...options, attach: true, connect: false, mode });
+    client.#attachSocket(websocket, { ...options, mode });
+    return client;
   }
 
   #commandNumber = 1;
@@ -115,6 +126,9 @@ export class DredlessClient extends EventBus {
   #queuedMessages = [];
   #keepalive = null;
   #bootstrapped = false;
+  #ownsSocket = true;
+  #allowWrites = true;
+  #attachedOpened = false;
   #resolveReady = null;
   #rejectReady = null;
   #inputSettings = {
@@ -127,6 +141,7 @@ export class DredlessClient extends EventBus {
   }
 
   send(command = {}) {
+    this.#assertWritable();
     const normalized = cloneCommand({ ...this.#inputSettings, ...command });
     if (normalized.n == null) normalized.n = this.#commandNumber++;
     if (!this.sid) {
@@ -139,6 +154,7 @@ export class DredlessClient extends EventBus {
   }
 
   sendMessage(message, { afterReady = true } = {}) {
+    this.#assertWritable();
     if (!this.connected || (afterReady && !this.ready)) {
       this.#queuedMessages.push({ message, afterReady });
       return this;
@@ -540,6 +556,7 @@ export class DredlessClient extends EventBus {
 
 
   close(code = 1000, reason = "client") {
+    if (!this.#allowWrites) return this;
     try { this.ws?.close(code, reason); } catch (_) {}
     return this;
   }
@@ -552,7 +569,8 @@ export class DredlessClient extends EventBus {
     return {
       baseUrl: this.baseUrl,
       session: this.session?.toJSON?.() || this.session,
-      connection: this.connection.toJSON(),
+      connection: this.connection?.toJSON?.() || null,
+      attachMode: this.attachMode,
       serverId: this.serverId,
       server: this.server,
       netPort: this.netPort,
@@ -688,7 +706,35 @@ export class DredlessClient extends EventBus {
     const wsUrl = `wss://${this.server.domain}:${this.netPort}`;
     this.ws = this.#openSocket(WebSocket, wsUrl, this.#wsHeaders());
     this.ws.binaryType = "arraybuffer";
+    this.#ownsSocket = true;
+    this.#allowWrites = true;
     this.#bindSocket();
+  }
+
+  #attachSocket(websocket, { connected = null, ready = false, sid = null, mode = "observe" } = {}) {
+    this.ws = websocket;
+    this.attachMode = normalizeAttachMode(mode);
+    this.#ownsSocket = this.attachMode === "bootstrap";
+    this.#allowWrites = this.attachMode !== "readonly";
+    try { this.ws.binaryType = "arraybuffer"; } catch (_) {}
+    if (sid != null) this.sid = sid >>> 0;
+    this.connected = connected ?? this.#socketLooksOpen(websocket);
+    if (ready) {
+      this.ready = true;
+      if (this.#ownsSocket) {
+        this.#sendBootstrap();
+        this.#startKeepalive();
+      }
+      if (this.#allowWrites) {
+        this.#flushMessages();
+        this.#flushCommands();
+      }
+      this.#resolveReady?.(this);
+      this.#resolveReady = null;
+    }
+    this.#bindAttachedSocket();
+    if (this.connected && this.#ownsSocket) this.#attachedOpen();
+    this.emit("attach", this);
   }
 
   #bindSocket() {
@@ -699,14 +745,70 @@ export class DredlessClient extends EventBus {
       this.#flushMessages();
     };
 
-    this.ws.onmessage = (event) => this.#handleMessage(event.data);
+    this.ws.onmessage = (event) => this.#handleSocketMessage(event.data);
     this.ws.onerror = (event) => this.#fail(event?.error || new Error("WebSocket error"));
-    this.ws.onclose = (event) => {
-      this.connected = false;
-      clearInterval(this.#keepalive);
-      this.#keepalive = null;
-      this.emit("close", event);
+    this.ws.onclose = (event) => this.#handleSocketClose(event);
+  }
+
+  #bindAttachedSocket() {
+    const open = () => this.#attachedOpen();
+    const message = (event) => this.#handleSocketMessage(event?.data ?? event);
+    const error = (event) => this.#fail(event?.error || new Error("WebSocket error"));
+    const close = (event) => this.#handleSocketClose(event);
+
+    if (typeof this.ws.addEventListener === "function") {
+      this.ws.addEventListener("open", open);
+      this.ws.addEventListener("message", message);
+      this.ws.addEventListener("error", error);
+      this.ws.addEventListener("close", close);
+      return;
+    }
+    if (typeof this.ws.on === "function") {
+      this.ws.on("open", open);
+      this.ws.on("message", (data) => this.#handleMessage(data));
+      this.ws.on("error", error);
+      this.ws.on("close", close);
+      return;
+    }
+    const previousMessage = this.ws.onmessage;
+    this.ws.onmessage = (event) => {
+      if (typeof previousMessage === "function") previousMessage.call(this.ws, event);
+      message(event);
     };
+  }
+
+  #attachedOpen() {
+    this.connected = true;
+    if (this.#attachedOpened) return;
+    this.#attachedOpened = true;
+    if (this.#ownsSocket) this.ws.send(encodeMsgpack({ type: 1 }));
+    this.emit("open", this);
+    if (this.#allowWrites) this.#flushMessages();
+  }
+
+  #handleSocketClose(event) {
+    this.connected = false;
+    clearInterval(this.#keepalive);
+    this.#keepalive = null;
+    this.emit("close", event);
+  }
+
+  #socketLooksOpen(websocket) {
+    return websocket?.readyState == null || websocket.readyState === 1 || websocket.readyState === websocket.OPEN;
+  }
+
+  #assertWritable() {
+    if (!this.#allowWrites) throw new Error("DredlessClient is attached in readonly mode");
+  }
+
+  #handleSocketMessage(data) {
+    if (data && typeof data.arrayBuffer === "function") {
+      data.arrayBuffer()
+        .then((buffer) => this.#handleMessage(buffer))
+        .catch((error) => this.#fail(error));
+      return;
+    }
+    this.#handleMessage(data);
   }
 
   #handleMessage(data) {
@@ -740,10 +842,14 @@ export class DredlessClient extends EventBus {
     this.sid = packet.sid >>> 0;
     this.worlds.currentWorldId = packet.world ?? this.worlds.currentWorldId;
     this.ready = true;
-    this.#sendBootstrap();
-    this.#startKeepalive();
-    this.#flushMessages();
-    this.#flushCommands();
+    if (this.#ownsSocket) {
+      this.#sendBootstrap();
+      this.#startKeepalive();
+    }
+    if (this.#allowWrites) {
+      this.#flushMessages();
+      this.#flushCommands();
+    }
     this.#resolveReady?.(this);
     this.#resolveReady = null;
     this.emit("ready", this);
@@ -913,7 +1019,7 @@ export class DredlessClient extends EventBus {
   #wsHeaders() {
     const headers = {
       origin: this.baseUrl,
-      cookie: cookieHeader(this.baseUrl, this.session)
+      cookie: this.session ? cookieHeader(this.baseUrl, this.session) : ""
     };
     if (isNode()) {
       Object.assign(headers, {
@@ -1003,6 +1109,13 @@ export class DredlessClient extends EventBus {
     this.#rejectReady = null;
     try { this.emit("error", error); } catch (_) {}
   }
+}
+
+
+function normalizeAttachMode(mode = "observe") {
+  const value = String(mode || "observe").toLowerCase();
+  if (value === "observe" || value === "bootstrap" || value === "readonly") return value;
+  throw new Error(`Unsupported websocket attach mode: ${mode}`);
 }
 
 class ClientNetDomain {

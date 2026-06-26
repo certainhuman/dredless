@@ -131,7 +131,8 @@
     "watch": "node watch.js",
     "watch:test": "node watch.js --test",
     "test:loader": "node --test test/loader-config.test.js",
-    "update:item-schema": "node scripts/update-item-schema.js"
+    "update:item-schema": "node scripts/update-item-schema.js",
+    "build:ws-observer-extension": "node scripts/build-ws-observer-extension.js"
   },
   "devDependencies": {
     "dsa-shipshape": "^0.1.2"

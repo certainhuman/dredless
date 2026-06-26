@@ -154,13 +154,16 @@ decoded state domains.
 ```ts
 class DredlessClient {
   constructor(connection: Connection, options?: { connect?: boolean });
+  static attachWebSocket(websocket: unknown, options?: AttachWebSocketOptions): DredlessClient;
 
-  connection: Connection;
-  session: Session;
-  baseUrl: string;
-  serverId: number;
+  connection: Connection | null;
+  session: Session | null;
+  baseUrl: string | null;
+  attachMode: "observe" | "bootstrap" | "readonly" | null;
+  attached: boolean;
+  serverId: number | null;
   server: Server | null;
-  netPort: number;
+  netPort: number | null;
   gameToken: string;
   ws: unknown;
   sid: number | null;
@@ -209,6 +212,41 @@ inspection, pass `{ connect: false }`:
 const client = new DredlessClient(connection, { connect: false });
 ```
 
+### `DredlessClient.attachWebSocket(websocket, options?)`
+
+```ts
+type WebSocketAttachMode = "observe" | "bootstrap" | "readonly";
+
+interface AttachWebSocketOptions {
+  mode?: WebSocketAttachMode;
+  connected?: boolean | null;
+  ready?: boolean;
+  sid?: number | null;
+  baseUrl?: string | null;
+  session?: Session | null;
+  serverId?: number | null;
+  server?: Server | null;
+  netPort?: number | null;
+  gameToken?: string;
+}
+```
+
+Attaches Dredless to an existing websocket without requiring a `Connection`.
+This is intended for observing or integrating with an already-open browser/game websocket.
+
+Modes:
+
+- `"observe"` default: decodes incoming packets and allows explicit writes through normal handle/client methods, but does not send hello, bootstrap, or keepalive automatically.
+- `"bootstrap"`: treats the websocket like a normally owned Dredless socket; sends hello on open and runs bootstrap, keepalive, and queued-message flushing on ready.
+- `"readonly"`: decodes incoming packets only and rejects all write methods. `close()` is a no-op in this mode.
+
+Optional metadata such as `server`, `serverId`, and `netPort` is only used for snapshots/logging; it is not required to attach.
+
+```js
+const client = DredlessClient.attachWebSocket(window.tpgaClient.repsocket.websocket);
+client.on("packet", (packet) => console.log(packet.type));
+```
+
 ### Lifecycle endpoints
 
 ```ts
@@ -217,8 +255,7 @@ close(code?: number, reason?: string): this;
 disconnect(code?: number, reason?: string): this;
 ```
 
-`whenReady()` resolves once the ready packet is received and bootstrap
-commands have been sent.
+`whenReady()` resolves once the ready packet is received. For normally-owned clients and `attachWebSocket(..., { mode: "bootstrap" })`, bootstrap commands have also been sent.
 
 ### World/domain endpoints
 
@@ -272,10 +309,11 @@ Events are implementation-defined strings emitted by the client event bus.
 interface ClientSnapshot {
   baseUrl: string;
   session: SessionSnapshot;
-  connection: ConnectionSnapshot;
-  serverId: number;
+  connection: ConnectionSnapshot | null;
+  attachMode: "observe" | "bootstrap" | "readonly" | null;
+  serverId: number | null;
   server: Server | null;
-  netPort: number;
+  netPort: number | null;
   sid: number | null;
   ready: boolean;
   connected: boolean;

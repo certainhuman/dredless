@@ -1,14 +1,23 @@
 import { encoder } from "../constants.js";
 
+function objectTag(value) {
+  return Object.prototype.toString.call(value);
+}
+
+function isArrayBufferLike(value) {
+  const tag = objectTag(value);
+  return tag === "[object ArrayBuffer]" || tag === "[object SharedArrayBuffer]";
+}
+
 function toUint8Array(value) {
   if (value instanceof Uint8Array) return value;
-  if (value instanceof ArrayBuffer) return new Uint8Array(value);
+  if (isArrayBufferLike(value)) return new Uint8Array(value);
   if (ArrayBuffer.isView(value)) {
     return new Uint8Array(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
   }
   if (Array.isArray(value)) return Uint8Array.from(value);
   if (typeof value === "string") return encoder.encode(value);
-  throw new Error("Unsupported binary value");
+  throw new Error(`Unsupported binary value: ${objectTag(value)}`);
 }
 
 function concatBytes(parts) {
