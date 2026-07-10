@@ -8,3 +8,4 @@ watch.log
 /drednot-official-client/
 /package-lock.json
 /tools/ws-observer-extension/dist/
+/.dredless-local.json

@@ -120,6 +120,7 @@
     }
   },
   "dependencies": {
+    "box2d-wasm": "^7.0.0",
     "ws": "^8.18.0"
   },
   "scripts": {
@@ -128,11 +129,16 @@
     "analyze:entities": "node analyze-entities.js",
     "capture": "node capture.js",
     "decode:official-ws": "node official-ws-decode.js",
+    "drox:serve": "node packages/drox/scripts/serve-playground.js",
+    "drox:check": "npm --prefix packages/drox run check",
     "watch": "node watch.js",
     "watch:test": "node watch.js --test",
     "test:loader": "node --test test/loader-config.test.js",
     "update:item-schema": "node scripts/update-item-schema.js",
-    "build:ws-observer-extension": "node scripts/build-ws-observer-extension.js"
+    "build:ws-observer-extension": "node scripts/build-ws-observer-extension.js",
+    "drox:box2d:build": "npm --prefix packages/drox run box2d:build",
+    "drox:box2d:verify": "npm --prefix packages/drox run box2d:verify",
+    "drox:emsdk:setup": "npm --prefix packages/drox run emsdk:setup"
   },
   "devDependencies": {
     "dsa-shipshape": "^0.1.2"
