@@ -75,9 +75,11 @@ class ModelReader {
   }
 }
 
+// `key` is precomputed: it is fixed per field but was rebuilt as a template
+// string on every field of every record while decoding.
 function numericFields(bitsToOffsets) {
   return Object.entries(bitsToOffsets)
-    .map(([bit, offset]) => ({ bit: Number(bit), offset }))
+    .map(([bit, offset]) => ({ bit: Number(bit), offset, key: qKey(offset) }))
     .sort((a, b) => a.bit - b.bit);
 }
 
@@ -302,9 +304,9 @@ const MODEL_TABLE_SPECS = new Map([
   [78, {
     name: "local_session_marker",
     read(reader, record, mask) {
-      for (const { bit, offset } of TABLE_78_NUMERIC_FIELDS) {
+      for (const { bit, key } of TABLE_78_NUMERIC_FIELDS) {
         if (!(mask & bit)) continue;
-        record[qKey(offset)] = (record[qKey(offset)] || 0) + reader.readFieldDelta();
+        record[key] = (record[key] || 0) + reader.readFieldDelta();
       }
       if ((mask & 64) && !(mask & 32)) {
         record.q44 = (record.q44 || 0) + reader.readFieldDelta();
@@ -312,6 +314,22 @@ const MODEL_TABLE_SPECS = new Map([
     }
   }]
 ]);
+
+// Precompute everything about a spec that is fixed at module load. Decoding a
+// full model packet runs #applyRecordSpec thousands of times, and each run used
+// to rebuild record key strings and -- for ordered specs -- an entire merged,
+// sorted item array.
+for (const spec of MODEL_TABLE_SPECS.values()) {
+  for (const blob of spec.blobs || []) blob.key = blobKey(blob.offset);
+  for (const item of spec.packedBits || []) item.key = qKey(item.offset);
+  if (spec.packedOffsets) spec.packedOffsetKeys = spec.packedOffsets.map(qKey);
+  if (spec.orderedValues) {
+    spec.orderedItems = [
+      ...(spec.blobs || []).map((item) => ({ bit: item.bit, offset: item.offset, key: item.key, kind: "blob" })),
+      ...(spec.fields || []).map((item) => ({ bit: item.bit, offset: item.offset, key: item.key, kind: "field" }))
+    ].sort((a, b) => a.bit - b.bit);
+  }
+}
 
 const TABLE_78_NUMERIC_FIELDS = numericFields({ 1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40 });
 
@@ -1350,16 +1368,19 @@ function patronTierName(gameRank) {
   }
 }
 
-function mergeContents(...parts) {
+// Called once per entity with a fixed set of named components. Taking (key,
+// value) pairs avoids allocating ~32 single-key object literals per entity and
+// an Object.entries pair array for each of them.
+function mergeContents(components) {
   const out = {};
-  for (const part of parts) {
-    if (!part) continue;
-    for (const [key, value] of Object.entries(part)) {
-      if (value == null) continue;
-      out[key] = value;
-    }
+  let any = false;
+  for (const key in components) {
+    const value = components[key];
+    if (value == null) continue;
+    out[key] = value;
+    any = true;
   }
-  return Object.keys(out).length ? out : null;
+  return any ? out : null;
 }
 
 // A hover outline is a highlight rectangle, not a physical footprint. Overworld
@@ -2177,43 +2198,49 @@ export class ModelState {
   }
 
   #summarizeEntity(entityId, tableRows = []) {
-    const transformRecord = this.record(0, entityId);
-    const itemHolderRecord = this.record(6, entityId);
-    const healthRecord = this.record(5, entityId);
-    const fabricatorRecord = this.record(53, entityId);
-    const cargoEjectorRecord = this.record(49, entityId);
-    const cannonRecord = this.record(54, entityId);
-    const pusherRecord = this.record(72, entityId);
-    const pusherBeamRecord = this.record(42, entityId);
-    const launcherRecord = this.record(44, entityId);
-    const loaderRecord = this.record(78, entityId);
-    const loaderFilterRecord = this.record(76, entityId);
-    const loaderFilterSlotsRecord = this.record(77, entityId);
-    const commsStationRecord = this.record(39, entityId);
-    const fluidTankRecord = this.record(60, entityId);
-    const shieldRecord = this.record(61, entityId);
-    const shieldGeneratorBoostRecord = this.record(75, entityId);
-    const shieldProjectorRecord = this.record(62, entityId);
-    const playerRecord = this.record(55, entityId);
-    const shipControlRecord = this.record(20, entityId);
-    const signRecord = this.record(41, entityId);
-    const spawnPointRecord = this.record(8, entityId);
-    const doorRecord = this.record(47, entityId);
-    const thrusterRecord = this.record(50, entityId);
-    const labelRecord = this.record(9, entityId);
-    const zoneLabelRecord = this.record(25, entityId);
-    const dockingSpringRecord = this.record(26, entityId);
-    const hugeThrusterRecord = this.record(23, entityId);
-    const bodyStateRecord = this.record(1, entityId);
-    const typeRecord = this.record(7, entityId);
-    const crateSizeRecord = this.record(3, entityId);
-    const blueprintPreviewRecord = this.record(12, entityId);
-    const expandoSizeRecord = this.record(51, entityId);
-    const crateItemRecord = this.record(19, entityId);
+    // tableRows already lists exactly the tables this entity appears in -- the
+    // same source the public `tables` field is built from. Reading through it
+    // avoids ~32 lookups against tables the entity is not in.
+    const byTable = new Map();
+    for (const row of tableRows) byTable.set(row.tableId, row.record);
+    const rec = (tableId) => byTable.get(tableId) ?? null;
+    const transformRecord = rec(0);
+    const itemHolderRecord = rec(6);
+    const healthRecord = rec(5);
+    const fabricatorRecord = rec(53);
+    const cargoEjectorRecord = rec(49);
+    const cannonRecord = rec(54);
+    const pusherRecord = rec(72);
+    const pusherBeamRecord = rec(42);
+    const launcherRecord = rec(44);
+    const loaderRecord = rec(78);
+    const loaderFilterRecord = rec(76);
+    const loaderFilterSlotsRecord = rec(77);
+    const commsStationRecord = rec(39);
+    const fluidTankRecord = rec(60);
+    const shieldRecord = rec(61);
+    const shieldGeneratorBoostRecord = rec(75);
+    const shieldProjectorRecord = rec(62);
+    const playerRecord = rec(55);
+    const shipControlRecord = rec(20);
+    const signRecord = rec(41);
+    const spawnPointRecord = rec(8);
+    const doorRecord = rec(47);
+    const thrusterRecord = rec(50);
+    const labelRecord = rec(9);
+    const zoneLabelRecord = rec(25);
+    const dockingSpringRecord = rec(26);
+    const hugeThrusterRecord = rec(23);
+    const bodyStateRecord = rec(1);
+    const typeRecord = rec(7);
+    const crateSizeRecord = rec(3);
+    const blueprintPreviewRecord = rec(12);
+    const expandoSizeRecord = rec(51);
+    const crateItemRecord = rec(19);
     const markerTableIds = [73].filter((tableId) => this.record(tableId, entityId));
     const markerTypeId = markerTypeIdForTables(markerTableIds);
     const markerTypeName = entityNameFromType(markerTypeId);
-    const looseItemMarker = Boolean(this.record(37, entityId));
+    const looseItemMarker = Boolean(rec(37));
     const dynamicBody = bodyStateRecord?.q20 === -4;
     const typeId = entityTypeIdFromRecord(typeRecord);
     const itemHolder = summarizeItemHolder(entityId, itemHolderRecord);
@@ -2229,20 +2256,20 @@ export class ModelState {
     const loader = (typeId === LOADER_TYPE_ID || (typeId == null && (loaderRecord || loaderFilterRecord || loaderFilterSlotsRecord)))
       ? summarizeLoader(entityId, loaderRecord, loaderFilterRecord, loaderFilterSlotsRecord, this.#loaderConfig, typeId === LOADER_TYPE_ID, itemHolderRecord)
       : null;
-    const cargoHatch = summarizeCargoHatch(entityId, typeId, loaderFilterRecord, loaderFilterSlotsRecord, this.record(45, entityId));
+    const cargoHatch = summarizeCargoHatch(entityId, typeId, loaderFilterRecord, loaderFilterSlotsRecord, rec(45));
     const navigationUnit = summarizeNavigationUnit(entityId, typeId, loaderRecord, this.#navigationUnitAutoWarp.get(entityId));
     const fluidTank = fluidTankRecord ? { entity: entityId, amount: fluidTankRecord.q24 ?? null, state: cloneRecord(fluidTankRecord) } : null;
     const shieldGenerator = typeId === 256 ? summarizeShieldGenerator(entityId, shieldRecord, itemHolderRecord, shieldGeneratorBoostRecord) : null;
     const shieldProjector = typeId === 257 ? summarizeShieldProjector(entityId, shieldProjectorRecord) : null;
     const blueprintPreview = summarizeBlueprintPreview(entityId, blueprintPreviewRecord, transformRecord);
-    const player = summarizePlayer(entityId, playerRecord, this.record(14, entityId), this.#blueprintPreviewItems());
+    const player = summarizePlayer(entityId, playerRecord, rec(14), this.#blueprintPreviewItems());
     const shipControl = summarizeShipControl(entityId, shipControlRecord);
     const helm = summarizeHelm(entityId, typeId, this.#helmOccupied.get(entityId));
     const commsStation = summarizeCommsStation(entityId, typeId, commsStationRecord, this.#commsStationOccupied.get(entityId));
     const sign = typeId === 218 ? summarizeSign(entityId, signRecord) : null;
     const spawnPoint = typeId === 219 ? summarizeSpawnPoint(entityId, spawnPointRecord) : null;
     const door = typeId === 220 ? summarizeDoor(entityId, spawnPointRecord, doorRecord) : null;
-    const shipSize = shipControl && this.isOverworld ? summarizeShipSize(entityId, this.record(3, entityId)) : null;
+    const shipSize = shipControl && this.isOverworld ? summarizeShipSize(entityId, rec(3)) : null;
     const hoverOutline = summarizeHoverOutline(entityId, crateSizeRecord);
     const expandoBox = isExpandoBox ? summarizeExpandoBox(entityId, itemHolderRecord, expandoSizeRecord) : null;
     const mapMarker = this.isOverworld ? summarizeMapMarker(entityId, labelRecord, zoneLabelRecord, crateSizeRecord) : null;
@@ -2252,11 +2279,11 @@ export class ModelState {
     const hugeThruster = this.isOverworld
       ? summarizeHugeThruster(entityId, hugeThrusterRecord, crateSizeRecord)
       : null;
-    const itemCrate = this.isOverworld && !this.record(2, entityId) && !this.record(18, entityId) && health && crateSizeRecord
+    const itemCrate = this.isOverworld && !rec(2) && !rec(18) && health && crateSizeRecord
       ? summarizeItemCrate(entityId, crateSizeRecord, crateItemRecord, healthRecord)
       : null;
     const bot = this.isOverworld
-      ? summarizeBot(entityId, { health, table2Record: this.record(2, entityId), smallRecord: crateSizeRecord, combatRecord: this.record(18, entityId), motionRecord: crateItemRecord, table10Record: this.record(10, entityId), table51Record: this.record(51, entityId), itemCrate, player, shipControl })
+      ? summarizeBot(entityId, { health, table2Record: rec(2), smallRecord: crateSizeRecord, combatRecord: rec(18), motionRecord: crateItemRecord, table10Record: rec(10), table51Record: rec(51), itemCrate, player, shipControl })
       : null;
     const transform = transformRecord ? {
       entity: entityId,
@@ -2265,7 +2292,13 @@ export class ModelState {
       rot: numberOrNull(transformRecord.q28, 127.324),
       flags: [transformRecord.q33, transformRecord.q34, transformRecord.q35].filter((value) => value != null)
     } : null;
-    const contents = mergeContents({ itemHolder }, { expandoBox }, { hoverOutline }, { itemCrate }, { mapMarker }, { dockingSpring }, { hugeThruster }, { blueprintPreview }, { health }, { bot }, { fabricator }, { cargoEjector }, { cannon }, { thruster }, { pusher }, { pusherBeam }, { launcher }, { loader }, { cargoHatch }, { navigationUnit }, { commsStation }, { fluidTank }, { shieldGenerator }, { shieldProjector }, { helm }, { player }, { shipControl }, { sign }, { spawnPoint }, { door }, { shipSize });
+    const contents = mergeContents({
+      itemHolder, expandoBox, hoverOutline, itemCrate, mapMarker, dockingSpring,
+      hugeThruster, blueprintPreview, health, bot, fabricator, cargoEjector,
+      cannon, thruster, pusher, pusherBeam, launcher, loader, cargoHatch,
+      navigationUnit, commsStation, fluidTank, shieldGenerator, shieldProjector,
+      helm, player, shipControl, sign, spawnPoint, door, shipSize
+    });
     const footprint = entityFootprint({ entity: entityId, typeId, markerTypeId, itemHolder, expandoBox, hoverOutline, itemCrate, hugeThruster, fabricator, cargoEjector, cannon, thruster, pusher, launcher, loader, cargoHatch, navigationUnit, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
     const typeName = entityNameFromType(typeId);
     const category = entityCategory({ typeId, markerTypeId, looseItemMarker, dynamicBody, transform, itemHolder, itemCrate, mapMarker, dockingSpring, hugeThruster, blueprintPreview, fabricator, cargoEjector, cannon, pusher, launcher, loader, cargoHatch, navigationUnit, commsStation, fluidTank, shieldGenerator, shieldProjector, helm, player, shipControl });
@@ -2474,41 +2507,33 @@ export class ModelState {
 
     let packedIndex = 0;
     if (spec.orderedValues) {
-      const values = [
-        ...(spec.blobs || []).map((item) => ({ ...item, kind: "blob" })),
-        ...(spec.fields || []).map((item) => ({ ...item, kind: "field" }))
-      ].sort((a, b) => a.bit - b.bit);
-      for (const item of values) {
+      for (const item of spec.orderedItems) {
         if (!(mask & item.bit)) continue;
-        if (item.kind === "blob") record[blobKey(item.offset)] = reader.readBlob();
-        else {
-          const key = qKey(item.offset);
-          record[key] = (record[key] || 0) + reader.readFieldDelta();
-        }
+        if (item.kind === "blob") record[item.key] = reader.readBlob();
+        else record[item.key] = (record[item.key] || 0) + reader.readFieldDelta();
       }
     } else {
       for (const blob of spec.blobs || []) {
-        if (mask & blob.bit) record[blobKey(blob.offset)] = reader.readBlob();
+        if (mask & blob.bit) record[blob.key] = reader.readBlob();
       }
     }
 
     if (hasPacked && !spec.packedBeforeValues) packed = reader.readUnsigned();
 
     for (const item of spec.packedBits || []) {
-      if (mask & item.bit) record[qKey(item.offset)] = (packed >> packedIndex++) & 1;
+      if (mask & item.bit) record[item.key] = (packed >> packedIndex++) & 1;
     }
 
-    if (packed != null) {
-      for (const offset of spec.packedOffsets || []) {
-        record[qKey(offset)] = (packed >> packedIndex++) & 1;
+    if (packed != null && spec.packedOffsetKeys) {
+      for (const key of spec.packedOffsetKeys) {
+        record[key] = (packed >> packedIndex++) & 1;
       }
     }
 
     if (!spec.orderedValues) {
       for (const field of spec.fields || []) {
         if (!(mask & field.bit)) continue;
-        const key = qKey(field.offset);
-        record[key] = (record[key] || 0) + reader.readFieldDelta();
+        record[field.key] = (record[field.key] || 0) + reader.readFieldDelta();
       }
     }
 
