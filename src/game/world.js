@@ -66,8 +66,8 @@ export class WorldStore {
     return null;
   }
 
-  snapshot({ includeTiles = false, includeModel = false } = {}) {
-    return [...this.worlds.values()].map((world) => world.snapshot({ includeTiles, includeModel }));
+  snapshot({ includeTiles = false, includeModel = false, includeBlocks = false } = {}) {
+    return [...this.worlds.values()].map((world) => world.snapshot({ includeTiles, includeModel, includeBlocks }));
   }
 
   ids() {
@@ -396,8 +396,8 @@ export class WorldState {
       });
   }
 
-  snapshot({ includeTiles = false, includeModel = false } = {}) {
-    const model = this.model.snapshot({ includeTables: includeModel });
+  snapshot({ includeTiles = false, includeModel = false, includeBlocks = false } = {}) {
+    const model = this.model.snapshot({ includeTables: includeModel, includeBlocks });
     const overworldZone = this.isOverworld ? overworldZoneFromId(this.id) : null;
     return {
       id: this.id,

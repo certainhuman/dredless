@@ -884,8 +884,7 @@ function summarizeShieldGenerator(entity, shieldRecord = null, itemHolderRecord 
   const boostState = boostRecord?.q24 ?? 0;
   const boostTimer = boostRecord?.q28 ?? 0;
   const puzzleSeed = boostRecord?.q20 ?? null;
-  const puzzleSolution = maybeSolveGeneratorMazeSeed(puzzleSeed);
-  return {
+  const summary = {
     entity,
     charge,
     maxCharge,
@@ -901,11 +900,17 @@ function summarizeShieldGenerator(entity, shieldRecord = null, itemHolderRecord 
     boostTimer,
     boostActive: boostState !== 0 || boostTimer > 0,
     puzzleSeed,
-    puzzleSolution,
+    // Replaced in place below by a lazy accessor; declared here so the key keeps
+    // its original position in the object.
+    puzzleSolution: null,
     state: cloneRecord(shieldRecord || {}),
     itemState: cloneRecord(itemHolderRecord || {}),
     boostStateRaw: cloneRecord(boostRecord || {})
   };
+  // Solving the maze costs ~190us and was by far the most expensive step of a
+  // model rebuild, run for every shield generator whether or not the caller
+  // ever looks at the solution. Defer it to first read.
+  return defineLazyProperty(summary, "puzzleSolution", () => maybeSolveGeneratorMazeSeed(puzzleSeed));
 }
 
 function summarizeShipControl(entity, record) {
@@ -1460,6 +1465,15 @@ function entityCategory(entity) {
   return "entity";
 }
 
+// Block coordinates are packed into a single number so the block index avoids a
+// template-string key per occupied cell. Covers the coordinate range in use.
+const BLOCK_KEY_OFFSET = 1 << 24;
+const BLOCK_KEY_STRIDE = 1 << 25;
+
+function blockKey(x, y) {
+  return ((y + BLOCK_KEY_OFFSET) * BLOCK_KEY_STRIDE) + (x + BLOCK_KEY_OFFSET);
+}
+
 // Returned by ModelState.table() for absent tables. Never mutated.
 const EMPTY_TABLE = new Map();
 
@@ -1529,7 +1543,7 @@ export class ModelState {
   // block list to answer this.
   blockAt(x, y) {
     this.#derivedState();
-    return this._derived.blocksByKey.get(`${x},${y}`) || null;
+    return this.#blocksIndex().get(blockKey(x, y)) || null;
   }
 
   apply(bytes, { full = false } = {}) {
@@ -1594,7 +1608,10 @@ export class ModelState {
     return update;
   }
 
-  snapshot({ includeTables = false } = {}) {
+  // `blocks` is opt-in: materialising and sorting the per-cell index is the most
+  // expensive part of a snapshot, and most callers never read it. Mirrors how
+  // `includeTiles` already works on WorldState.snapshot().
+  snapshot({ includeTables = false, includeBlocks = false } = {}) {
     const derived = this.#derivedState();
     return {
       generation: this.generation,
@@ -1604,7 +1621,7 @@ export class ModelState {
       lastUpdate: this.lastUpdate ? summarizeUpdate(this.lastUpdate) : null,
       errors: this.errors.slice(-10),
       entities: derived.entities.slice(),
-      blocks: this.#derivedBlocks().slice(),
+      blocks: includeBlocks ? this.#derivedBlocks().slice() : undefined,
       transforms: derived.transforms.slice(),
       players: derived.players.slice(),
       shipControls: derived.shipControls.slice(),
@@ -1919,14 +1936,13 @@ export class ModelState {
     entityIds.sort((a, b) => a - b);
     const entities = entityIds.map((entityId) => this.#summarizeEntity(entityId, this.#tableRowsForEntity(entityId)));
     const entitiesById = new Map(entities.map((entity) => [entity.entity, entity]));
-    const blocksByKey = this.#blocksByKeyForEntities(entities);
 
     this._derived = {
       entityCount: entityIds.length,
       entityIds,
       entityTableIds,
       entitiesById,
-      blocksByKey,
+      blocksByKey: null,
       blocks: null,
       blocksDirty: true,
       tableSummaries,
@@ -1995,15 +2011,26 @@ export class ModelState {
     }));
   }
 
-  #blocksByKeyForEntities(entities) {
+  // The per-cell block index is the most expensive derived product to build --
+  // it walks every occupied cell of every entity. Most consumers never ask for
+  // blocks, so it is constructed on first use rather than during the rebuild.
+  #blocksIndex() {
+    const derived = this._derived;
+    if (derived.blocksByKey) return derived.blocksByKey;
     const blocks = new Map();
-    for (const entity of entities) {
-      this.#addEntityToBlockMap(blocks, entity);
+    for (const entityId of derived.entityIds) {
+      const entity = derived.entitiesById.get(entityId);
+      if (entity) this.#addEntityToBlockMap(blocks, entity);
     }
+    derived.blocksByKey = blocks;
+    derived.blocksDirty = true;
     return blocks;
   }
 
   #addEntityToDerivedBlocks(derived, entity) {
+    // Nothing to maintain until something has asked for the index; it will be
+    // built from current entities on demand.
+    if (!derived.blocksByKey) return;
     this.#addEntityToBlockMap(derived.blocksByKey, entity);
     derived.blocksDirty = true;
   }
@@ -2017,17 +2044,22 @@ export class ModelState {
       for (let dy = 0; dy < footprint.height; dy++) {
         const x = startX + dx;
         const y = startY + dy;
-        const key = `${x},${y}`;
-        if (!blocks.has(key)) blocks.set(key, { x, y, entities: [] });
-        blocks.get(key).entities.push(entity);
+        const key = blockKey(x, y);
+        let block = blocks.get(key);
+        if (block === undefined) {
+          block = { x, y, entities: [] };
+          blocks.set(key, block);
+        }
+        block.entities.push(entity);
       }
     }
   }
 
   #removeEntityFromDerivedBlocks(derived, entity) {
+    if (!derived.blocksByKey) return;
     const id = entity.entity;
     for (const cell of entity.occupies || []) {
-      const key = `${cell.x},${cell.y}`;
+      const key = blockKey(cell.x, cell.y);
       const block = derived.blocksByKey.get(key);
       if (!block) continue;
       // Splice in place rather than allocating a filtered array per cell.
@@ -2122,8 +2154,9 @@ export class ModelState {
   // asks for blocks, rather than as a side effect of every summary refresh.
   #derivedBlocks() {
     const derived = this._derived;
+    const index = this.#blocksIndex();
     if (derived.blocksDirty || !derived.blocks) {
-      derived.blocks = [...derived.blocksByKey.values()].sort((a, b) => (a.y - b.y) || (a.x - b.x));
+      derived.blocks = [...index.values()].sort((a, b) => (a.y - b.y) || (a.x - b.x));
       derived.blocksDirty = false;
     }
     return derived.blocks;
@@ -2326,7 +2359,7 @@ export class ModelState {
     // footprint materialises hundreds of objects per refresh. Defined as an
     // enumerable memoising accessor so spread, JSON and structuredClone all see
     // the same array they saw before.
-    defineLazyOccupies(summary, transform ? () => this.#occupiedBlocks(transform, footprint) : () => []);
+    defineLazyProperty(summary, "occupies", transform ? () => this.#occupiedBlocks(transform, footprint) : () => []);
     return summary;
   }
 
@@ -2499,22 +2532,28 @@ function summarizeUpdate(update) {
   };
 }
 
-// Enumerable, configurable accessor that computes once and then caches. Kept
-// configurable so the first read can swap in a plain data property, which keeps
-// later reads free and survives Object.freeze on the already-materialised value.
-function defineLazyOccupies(target, compute) {
+// Enumerable, configurable accessor that computes once and then caches. Spread,
+// JSON.stringify and structuredClone all invoke getters, so consumers see the
+// same value they saw when the field was eager.
+function defineLazyProperty(target, key, compute) {
   let cached = null;
-  Object.defineProperty(target, "occupies", {
+  let resolved = false;
+  Object.defineProperty(target, key, {
     enumerable: true,
     configurable: true,
     get() {
-      if (cached === null) cached = compute();
+      if (!resolved) {
+        cached = compute();
+        resolved = true;
+      }
       return cached;
     },
     set(value) {
       cached = value;
+      resolved = true;
     }
   });
+  return target;
 }
 
 function insertSorted(values, value) {

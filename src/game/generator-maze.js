@@ -319,9 +319,27 @@ function describeGeneratorMaze(seed, grid) {
   };
 }
 
+// Solving is a pure function of the seed but costs ~260us: it carves and numbers
+// a full maze. Every shield generator was re-solving its seed on every entity
+// summarisation, which made this the single most expensive step of a model
+// rebuild. Seeds change rarely, so memoise them.
+const SOLUTION_CACHE = new Map();
+const SOLUTION_CACHE_LIMIT = 512;
+
 export function solveGeneratorMazeSeed(seed) {
   const normalized = normalizeSeed(seed);
-  return VERIFIED_SOLUTIONS.get(normalized) ?? solveGeneratorMazeSeedUncached(normalized);
+  const verified = VERIFIED_SOLUTIONS.get(normalized);
+  if (verified !== undefined) return verified;
+
+  if (SOLUTION_CACHE.has(normalized)) return SOLUTION_CACHE.get(normalized);
+
+  const solution = solveGeneratorMazeSeedUncached(normalized);
+  // Bounded, insertion-ordered: drop the oldest entry once full.
+  if (SOLUTION_CACHE.size >= SOLUTION_CACHE_LIMIT) {
+    SOLUTION_CACHE.delete(SOLUTION_CACHE.keys().next().value);
+  }
+  SOLUTION_CACHE.set(normalized, solution);
+  return solution;
 }
 
 export function generateGeneratorMaze(seed) {

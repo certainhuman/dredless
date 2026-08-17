@@ -2060,6 +2060,7 @@ function normalizeShipReadOptions(options) {
     includeWorld: options.includeWorld !== false,
     includeTiles: Boolean(options.includeTiles),
     includeModel: Boolean(options.includeModel),
+    includeBlocks: Boolean(options.includeBlocks),
     sort: options.sort ?? null
   };
 }
@@ -2071,7 +2072,8 @@ function shipReadSummary(entity, options, worlds, currentEntity = undefined) {
     : null;
   const world = worldState ? worldState.snapshot({
     includeTiles: options.includeTiles,
-    includeModel: options.includeModel
+    includeModel: options.includeModel,
+    includeBlocks: options.includeBlocks
   }) : null;
   const current = currentEntity === undefined ? worlds.currentShipEntity() : currentEntity;
   const distance = distanceBetween(entity.transform, current?.transform);

@@ -90,6 +90,8 @@ export interface ShipPlayerList {
 export interface ShipReadOptions {
   includeWorld?: boolean;
   includeTiles?: boolean;
+  /** Include the per-cell block index. Off by default: building and sorting it is the most expensive part of a snapshot. */
+  includeBlocks?: boolean;
   includeModel?: boolean;
   sort?: "distance" | null;
 }
@@ -381,8 +383,8 @@ export class DredlessClient {
   currentPlayerEntity(): EntityHandle | null;
   overworld(): OverworldDomain | null;
   world(id: number): WorldDomain | null;
-  shipWorld(options?: { includeTiles?: boolean; includeModel?: boolean }): WorldSnapshot | null;
-  state(options?: { includeTiles?: boolean; includeModel?: boolean }): ClientSnapshot;
+  shipWorld(options?: { includeTiles?: boolean; includeModel?: boolean; includeBlocks?: boolean }): WorldSnapshot | null;
+  state(options?: { includeTiles?: boolean; includeModel?: boolean; includeBlocks?: boolean }): ClientSnapshot;
   entities(scope?: number | string): EntitySnapshot[];
   entity(entityId: number, scope?: number | string): EntitySnapshot | null;
 
@@ -492,7 +494,7 @@ export interface WorldDomain {
   blocks: BlockCollection;
   materials: MaterialCollection;
   exists(): boolean;
-  snapshot(options?: { includeTiles?: boolean; includeModel?: boolean }): WorldSnapshot | null;
+  snapshot(options?: { includeTiles?: boolean; includeModel?: boolean; includeBlocks?: boolean }): WorldSnapshot | null;
 }
 
 export interface ShipDomain extends WorldDomain {
@@ -997,7 +999,7 @@ export class WorldStore {
 
   get(id: number): WorldState;
   apply(packet: unknown): WorldUpdate | null;
-  snapshot(options?: { includeTiles?: boolean; includeModel?: boolean }): WorldSnapshot[];
+  snapshot(options?: { includeTiles?: boolean; includeModel?: boolean; includeBlocks?: boolean }): WorldSnapshot[];
   ids(): number[];
   overworld(): WorldState | null;
   shipWorld(): WorldState | null;
@@ -1038,7 +1040,7 @@ export class WorldState {
   setTile(tile: Tile): Tile;
   normalizeTile(tile: Tile): Tile;
   materials(): MaterialSummary[];
-  snapshot(options?: { includeTiles?: boolean; includeModel?: boolean }): WorldSnapshot;
+  snapshot(options?: { includeTiles?: boolean; includeModel?: boolean; includeBlocks?: boolean }): WorldSnapshot;
   table(id: number): Map<number, ModelRecord>;
   record(tableId: number, entityId: number): ModelRecord | null;
   tileDefinition(material: number): TileDefinition | null;
@@ -1122,7 +1124,8 @@ export interface WorldSnapshot {
   materials: MaterialSummary[];
   model: ModelSnapshot;
   entities: EntityDebugSummary[];
-  blocks: BlockSummary[];
+  /** Present only when the snapshot was taken with `includeBlocks`. */
+  blocks?: BlockSummary[];
   transforms: TransformSummary[];
   machines: MachineSummary;
   players: PlayerSummary[];
@@ -1198,7 +1201,7 @@ export class ModelState {
   /** O(1) lookup of the block at a coordinate. */
   blockAt(x: number, y: number): BlockSummary | null;
   apply(bytes: Uint8Array | ArrayBuffer | number[]): unknown;
-  snapshot(options?: { includeTables?: boolean }): ModelSnapshot;
+  snapshot(options?: { includeTables?: boolean; includeBlocks?: boolean }): ModelSnapshot;
   tablesSnapshot(): unknown[];
   transforms(): TransformSummary[];
   itemHolders(): ItemHolderSummary[];
@@ -1219,7 +1222,8 @@ export interface ModelSnapshot {
   lastUpdate: unknown;
   errors: unknown[];
   entities: EntityDebugSummary[];
-  blocks: BlockSummary[];
+  /** Present only when the snapshot was taken with `includeBlocks`. */
+  blocks?: BlockSummary[];
   transforms: TransformSummary[];
   players: PlayerSummary[];
   shipControls: ShipControlSummary[];
