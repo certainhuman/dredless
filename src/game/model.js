@@ -60,11 +60,18 @@ class ModelReader {
     return blob;
   }
 
+  // Called once per section while scanning, so a fresh tail scan each time is
+  // O(bytes x sections). The index of the last non-zero byte is fixed for the
+  // packet, so compute it once and compare offsets thereafter.
   trailingZeroOnly() {
-    for (let i = this.offset; i < this.bytes.length; i++) {
-      if (this.bytes[i] !== 0) return false;
+    if (this._lastNonZero === undefined) {
+      let last = -1;
+      for (let i = this.bytes.length - 1; i >= 0; i--) {
+        if (this.bytes[i] !== 0) { last = i; break; }
+      }
+      this._lastNonZero = last;
     }
-    return true;
+    return this.offset > this._lastNonZero;
   }
 }
 
@@ -514,10 +521,14 @@ function blobKey(offset) {
   return `blob${offset}`;
 }
 
+// Blob fields stay expanded to plain arrays: that shape is part of the public
+// record surface. Avoiding the Object.entries pair array is the win available
+// without changing what callers see.
 function cloneRecord(record) {
   const out = {};
-  for (const [key, value] of Object.entries(record)) {
-    out[key] = value instanceof Uint8Array ? [...value] : value;
+  for (const key in record) {
+    const value = record[key];
+    out[key] = value instanceof Uint8Array ? Array.from(value) : value;
   }
   return out;
 }
@@ -1346,13 +1357,20 @@ function mergeContents(...parts) {
   return Object.keys(out).length ? out : null;
 }
 
+// A hover outline is a highlight rectangle, not a physical footprint. Overworld
+// boundary entities report outlines as large as 720x32, and indexing those cell
+// by cell produced ~106k block cells for 183 entities -- the dominant cost in
+// every derived read. Outlines beyond this budget fall through to the ordinary
+// marker/crate/type heuristics.
+const MAX_HOVER_OUTLINE_FOOTPRINT_CELLS = 1024;
+
 function entityFootprint(entity) {
   if (entity?.hoverOutline && Number.isFinite(Number(entity.hoverOutline.width)) && Number.isFinite(Number(entity.hoverOutline.height))) {
-    return {
-      width: Math.ceil(Number(entity.hoverOutline.width)),
-      height: Math.ceil(Number(entity.hoverOutline.height)),
-      source: "hover_outline"
-    };
+    const width = Math.ceil(Number(entity.hoverOutline.width));
+    const height = Math.ceil(Number(entity.hoverOutline.height));
+    if (width * height <= MAX_HOVER_OUTLINE_FOOTPRINT_CELLS) {
+      return { width, height, source: "hover_outline" };
+    }
   }
   if (entity?.markerTypeId != null && ENTITY_FOOTPRINTS.has(entity.markerTypeId)) {
     const footprint = ENTITY_FOOTPRINTS.get(entity.markerTypeId);
@@ -1442,8 +1460,22 @@ function entityCategory(entity) {
   return "entity";
 }
 
+// Returned by ModelState.table() for absent tables. Never mutated.
+const EMPTY_TABLE = new Map();
+
+// snapshot() only ever exposed the last 50 removals and last 10 errors, but both
+// arrays grew without bound behind that. Retain a little more than is surfaced.
+const MAX_RETAINED_REMOVALS = 500;
+const MAX_RETAINED_ERRORS = 100;
+
+function pushCapped(target, value, limit) {
+  target.push(value);
+  if (target.length > limit) target.splice(0, target.length - limit);
+}
+
 export class ModelState {
   #loaderConfig = new LoaderConfigTracker();
+  #blueprintItems = null;
   #helmOccupied = new Map();
   #commsStationOccupied = new Map();
   #navigationUnitAutoWarp = new Map();
@@ -1455,6 +1487,9 @@ export class ModelState {
     this.removedEntities = [];
     this.lastUpdate = null;
     this.errors = [];
+    // Retained arrays are capped; the totals remain exact.
+    this.totalRemovedCount = 0;
+    this.totalErrorCount = 0;
     this._derived = null;
   }
 
@@ -1466,7 +1501,9 @@ export class ModelState {
   }
 
   table(id) {
-    return this.tables.get(Number(id)) || new Map();
+    // Shared empty map: #summarizeEntity performs ~32 record() lookups per
+    // entity, most against absent tables, and each miss used to allocate.
+    return this.tables.get(Number(id)) || EMPTY_TABLE;
   }
 
   record(tableId, entityId) {
@@ -1484,10 +1521,19 @@ export class ModelState {
   }
 
   blocks() {
-    return this.#derivedState().blocks.slice();
+    this.#derivedState();
+    return this.#derivedBlocks().slice();
+  }
+
+  // O(1) point lookup. Callers previously had to materialise and scan the whole
+  // block list to answer this.
+  blockAt(x, y) {
+    this.#derivedState();
+    return this._derived.blocksByKey.get(`${x},${y}`) || null;
   }
 
   apply(bytes, { full = false } = {}) {
+    this.#blueprintItems = null;
     const reader = new ModelReader(bytes);
     const update = {
       generation: null,
@@ -1534,7 +1580,8 @@ export class ModelState {
       }
     } catch (error) {
       update.error = error;
-      this.errors.push({ message: error.message, generation: update.generation });
+      this.totalErrorCount += 1;
+      pushCapped(this.errors, { message: error.message, generation: update.generation }, MAX_RETAINED_ERRORS);
     }
 
     this.#remapIndexedLoaderConfig(update);
@@ -1557,7 +1604,7 @@ export class ModelState {
       lastUpdate: this.lastUpdate ? summarizeUpdate(this.lastUpdate) : null,
       errors: this.errors.slice(-10),
       entities: derived.entities.slice(),
-      blocks: derived.blocks.slice(),
+      blocks: this.#derivedBlocks().slice(),
       transforms: derived.transforms.slice(),
       players: derived.players.slice(),
       shipControls: derived.shipControls.slice(),
@@ -1880,6 +1927,8 @@ export class ModelState {
       entityTableIds,
       entitiesById,
       blocksByKey,
+      blocks: null,
+      blocksDirty: true,
       tableSummaries,
       summariesDirty: true,
       tableSummariesDirty: false
@@ -1956,6 +2005,7 @@ export class ModelState {
 
   #addEntityToDerivedBlocks(derived, entity) {
     this.#addEntityToBlockMap(derived.blocksByKey, entity);
+    derived.blocksDirty = true;
   }
 
   #addEntityToBlockMap(blocks, entity) {
@@ -1975,12 +2025,18 @@ export class ModelState {
   }
 
   #removeEntityFromDerivedBlocks(derived, entity) {
+    const id = entity.entity;
     for (const cell of entity.occupies || []) {
       const key = `${cell.x},${cell.y}`;
       const block = derived.blocksByKey.get(key);
       if (!block) continue;
-      block.entities = block.entities.filter((item) => item.entity !== entity.entity);
-      if (!block.entities.length) derived.blocksByKey.delete(key);
+      // Splice in place rather than allocating a filtered array per cell.
+      const list = block.entities;
+      for (let i = list.length - 1; i >= 0; i--) {
+        if (list[i].entity === id) list.splice(i, 1);
+      }
+      if (!list.length) derived.blocksByKey.delete(key);
+      derived.blocksDirty = true;
     }
   }
 
@@ -2054,7 +2110,6 @@ export class ModelState {
     }
 
     derived.entities = entities;
-    derived.blocks = [...derived.blocksByKey.values()].sort((a, b) => (a.y - b.y) || (a.x - b.x));
     derived.transforms = transforms;
     derived.players = players;
     derived.shipControls = shipControls;
@@ -2062,10 +2117,30 @@ export class ModelState {
     derived.summariesDirty = false;
   }
 
+  // The sorted block list is the single most expensive derived product (a sort
+  // over every occupied cell in the world). Build it only when a caller actually
+  // asks for blocks, rather than as a side effect of every summary refresh.
+  #derivedBlocks() {
+    const derived = this._derived;
+    if (derived.blocksDirty || !derived.blocks) {
+      derived.blocks = [...derived.blocksByKey.values()].sort((a, b) => (a.y - b.y) || (a.x - b.x));
+      derived.blocksDirty = false;
+    }
+    return derived.blocks;
+  }
+
+  // Identical for every entity in a refresh pass, but was rebuilt inside each
+  // #summarizeEntity call -- O(entities x table12). Table 12 only changes during
+  // apply(), which clears this cache.
   #blueprintPreviewItems() {
-    return [...this.table(12).entries()]
-      .map(([entity, record]) => summarizeBlueprintPreview(entity, record, this.record(0, entity)))
-      .filter(Boolean);
+    if (this.#blueprintItems) return this.#blueprintItems;
+    const items = [];
+    for (const [entity, record] of this.table(12)) {
+      const summary = summarizeBlueprintPreview(entity, record, this.record(0, entity));
+      if (summary) items.push(summary);
+    }
+    this.#blueprintItems = items;
+    return items;
   }
 
   #summarizeEntity(entityId, tableRows = []) {
@@ -2247,7 +2322,11 @@ export class ModelState {
         record: cloneRecord(record)
       }))
     };
-    summary.occupies = transform ? this.#occupiedBlocks(transform, footprint) : [];
+    // Lazy: most entities are never asked for their occupied cells, and a large
+    // footprint materialises hundreds of objects per refresh. Defined as an
+    // enumerable memoising accessor so spread, JSON and structuredClone all see
+    // the same array they saw before.
+    defineLazyOccupies(summary, transform ? () => this.#occupiedBlocks(transform, footprint) : () => []);
     return summary;
   }
 
@@ -2275,13 +2354,21 @@ export class ModelState {
       if (delta === 0) break;
       entity += delta;
       removals.push(entity);
-      for (const records of this.tables.values()) records.delete(entity);
+      // Delete only from tables the entity actually appears in when the derived
+      // index is available; fall back to a full scan otherwise.
+      const known = this._derived?.entityTableIds?.get(entity);
+      if (known) {
+        for (const tableId of known) this.tables.get(tableId)?.delete(entity);
+      } else {
+        for (const records of this.tables.values()) records.delete(entity);
+      }
       this.#loaderConfig.delete(null, entity);
       this.#helmOccupied.delete(entity);
       this.#commsStationOccupied.delete(entity);
       this.#navigationUnitAutoWarp.delete(entity);
     }
-    this.removedEntities.push(...removals);
+    this.totalRemovedCount += removals.length;
+    for (const id of removals) pushCapped(this.removedEntities, id, MAX_RETAINED_REMOVALS);
     return removals;
   }
 
@@ -2410,6 +2497,24 @@ function summarizeUpdate(update) {
       records: section.records.length
     }))
   };
+}
+
+// Enumerable, configurable accessor that computes once and then caches. Kept
+// configurable so the first read can swap in a plain data property, which keeps
+// later reads free and survives Object.freeze on the already-materialised value.
+function defineLazyOccupies(target, compute) {
+  let cached = null;
+  Object.defineProperty(target, "occupies", {
+    enumerable: true,
+    configurable: true,
+    get() {
+      if (cached === null) cached = compute();
+      return cached;
+    },
+    set(value) {
+      cached = value;
+    }
+  });
 }
 
 function insertSorted(values, value) {

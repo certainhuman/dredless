@@ -332,8 +332,23 @@ export interface AttachWebSocketOptions {
   gameToken?: string;
 }
 
+export interface DredlessClientOptions {
+  connect?: boolean;
+  /**
+   * Retained entries in `packets`. Default 200. Pass 0 to disable the buffer or
+   * Infinity for unbounded capture.
+   */
+  packetHistory?: number;
+  /** Retained entries in each `WorldState.events`. Default 200. */
+  eventHistory?: number;
+  /** Retained entries in each `WorldState.modelPackets`. Default 100. */
+  modelPacketHistory?: number;
+  /** Retained entries in each `WorldState.chunks`. Default 64. */
+  chunkHistory?: number;
+}
+
 export class DredlessClient {
-  constructor(connection: Connection, options?: { connect?: boolean });
+  constructor(connection: Connection, options?: DredlessClientOptions);
   static attachWebSocket(websocket: unknown, options?: AttachWebSocketOptions): DredlessClient;
 
   connection: Connection | null;
@@ -964,9 +979,21 @@ export interface BlockSummary {
   entities: EntityDebugSummary[];
 }
 
+export interface WorldHistoryLimits {
+  /** Retained entries in `WorldState.events`. Default 200. */
+  eventHistory?: number;
+  /** Retained entries in `WorldState.modelPackets`. Default 100. */
+  modelPacketHistory?: number;
+  /** Retained entries in `WorldState.chunks`. Default 64. */
+  chunkHistory?: number;
+}
+
 export class WorldStore {
+  constructor(limits?: WorldHistoryLimits);
+
   currentWorldId: number | null;
   worlds: Map<number, WorldState>;
+  historyLimits: Required<WorldHistoryLimits>;
 
   get(id: number): WorldState;
   apply(packet: unknown): WorldUpdate | null;
@@ -978,8 +1005,13 @@ export class WorldStore {
 }
 
 export class WorldState {
-  constructor(id: number);
+  constructor(id: number, limits?: WorldHistoryLimits);
 
+  historyLimits: Required<WorldHistoryLimits>;
+  /** Chunks applied over the connection's lifetime, independent of retention. */
+  totalChunkCount: number;
+  /** Events recorded over the connection's lifetime, independent of retention. */
+  totalEventCount: number;
   id: number;
   seed: number | null;
   isOverworld: boolean | null;
@@ -1013,6 +1045,8 @@ export class WorldState {
   entity(entityId: number): EntityDebugSummary | null;
   entities(): EntityDebugSummary[];
   blocks(): BlockSummary[];
+  /** O(1) lookup of the block at a coordinate. */
+  blockAt(x: number, y: number): BlockSummary | null;
 }
 
 export interface Tile {
@@ -1148,15 +1182,21 @@ export interface CommsBubbleSummary {
 export class ModelState {
   generation: number | null;
   tables: Map<number, Map<number, ModelRecord>>;
+  /** Capped at 500 retained ids; see `totalRemovedCount` for the true total. */
   removedEntities: number[];
   lastUpdate: unknown;
+  /** Capped at 100 retained entries; see `totalErrorCount` for the true total. */
   errors: unknown[];
+  totalRemovedCount: number;
+  totalErrorCount: number;
 
   table(id: number): Map<number, ModelRecord>;
   record(tableId: number, entityId: number): ModelRecord | null;
   entity(entityId: number): EntityDebugSummary | null;
   entities(): EntityDebugSummary[];
   blocks(): BlockSummary[];
+  /** O(1) lookup of the block at a coordinate. */
+  blockAt(x: number, y: number): BlockSummary | null;
   apply(bytes: Uint8Array | ArrayBuffer | number[]): unknown;
   snapshot(options?: { includeTables?: boolean }): ModelSnapshot;
   tablesSnapshot(): unknown[];

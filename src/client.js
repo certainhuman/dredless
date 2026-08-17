@@ -58,8 +58,23 @@ import {
 import { decodeMsgpack, encodeMsgpack, cloneCommand } from "./protocol/msgpack.js";
 import { toUint8Array } from "./protocol/binary.js";
 
+// Defaults for retained history. Every one of these buffers was previously
+// unbounded; the surrounding buffers (chat, warnings, scanner results) already
+// capped at 200, so these match that convention.
+const DEFAULT_PACKET_HISTORY = 200;
+const DEFAULT_EVENT_HISTORY = 200;
+const DEFAULT_MODEL_PACKET_HISTORY = 100;
+const DEFAULT_CHUNK_HISTORY = 64;
+
+function normalizeHistoryLimit(value, fallback) {
+  if (value === Infinity) return Infinity;
+  const limit = Number(value);
+  if (!Number.isFinite(limit) || limit < 0) return fallback;
+  return Math.floor(limit);
+}
+
 export class DredlessClient extends EventBus {
-  constructor(connection, { connect = true, attach = false, mode = null, baseUrl = null, session = null, serverId = null, server = null, netPort = null, gameToken = "" } = {}) {
+  constructor(connection, { connect = true, attach = false, mode = null, baseUrl = null, session = null, serverId = null, server = null, netPort = null, gameToken = "", packetHistory = DEFAULT_PACKET_HISTORY, eventHistory = DEFAULT_EVENT_HISTORY, modelPacketHistory = DEFAULT_MODEL_PACKET_HISTORY, chunkHistory = DEFAULT_CHUNK_HISTORY } = {}) {
     super();
     const attachMode = attach ? normalizeAttachMode(mode) : null;
     if (!(connection instanceof Connection) && !attachMode) throw new Error("DredlessClient requires a Connection");
@@ -78,7 +93,12 @@ export class DredlessClient extends EventBus {
     this.packetCount = 0;
     this.lastPacket = null;
     this.packets = [];
-    this.worlds = new WorldStore();
+    // Retained history is bounded by default: these arrays previously grew for
+    // the lifetime of the client, holding every decoded packet and its binary
+    // payloads. Pass 0 to disable a buffer or Infinity to restore unbounded
+    // capture behaviour.
+    this.packetHistory = normalizeHistoryLimit(packetHistory, DEFAULT_PACKET_HISTORY);
+    this.worlds = new WorldStore({ eventHistory, modelPacketHistory, chunkHistory });
     this.net = new ClientNetDomain(this);
     this.debug = new ClientDebugDomain(this);
     this.player = new PlayerDomain(this);
@@ -672,9 +692,11 @@ export class DredlessClient extends EventBus {
     const normalized = normalizeShipReadOptions(options);
     const overworld = this.worlds.overworld();
     if (!overworld) return [];
+    // Resolve the reference entity once rather than per ship.
+    const current = this.worlds.currentShipEntity();
     const ships = overworld.entities()
       .filter((entity) => entity?.contents?.shipControl)
-      .map((entity) => shipReadSummary(entity, normalized, this.worlds));
+      .map((entity) => shipReadSummary(entity, normalized, this.worlds, current));
     if (normalized.sort === "distance") {
       ships.sort((a, b) => (a.distance ?? Number.POSITIVE_INFINITY) - (b.distance ?? Number.POSITIVE_INFINITY));
     }
@@ -683,12 +705,26 @@ export class DredlessClient extends EventBus {
 
   shipByHex(hexCode, options = {}) {
     const normalized = String(hexCode ?? "").toUpperCase();
-    return this.ships(options).find((ship) => String(ship.hexCode ?? "").toUpperCase() === normalized) || null;
+    return this.#findShip(options, (control) => String(control.hexCode ?? "").toUpperCase() === normalized);
   }
 
   shipByEntity(entityId, options = {}) {
     const id = Number(entityId);
-    return this.ships(options).find((ship) => ship.entity === id) || null;
+    return this.#findShip(options, (control, entity) => entity.entity === id);
+  }
+
+  // Match against the ship control record and summarise only the hit. These
+  // lookups used to build a full summary -- including a world snapshot -- for
+  // every ship in the overworld before discarding all but one.
+  #findShip(options, predicate) {
+    const overworld = this.worlds.overworld();
+    if (!overworld) return null;
+    for (const entity of overworld.entities()) {
+      const control = entity?.contents?.shipControl;
+      if (!control || !predicate(control, entity)) continue;
+      return shipReadSummary(entity, normalizeShipReadOptions(options), this.worlds);
+    }
+    return null;
   }
 
   get packetsRaw() {
@@ -821,7 +857,7 @@ export class DredlessClient extends EventBus {
     }
     this.packetCount += 1;
     this.lastPacket = packet;
-    this.packets.push(packet);
+    this.#pushLimited(this.packets, packet, this.packetHistory);
     this.emit("packet", packet);
 
     if (!packet || typeof packet !== "object") return;
@@ -1001,6 +1037,7 @@ export class DredlessClient extends EventBus {
   }
 
   #pushLimited(target, value, limit = 200) {
+    if (limit === 0) return;
     target.push(value);
     if (target.length > limit) target.splice(0, target.length - limit);
   }
@@ -1346,7 +1383,7 @@ class PlayerCollection {
 class BlockCollection {
   constructor(client, scope) { this.client = client; this.scope = scope; }
   all() { return worldStateFor(this.client, this.scope)?.blocks() || []; }
-  at(x, y) { return this.all().find((block) => block.x === x && block.y === y) || null; }
+  at(x, y) { return worldStateFor(this.client, this.scope)?.blockAt(x, y) || null; }
 }
 
 class MaterialCollection {
@@ -1397,11 +1434,18 @@ class MachineCollection {
 }
 
 class EntityHandle {
-  constructor(client, entity, scope = "ship") { this.client = client; this.id = Number(entity); this.entity = this.id; this.scope = scope; }
+  constructor(client, entity, scope = "ship") { this.client = client; this.id = Number(entity); this.entity = this.id; this.scope = scope; this._cachedSummary = undefined; this._cachedSnapshot = null; }
   exists() { return Boolean(this.snapshot()); }
+  // Reading five properties off a handle used to walk the world/derived-state
+  // resolution chain five times. The summary object identity changes whenever
+  // the entity is refreshed, so it doubles as the cache key.
   snapshot() {
     const summary = worldStateFor(this.client, this.scope)?.entity(this.id) || null;
-    return entitySnapshotFor(summary);
+    if (summary !== this._cachedSummary) {
+      this._cachedSummary = summary;
+      this._cachedSnapshot = entitySnapshotFor(summary);
+    }
+    return this._cachedSnapshot;
   }
   get position() { return summaryForEntity(this.client, this.scope, this.id)?.transform || null; }
   get health() { return summaryForEntity(this.client, this.scope, this.id)?.contents?.health || null; }
@@ -2020,7 +2064,7 @@ function normalizeShipReadOptions(options) {
   };
 }
 
-function shipReadSummary(entity, options, worlds) {
+function shipReadSummary(entity, options, worlds, currentEntity = undefined) {
   const control = entity.contents.shipControl;
   const worldState = options.includeWorld && control.shipWorldId != null
     ? worlds.worlds.get(Number(control.shipWorldId)) || null
@@ -2029,7 +2073,7 @@ function shipReadSummary(entity, options, worlds) {
     includeTiles: options.includeTiles,
     includeModel: options.includeModel
   }) : null;
-  const current = worlds.currentShipEntity();
+  const current = currentEntity === undefined ? worlds.currentShipEntity() : currentEntity;
   const distance = distanceBetween(entity.transform, current?.transform);
   return {
     entity: entity.entity,

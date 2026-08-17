@@ -247,64 +247,225 @@ function decodeValue(bytes, offset = 0) {
   }
 }
 
-function decodeMsgpack(bytes) {
-  const input = toUint8Array(bytes);
-  const root = decodeValue(input, 0);
-  return root.value;
+// Value-only decoder used for all inbound traffic.
+//
+// `decodeValue` above annotates every node with its `raw` byte slice and format
+// so outgoing commands can be re-encoded byte-for-byte. Containers slice from
+// the start of the buffer, which makes decoding quadratic in packet size, and
+// `decodeMsgpack` discarded all of it. This path allocates only the decoded
+// values. The annotated decoder stays exported for the command-signing path and
+// external tooling.
+let cursor = 0;
+
+function readFast(bytes) {
+  const head = bytes[cursor++];
+
+  if (head <= 0x7f) return head;
+  if (head >= 0xe0) return (head << 24) >> 24;
+
+  if ((head & 0xf0) === 0x80) return readMapFast(bytes, head & 0x0f);
+  if ((head & 0xf0) === 0x90) return readArrayFast(bytes, head & 0x0f);
+  if ((head & 0xe0) === 0xa0) return readStrFast(bytes, head & 0x1f);
+
+  switch (head) {
+    case 0xc0: return null;
+    case 0xc2: return false;
+    case 0xc3: return true;
+    case 0xc4: return readBinFast(bytes, bytes[cursor++]);
+    case 0xc5: {
+      const len = (bytes[cursor] << 8) | bytes[cursor + 1];
+      cursor += 2;
+      return readBinFast(bytes, len);
+    }
+    case 0xc6: {
+      const len = (bytes[cursor] * 0x1000000) + ((bytes[cursor + 1] << 16) | (bytes[cursor + 2] << 8) | bytes[cursor + 3]);
+      cursor += 4;
+      return readBinFast(bytes, len);
+    }
+    case 0xca: {
+      const value = new DataView(bytes.buffer, bytes.byteOffset + cursor, 4).getFloat32(0, false);
+      cursor += 4;
+      return value;
+    }
+    case 0xcb: {
+      const value = new DataView(bytes.buffer, bytes.byteOffset + cursor, 8).getFloat64(0, false);
+      cursor += 8;
+      return value;
+    }
+    case 0xcc: return bytes[cursor++];
+    case 0xcd: {
+      const value = (bytes[cursor] << 8) | bytes[cursor + 1];
+      cursor += 2;
+      return value;
+    }
+    case 0xce: {
+      const value = (((bytes[cursor] * 0x1000000) + ((bytes[cursor + 1] << 16) | (bytes[cursor + 2] << 8) | bytes[cursor + 3])) >>> 0);
+      cursor += 4;
+      return value;
+    }
+    case 0xd0: return (bytes[cursor++] << 24) >> 24;
+    case 0xd1: {
+      const value = ((((bytes[cursor] << 8) | bytes[cursor + 1]) << 16) >> 16);
+      cursor += 2;
+      return value;
+    }
+    case 0xd2: {
+      const value = ((bytes[cursor] << 24) | (bytes[cursor + 1] << 16) | (bytes[cursor + 2] << 8) | bytes[cursor + 3]) | 0;
+      cursor += 4;
+      return value;
+    }
+    case 0xd9: return readStrFast(bytes, bytes[cursor++]);
+    case 0xda: {
+      const len = (bytes[cursor] << 8) | bytes[cursor + 1];
+      cursor += 2;
+      return readStrFast(bytes, len);
+    }
+    case 0xdc: {
+      const count = (bytes[cursor] << 8) | bytes[cursor + 1];
+      cursor += 2;
+      return readArrayFast(bytes, count);
+    }
+    case 0xde: {
+      const count = (bytes[cursor] << 8) | bytes[cursor + 1];
+      cursor += 2;
+      return readMapFast(bytes, count);
+    }
+    default:
+      throw new Error(`Unsupported msgpack token 0x${head.toString(16)}`);
+  }
 }
 
-function encodeMsgpack(value) {
-  if (value == null) return Uint8Array.of(0xc0);
-  if (typeof value === "boolean") return Uint8Array.of(value ? 0xc3 : 0xc2);
-  if (typeof value === "number") {
-    if (!Number.isInteger(value)) return encodeNumberWithFormat(value, "float32");
-    if (value >= 0) {
-      if (value <= 0x7f) return encodeNumberWithFormat(value, "positive-fixint");
-      if (value <= 0xff) return encodeNumberWithFormat(value, "uint8");
-      if (value <= 0xffff) return encodeNumberWithFormat(value, "uint16");
-      return encodeNumberWithFormat(value, "uint32");
-    }
-    if (value >= -32) return encodeNumberWithFormat(value, "negative-fixint");
-    if (value >= -128) return encodeNumberWithFormat(value, "int8");
-    if (value >= -32768) return encodeNumberWithFormat(value, "int16");
-    return encodeNumberWithFormat(value, "int32");
+function readStrFast(bytes, len) {
+  const start = cursor;
+  cursor += len;
+  // subarray, not slice: TextDecoder copies into the result string anyway.
+  return decoder.decode(bytes.subarray(start, cursor));
+}
+
+function readBinFast(bytes, len) {
+  const start = cursor;
+  cursor += len;
+  // slice, not subarray: callers retain these payloads past the socket buffer.
+  return bytes.slice(start, cursor);
+}
+
+function readArrayFast(bytes, count) {
+  const items = new Array(count);
+  for (let i = 0; i < count; i++) items[i] = readFast(bytes);
+  return items;
+}
+
+function readMapFast(bytes, count) {
+  const obj = {};
+  for (let i = 0; i < count; i++) {
+    const key = readFast(bytes);
+    obj[typeof key === "string" ? key : String(key)] = readFast(bytes);
   }
-  if (typeof value === "string") return encodeStringBytes(value);
+  return obj;
+}
+
+function decodeMsgpack(bytes) {
+  const input = toUint8Array(bytes);
+  cursor = 0;
+  return readFast(input);
+}
+
+// Growable output buffer. The recursive encoder used to build an array of small
+// Uint8Array fragments per value and concatenate them at every nesting level.
+class MsgpackWriter {
+  constructor(capacity = 256) {
+    this.bytes = new Uint8Array(capacity);
+    this.length = 0;
+  }
+
+  #reserve(extra) {
+    const needed = this.length + extra;
+    if (needed <= this.bytes.length) return;
+    let size = this.bytes.length || 64;
+    while (size < needed) size *= 2;
+    const grown = new Uint8Array(size);
+    grown.set(this.bytes.subarray(0, this.length));
+    this.bytes = grown;
+  }
+
+  byte(value) {
+    this.#reserve(1);
+    this.bytes[this.length++] = value & 0xff;
+    return this;
+  }
+
+  raw(chunk) {
+    this.#reserve(chunk.length);
+    this.bytes.set(chunk, this.length);
+    this.length += chunk.length;
+    return this;
+  }
+
+  result() {
+    return this.bytes.slice(0, this.length);
+  }
+}
+
+function writeMsgpack(writer, value) {
+  if (value == null) return writer.byte(0xc0);
+  if (typeof value === "boolean") return writer.byte(value ? 0xc3 : 0xc2);
+  if (typeof value === "number") return writer.raw(encodeMsgpackNumber(value));
+  if (typeof value === "string") return writer.raw(encodeStringBytes(value));
+
   if (value instanceof Uint8Array || value instanceof ArrayBuffer || ArrayBuffer.isView(value)) {
     const bytes = toUint8Array(value);
-    if (bytes.length <= 0xff) {
-      return concatBytes([Uint8Array.of(0xc4, bytes.length), bytes]);
-    }
-    if (bytes.length <= 0xffff) {
-      return concatBytes([Uint8Array.of(0xc5, (bytes.length >>> 8) & 0xff, bytes.length & 0xff), bytes]);
-    }
-    return concatBytes([
-      Uint8Array.of(0xc6, (bytes.length >>> 24) & 0xff, (bytes.length >>> 16) & 0xff, (bytes.length >>> 8) & 0xff, bytes.length & 0xff),
-      bytes
-    ]);
+    if (bytes.length <= 0xff) writer.byte(0xc4).byte(bytes.length);
+    else if (bytes.length <= 0xffff) writer.byte(0xc5).byte(bytes.length >>> 8).byte(bytes.length);
+    else writer.byte(0xc6).byte(bytes.length >>> 24).byte(bytes.length >>> 16).byte(bytes.length >>> 8).byte(bytes.length);
+    return writer.raw(bytes);
   }
+
   if (Array.isArray(value)) {
-    const parts = [];
     const len = value.length;
-    if (len <= 15) parts.push(Uint8Array.of(0x90 | len));
-    else parts.push(Uint8Array.of(0xdc, (len >>> 8) & 0xff, len & 0xff));
-    for (const item of value) parts.push(encodeMsgpack(item));
-    return concatBytes(parts);
+    if (len <= 15) writer.byte(0x90 | len);
+    else writer.byte(0xdc).byte(len >>> 8).byte(len);
+    for (const item of value) writeMsgpack(writer, item);
+    return writer;
   }
+
   if (typeof value === "object") {
     const entries = Object.entries(value);
-    const parts = [];
-    if (entries.length <= 15) parts.push(Uint8Array.of(0x80 | entries.length));
-    else parts.push(Uint8Array.of(0xde, (entries.length >>> 8) & 0xff, entries.length & 0xff));
+    if (entries.length <= 15) writer.byte(0x80 | entries.length);
+    else writer.byte(0xde).byte(entries.length >>> 8).byte(entries.length);
     for (const [key, val] of entries) {
-      parts.push(encodeStringBytes(key));
-      parts.push(encodeMsgpack(val));
+      writer.raw(encodeStringBytes(key));
+      writeMsgpack(writer, val);
     }
-    return concatBytes(parts);
+    return writer;
   }
+
   throw new Error(`Unsupported msgpack value: ${typeof value}`);
 }
 
+function encodeMsgpackNumber(value) {
+  if (!Number.isInteger(value)) return encodeNumberWithFormat(value, "float32");
+  if (value >= 0) {
+    if (value <= 0x7f) return encodeNumberWithFormat(value, "positive-fixint");
+    if (value <= 0xff) return encodeNumberWithFormat(value, "uint8");
+    if (value <= 0xffff) return encodeNumberWithFormat(value, "uint16");
+    return encodeNumberWithFormat(value, "uint32");
+  }
+  if (value >= -32) return encodeNumberWithFormat(value, "negative-fixint");
+  if (value >= -128) return encodeNumberWithFormat(value, "int8");
+  if (value >= -32768) return encodeNumberWithFormat(value, "int16");
+  return encodeNumberWithFormat(value, "int32");
+}
+
+function encodeMsgpack(value) {
+  // Scalars need no buffer at all.
+  if (value == null) return Uint8Array.of(0xc0);
+  if (typeof value === "boolean") return Uint8Array.of(value ? 0xc3 : 0xc2);
+  if (typeof value === "number") return encodeMsgpackNumber(value);
+  if (typeof value === "string") return encodeStringBytes(value);
+  const writer = new MsgpackWriter();
+  writeMsgpack(writer, value);
+  return writer.result();
+}
 
 export {
   cloneDragValue,

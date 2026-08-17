@@ -22,7 +22,12 @@ export class EventBus {
   }
 
   emit(type, ...args) {
-    for (const callback of [...(this.#listeners.get(type) || [])]) {
+    const listeners = this.#listeners.get(type);
+    if (!listeners || listeners.size === 0) return;
+    // Copy only when there is more than one listener: the copy exists so a
+    // listener may unsubscribe mid-dispatch, and a lone listener removing
+    // itself cannot disturb an iteration that is already finishing.
+    for (const callback of listeners.size === 1 ? listeners : [...listeners]) {
       try {
         callback(...args);
       } catch (error) {

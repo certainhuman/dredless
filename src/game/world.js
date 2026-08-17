@@ -16,15 +16,44 @@ function tileShapeName(shape) {
   return Number.isFinite(id) ? TILE_SHAPE_NAMES.get(id) ?? null : null;
 }
 
+// Retention limits for per-world history. These arrays previously grew without
+// bound for the lifetime of a connection. Pass Infinity to restore that.
+const DEFAULT_HISTORY_LIMITS = {
+  eventHistory: 200,
+  modelPacketHistory: 100,
+  chunkHistory: 64
+};
+
+function normalizeLimit(value, fallback) {
+  if (value === Infinity) return Infinity;
+  const limit = Number(value);
+  if (!Number.isFinite(limit) || limit < 0) return fallback;
+  return Math.floor(limit);
+}
+
+function pushBounded(target, value, limit) {
+  if (limit === 0) return;
+  target.push(value);
+  if (target.length > limit) target.splice(0, target.length - limit);
+}
+
 export class WorldStore {
-  constructor() {
+  #overworldId = null;
+  #shipWorldId = null;
+
+  constructor(limits = {}) {
     this.currentWorldId = null;
     this.worlds = new Map();
+    this.historyLimits = {
+      eventHistory: normalizeLimit(limits.eventHistory, DEFAULT_HISTORY_LIMITS.eventHistory),
+      modelPacketHistory: normalizeLimit(limits.modelPacketHistory, DEFAULT_HISTORY_LIMITS.modelPacketHistory),
+      chunkHistory: normalizeLimit(limits.chunkHistory, DEFAULT_HISTORY_LIMITS.chunkHistory)
+    };
   }
 
   get(id) {
     const worldId = Number(id);
-    if (!this.worlds.has(worldId)) this.worlds.set(worldId, new WorldState(worldId));
+    if (!this.worlds.has(worldId)) this.worlds.set(worldId, new WorldState(worldId, this.historyLimits));
     return this.worlds.get(worldId);
   }
 
@@ -45,12 +74,34 @@ export class WorldStore {
     return [...this.worlds.keys()];
   }
 
+  // Both resolvers are called on nearly every public read, and each used to
+  // spread the whole world map. Cache the resolved id and re-scan only when the
+  // cached world no longer satisfies the predicate.
   overworld() {
-    return [...this.worlds.values()].find((world) => world.isOverworld === true) || null;
+    const cached = this.#overworldId != null ? this.worlds.get(this.#overworldId) : null;
+    if (cached && cached.isOverworld === true) return cached;
+    for (const world of this.worlds.values()) {
+      if (world.isOverworld === true) {
+        this.#overworldId = world.id;
+        return world;
+      }
+    }
+    this.#overworldId = null;
+    return null;
   }
 
   shipWorld() {
-    return this.currentWorldId != null ? this.worlds.get(Number(this.currentWorldId)) || null : [...this.worlds.values()].find((world) => world.isOverworld === false) || null;
+    if (this.currentWorldId != null) return this.worlds.get(Number(this.currentWorldId)) || null;
+    const cached = this.#shipWorldId != null ? this.worlds.get(this.#shipWorldId) : null;
+    if (cached && cached.isOverworld === false) return cached;
+    for (const world of this.worlds.values()) {
+      if (world.isOverworld === false) {
+        this.#shipWorldId = world.id;
+        return world;
+      }
+    }
+    this.#shipWorldId = null;
+    return null;
   }
 
   currentShipEntity() {
@@ -90,7 +141,7 @@ export class WorldStore {
         }
       }
     }
-    world.events.push({ type: "tiles", packet, decoded, updates, errors });
+    world.recordEvent({ type: "tiles", packet, decoded, updates, errors });
     return { type: "tiles", world, decoded, updates, errors };
   }
 
@@ -128,8 +179,8 @@ export class WorldStore {
         result.error = error;
       }
     }
-    world.modelPackets.push(result);
-    world.events.push({ type: "model", packet, result });
+    pushBounded(world.modelPackets, result, world.historyLimits.modelPacketHistory);
+    world.recordEvent({ type: "model", packet, result });
     world.lastPacket = packet;
     return { type: "model", world, result };
   }
@@ -141,8 +192,23 @@ export class WorldStore {
   }
 }
 
+// Tile coordinates are packed into a single number so the tile map avoids a
+// template-string key per tile. Comfortably covers the coordinate range in use.
+const TILE_KEY_OFFSET = 1 << 24;
+const TILE_KEY_STRIDE = 1 << 25;
+
 export class WorldState {
-  constructor(id) {
+  #materialCounts = new Map();
+
+  constructor(id, limits = {}) {
+    this.historyLimits = {
+      eventHistory: normalizeLimit(limits.eventHistory, DEFAULT_HISTORY_LIMITS.eventHistory),
+      modelPacketHistory: normalizeLimit(limits.modelPacketHistory, DEFAULT_HISTORY_LIMITS.modelPacketHistory),
+      chunkHistory: normalizeLimit(limits.chunkHistory, DEFAULT_HISTORY_LIMITS.chunkHistory)
+    };
+    // Totals stay truthful even though the retained arrays are capped.
+    this.totalChunkCount = 0;
+    this.totalEventCount = 0;
     this.id = id;
     this.seed = null;
     this.isOverworld = null;
@@ -177,6 +243,14 @@ export class WorldState {
     this.lastPacket = packet;
   }
 
+  // Bounded event log. Kept as a method so every call site shares the cap and
+  // the running total stays accurate.
+  recordEvent(event) {
+    this.totalEventCount += 1;
+    pushBounded(this.events, event, this.historyLimits.eventHistory);
+    return event;
+  }
+
   addCommsBubble(packet) {
     const raw = packet?.bubble && typeof packet.bubble === "object" ? packet.bubble : {};
     const color = Number.isFinite(Number(raw.color)) ? Number(raw.color) : null;
@@ -193,7 +267,7 @@ export class WorldState {
     };
     this.commsBubbles.push(bubble);
     if (this.commsBubbles.length > 50) this.commsBubbles.splice(0, this.commsBubbles.length - 50);
-    this.events.push({ type: "comms-bubble", packet, bubble });
+    this.recordEvent({ type: "comms-bubble", packet, bubble });
     this.lastPacket = packet;
     return bubble;
   }
@@ -213,34 +287,79 @@ export class WorldState {
   applyChunk(value) {
     if (!Array.isArray(value) || value.length !== 7) return null;
     const [chunkX, chunkY, minX, minY, maxX, maxY, compressedPatch] = value;
-    const patch = [...decompressLz4Frame(compressedPatch)];
+    // Index the decompressed bytes directly; spreading into a plain array cost
+    // ~16k boxed elements for a full chunk.
+    const patch = decompressLz4Frame(compressedPatch);
     const width = maxX - minX + 1;
     const height = maxY - minY + 1;
     const count = width * height;
     const hasColor = patch.length >= count * 4;
-    const tiles = [];
+    const tiles = new Array(count);
+    const baseX = chunkX << 6;
+    const baseY = chunkY << 6;
     for (let i = 0; i < count; i++) {
       const localX = minX + (i % width);
       const localY = minY + Math.floor(i / width);
-      tiles.push(this.setTile({
-        x: (chunkX << 6) + localX,
-        y: (chunkY << 6) + localY,
-        material: patch[i],
-        shape: patch[i + count],
-        hp: patch[i + count * 2],
-        integrity: patch[i + count * 2],
-        color: hasColor ? patch[i + count * 3] : null
-      }));
+      const hp = patch[i + count * 2];
+      tiles[i] = this.#storeTile(this.#buildTile(
+        baseX + localX,
+        baseY + localY,
+        patch[i],
+        patch[i + count],
+        hp,
+        hasColor ? patch[i + count * 3] : null
+      ));
     }
-    this.chunks.push({ chunkX, chunkY, minX, minY, maxX, maxY, tiles });
+    this.totalChunkCount += 1;
+    pushBounded(this.chunks, { chunkX, chunkY, minX, minY, maxX, maxY, tiles }, this.historyLimits.chunkHistory);
     this.lastChunkPatch = { chunkX, chunkY, minX, minY, maxX, maxY, count, hasColor };
     return tiles;
   }
 
   setTile(tile) {
-    const normalized = this.normalizeTile(tile);
-    this.tiles.set(`${normalized.x},${normalized.y}`, normalized);
+    return this.#storeTile(this.normalizeTile(tile));
+  }
+
+  // Chunk decoding produces millions of tiles at join time, so build the final
+  // object in one pass instead of a literal plus a spread copy.
+  #buildTile(x, y, material, shape, hp, color) {
+    const def = this.tileDefinition(material);
+    const maxHp = def?.hp ?? null;
+    const value = hp ?? null;
+    return {
+      x,
+      y,
+      material,
+      shape,
+      hp: value,
+      integrity: value,
+      color,
+      materialName: def?.name ?? null,
+      shapeName: tileShapeName(shape),
+      solid: def?.solid ?? null,
+      maxHp,
+      hpRatio: typeof value === "number" ? value / 255 : null,
+      hpValue: typeof value === "number" && typeof maxHp === "number" ? Math.round((value / 255) * maxHp) : null
+    };
+  }
+
+  // Numeric key: a template string per tile was a measurable share of chunk
+  // decode. The map is only ever read through values()/size, so the key format
+  // is internal.
+  #storeTile(normalized) {
+    const key = ((normalized.y + TILE_KEY_OFFSET) * TILE_KEY_STRIDE) + (normalized.x + TILE_KEY_OFFSET);
+    const previous = this.tiles.get(key);
+    if (previous !== undefined) this.#countMaterial(previous.material, -1);
+    this.#countMaterial(normalized.material, 1);
+    this.tiles.set(key, normalized);
     return normalized;
+  }
+
+  #countMaterial(material, delta) {
+    const id = Number(material);
+    const next = (this.#materialCounts.get(id) || 0) + delta;
+    if (next > 0) this.#materialCounts.set(id, next);
+    else this.#materialCounts.delete(id);
   }
 
   normalizeTile(tile) {
@@ -260,13 +379,10 @@ export class WorldState {
     };
   }
 
+  // Counts are maintained as tiles are stored; this used to rescan every tile
+  // on each call and ran on every snapshot.
   materials() {
-    const counts = new Map();
-    for (const tile of this.tiles.values()) {
-      const material = Number(tile.material);
-      counts.set(material, (counts.get(material) || 0) + 1);
-    }
-    return [...counts.entries()]
+    return [...this.#materialCounts.entries()]
       .sort((a, b) => a[0] - b[0])
       .map(([material, count]) => {
         const def = this.tileDefinition(material);
@@ -295,7 +411,7 @@ export class WorldState {
       parent_world: this.parentWorld,
       parent_ent: this.parentEntity,
       tileCount: this.tiles.size,
-      chunkCount: this.chunks.length,
+      chunkCount: this.totalChunkCount,
       lastChunkPatch: this.lastChunkPatch,
       lastPacket: this.lastPacket,
       meta: this.meta,
@@ -335,5 +451,9 @@ export class WorldState {
 
   blocks() {
     return this.model.blocks();
+  }
+
+  blockAt(x, y) {
+    return this.model.blockAt(x, y);
   }
 }

@@ -31,22 +31,34 @@ function buildCommandDefaults(command = {}) {
   return out;
 }
 
+// Field names and the map header are identical for every command, so encode
+// them once instead of on each send.
+const COMMAND_MAP_HEADER = encodeMapHeader(COMMAND_FIELDS.length);
+const COMMAND_FIELD_KEY_BYTES = COMMAND_FIELDS.map((key) => encodeStringBytes(key));
+
 function buildCommandBody(command) {
   const normalized = buildCommandDefaults(command);
-  const parts = [encodeMapHeader(COMMAND_FIELDS.length)];
-  for (const key of COMMAND_FIELDS) {
-    parts.push(encodeStringBytes(key));
-    parts.push(encodeValue(key, normalized[key], null));
+  const parts = [COMMAND_MAP_HEADER];
+  for (let i = 0; i < COMMAND_FIELDS.length; i++) {
+    parts.push(COMMAND_FIELD_KEY_BYTES[i]);
+    parts.push(encodeValue(COMMAND_FIELDS[i], normalized[COMMAND_FIELDS[i]], null));
   }
   return concatBytes(parts);
 }
 
+// The prefix depends only on the session id, which is fixed for a connection.
+let signaturePrefixSid = null;
+let signaturePrefixBytes = null;
+
 function buildSignaturePrefix(sessionId) {
   const sid = Number(sessionId) >>> 0;
+  if (sid === signaturePrefixSid && signaturePrefixBytes) return signaturePrefixBytes;
   const a = (sid ^ 52481) >>> 0;
   const b = ((sid << 2) + 69) >>> 0;
   const c = ((((sid >>> 1) * 5) >>> 0) + 420) >>> 0;
-  return encoder.encode(`MJAF${a}CANH${b}SCLJ${c}LODV`);
+  signaturePrefixBytes = encoder.encode(`MJAF${a}CANH${b}SCLJ${c}LODV`);
+  signaturePrefixSid = sid;
+  return signaturePrefixBytes;
 }
 
 function rightRotate(value, bits) {
