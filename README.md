@@ -7,13 +7,13 @@ A headless Javascript implementation of `drednot.io`'s client protocol.
 Node (multi-session) usage:
 
 ```js
-import Dredless, {SignDisplayMode} from "dredless/node";
+import Dredless, {EquipmentSlot, SignDisplayMode} from "dredless/node";
 
 const servers = await Dredless.fetchServers();
 const client = await Dredless.startNewShip(servers[0], "bot", "#de9797");
 
 client.player.move({ x: 1, y: 0 });
-client.inventory.slot(0).equip("feet");
+client.inventory.slot(0).equip(EquipmentSlot.Feet);
 client.player.placeBlueprint({ x: 28, y: 18, width: 3, height: 3, source: "DSA:..." }, { invSlot: 2 });
 
 const ship = client.currentShip();
