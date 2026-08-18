@@ -6,7 +6,7 @@ import { WorldStore } from "../src/game/world.js";
 import { decodeMsgpack } from "../src/protocol/msgpack.js";
 
 function officialCaptureUrl(name) {
-  return new URL(`../captures/official-client/${name}`, import.meta.url);
+  return new URL(`./fixtures/${name}`, import.meta.url);
 }
 
 function applyOfficialCapture(store, name, onPacket = null) {
@@ -42,7 +42,7 @@ function componentInWorld(store, worldId, entityId, component) {
 test("loader transfer state exposes held item while an item is moving", (t) => {
   const store = new WorldStore();
   const samples = [];
-  if (!applyOfficialCapture(store, "join-and-give-loader-item.jsonl", ({ store: currentStore }) => {
+  if (!applyOfficialCapture(store, "machine-progress-loader-transfer.jsonl", ({ store: currentStore }) => {
     const loader = componentInAnyWorld(currentStore, 25, "loader");
     if (loader) samples.push(loader);
   })) t.skip("capture not present");
@@ -53,10 +53,10 @@ test("loader transfer state exposes held item while an item is moving", (t) => {
 
 test("fabricator progress exposes clamped progress, raw progress, and crafting item", (t) => {
   const store = new WorldStore();
-  if (!applyOfficialCapture(store, "join-and-give-loader-item.jsonl")) t.skip("baseline capture not present");
+  if (!applyOfficialCapture(store, "machine-progress-loader-transfer.jsonl")) t.skip("baseline capture not present");
 
   const samples = [];
-  if (!applyOfficialCapture(store, "open-fabricator-and-craft-ship-shield-booster.jsonl", ({ store: currentStore }) => {
+  if (!applyOfficialCapture(store, "machine-progress-fabricator.jsonl", ({ store: currentStore }) => {
     const fabricator = componentInAnyWorld(currentStore, 44, "fabricator");
     if (fabricator) samples.push(fabricator);
   })) t.skip("capture not present");
@@ -72,7 +72,7 @@ test("fabricator progress exposes clamped progress, raw progress, and crafting i
 test("cargo hatch pickup animation exposes openFraction", (t) => {
   const store = new WorldStore();
   const samples = [];
-  if (!applyOfficialCapture(store, "join-ship-and-cargo-hatch-picks-up-scattershot-ammo.jsonl", ({ store: currentStore }) => {
+  if (!applyOfficialCapture(store, "machine-progress-cargo-hatch.jsonl", ({ store: currentStore }) => {
     const hatch = componentInWorld(currentStore, 13282, 52, "cargoHatch");
     if (hatch?.openFraction != null) samples.push(hatch.openFraction);
   })) t.skip("capture not present");
@@ -82,7 +82,7 @@ test("cargo hatch pickup animation exposes openFraction", (t) => {
 
 test("cargo ejector owns table 49 progress state instead of generic processor", (t) => {
   const store = new WorldStore();
-  if (!applyOfficialCapture(store, "join-ship-for-loader-samples.jsonl")) t.skip("capture not present");
+  if (!applyOfficialCapture(store, "machine-progress-loader-samples.jsonl")) t.skip("capture not present");
 
   const ejectors = [];
   for (const world of store.worlds.values()) {
