@@ -13,7 +13,7 @@ import Dredless, {
 } from "dredless/node";
 ```
 
-Normal Node flow:
+Normal Node usage:
 
 ```js
 const session = await Dredless.createAnonSession();
