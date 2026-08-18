@@ -1,5 +1,5 @@
 export {Connection} from "./game/connection.js";
-export {DredlessClient} from "./client.js";
+export {DredlessClient, WrenchMode, TurretMode} from "./client.js";
 export {WorldStore, WorldState} from "./game/world.js";
 export {ModelState, decodeModelData} from "./game/model.js";
 export {generateGeneratorMaze, solveGeneratorMazeSeed, maybeSolveGeneratorMazeSeed} from "./game/generator-maze.js";
@@ -13,7 +13,8 @@ export {
     buildUnequipItemCommand,
     equipmentSlotName,
     normalizeEquipmentSlot,
-    normalizeInventoryEvent
+    normalizeInventoryEvent,
+    EquipmentSlot
 } from "./protocol/inventory.js";
 export {
     buildBanPlayerMessage,
@@ -56,7 +57,12 @@ export {
     buildNavigationUnitConfigData,
     buildNavigationUnitPasteConfigData,
     buildPusherConfigData,
-    buildPusherFilterItemsData
+    buildPusherFilterItemsData,
+    PusherMode,
+    LoaderPosition,
+    LoaderFilterMode,
+    FixedAngleDirection,
+    LoaderPriority
 } from "./protocol/ui-config.js";
 export {decryptPayload} from "./crypto/chacha.js";
 export {decompressLz4Frame} from "./compression/lz4.js";

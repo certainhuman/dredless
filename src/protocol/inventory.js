@@ -1,40 +1,45 @@
 import {itemNameFromId} from "../game/items.js";
 
+export const EquipmentSlot = Object.freeze({
+    Head: "head",
+    Face: "face",
+    Body: "body",
+    Back: "back",
+    Hands: "hands",
+    Feet: "feet"
+});
+
 const EQUIPMENT_SLOT_INDEXES = Object.freeze({
-    head: 16,
-    face: 17,
-    body: 18,
-    back: 19,
-    hands: 20,
-    feet: 21
+    [EquipmentSlot.Head]: 16,
+    [EquipmentSlot.Face]: 17,
+    [EquipmentSlot.Body]: 18,
+    [EquipmentSlot.Back]: 19,
+    [EquipmentSlot.Hands]: 20,
+    [EquipmentSlot.Feet]: 21
 });
 
 const EQUIPMENT_SLOT_NAMES = new Map([
-    [16, "head"],
-    [17, "face"],
-    [18, "body"],
-    [19, "back"],
-    [20, "hands"],
-    [21, "feet"]
+    [16, EquipmentSlot.Head],
+    [17, EquipmentSlot.Face],
+    [18, EquipmentSlot.Body],
+    [19, EquipmentSlot.Back],
+    [20, EquipmentSlot.Hands],
+    [21, EquipmentSlot.Feet]
 ]);
 
 const EQUIPMENT_SLOT_VALUES = new Map([
-    ["head", 16],
-    ["hat", 16],
-    ["face", 17],
-    ["mask", 17],
-    ["body", 18],
-    ["back", 19],
-    ["hand", 20],
-    ["hands", 20],
-    ["feet", 21],
-    ["foot", 21]
+    [EquipmentSlot.Head, 16],
+    [EquipmentSlot.Face, 17],
+    [EquipmentSlot.Body, 18],
+    [EquipmentSlot.Back, 19],
+    [EquipmentSlot.Hands, 20],
+    [EquipmentSlot.Feet, 21]
 ]);
 
 function normalizeEquipmentSlot(slot) {
-    const normalized = typeof slot === "string" ? EQUIPMENT_SLOT_VALUES.get(slot) : Number(slot);
+    const normalized = EQUIPMENT_SLOT_VALUES.get(slot);
     if (!EQUIPMENT_SLOT_NAMES.has(normalized)) {
-        throw new RangeError(`equipment slot must be "head", "face", "body", "back", "hands", "feet", 16, 17, 18, 19, 20, or 21`);
+        throw new RangeError(`equipment slot must be an EquipmentSlot value`);
     }
     return normalized;
 }

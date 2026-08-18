@@ -8,6 +8,7 @@ import {
     buildEquipItemCommand,
     buildInventoryDragCommand,
     buildUnequipItemCommand,
+    EquipmentSlot,
     equipmentSlotName,
     normalizeEquipmentSlot,
     normalizeInventoryEvent
@@ -71,24 +72,22 @@ test("inventory drag commands are signed input command payload fields", () => {
     assert.equal(command.act2, false);
 });
 
-test("equipment slot aliases normalize to absolute inventory slot indexes", () => {
-    assert.equal(normalizeEquipmentSlot("head"), 16);
-    assert.equal(normalizeEquipmentSlot("hat"), 16);
-    assert.equal(normalizeEquipmentSlot("face"), 17);
-    assert.equal(normalizeEquipmentSlot("mask"), 17);
-    assert.equal(normalizeEquipmentSlot("body"), 18);
-    assert.equal(normalizeEquipmentSlot("back"), 19);
-    assert.equal(normalizeEquipmentSlot("hand"), 20);
-    assert.equal(normalizeEquipmentSlot("hands"), 20);
-    assert.equal(normalizeEquipmentSlot("foot"), 21);
-    assert.equal(normalizeEquipmentSlot("feet"), 21);
-    assert.equal(equipmentSlotName(16), "head");
-    assert.equal(equipmentSlotName(17), "face");
-    assert.equal(equipmentSlotName(18), "body");
-    assert.equal(equipmentSlotName(19), "back");
-    assert.equal(equipmentSlotName(20), "hands");
-    assert.equal(equipmentSlotName(21), "feet");
-    assert.throws(() => normalizeEquipmentSlot("neck"), /equipment slot/);
+test("EquipmentSlot enum values normalize to absolute inventory slot indexes", () => {
+    assert.equal(normalizeEquipmentSlot(EquipmentSlot.Head), 16);
+    assert.equal(normalizeEquipmentSlot(EquipmentSlot.Face), 17);
+    assert.equal(normalizeEquipmentSlot(EquipmentSlot.Body), 18);
+    assert.equal(normalizeEquipmentSlot(EquipmentSlot.Back), 19);
+    assert.equal(normalizeEquipmentSlot(EquipmentSlot.Hands), 20);
+    assert.equal(normalizeEquipmentSlot(EquipmentSlot.Feet), 21);
+    assert.equal(equipmentSlotName(16), EquipmentSlot.Head);
+    assert.equal(equipmentSlotName(17), EquipmentSlot.Face);
+    assert.equal(equipmentSlotName(18), EquipmentSlot.Body);
+    assert.equal(equipmentSlotName(19), EquipmentSlot.Back);
+    assert.equal(equipmentSlotName(20), EquipmentSlot.Hands);
+    assert.equal(equipmentSlotName(21), EquipmentSlot.Feet);
+    assert.throws(() => normalizeEquipmentSlot(16), /EquipmentSlot/);
+    assert.throws(() => normalizeEquipmentSlot("hat"), /EquipmentSlot/);
+    assert.throws(() => normalizeEquipmentSlot("neck"), /EquipmentSlot/);
 });
 
 test("normalizeInventoryEvent exposes normalized slots without raw protocol arrays", () => {

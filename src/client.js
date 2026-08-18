@@ -2806,17 +2806,28 @@ function inventoryHandlesForArea(domain, area = "all") {
     }
 }
 
+export const WrenchMode = Object.freeze({
+    DropAllItems: "drop-all-items",
+    GrabPrimaryItems: "grab-primary-items",
+    GrabAllItems: "grab-all-items"
+});
+
 const WRENCH_MODES = new Map([
-    [0, "drop-all-items"],
-    [1, "grab-primary-items"],
-    [2, "grab-all-items"]
+    [0, WrenchMode.DropAllItems],
+    [1, WrenchMode.GrabPrimaryItems],
+    [2, WrenchMode.GrabAllItems]
 ]);
 
 const WRENCH_MODE_VALUES = new Map([...WRENCH_MODES].map(([value, name]) => [name, value]));
 
+export const TurretMode = Object.freeze({
+    ContinuousFire: "continuous-fire",
+    VolleyFire: "volley-fire"
+});
+
 const TURRET_MODES = new Map([
-    [0, "continuous-fire"],
-    [1, "volley-fire"]
+    [0, TurretMode.ContinuousFire],
+    [1, TurretMode.VolleyFire]
 ]);
 
 const TURRET_MODE_VALUES = new Map([...TURRET_MODES].map(([value, name]) => [name, value]));
@@ -2830,7 +2841,7 @@ function turretModeName(value) {
 }
 
 function normalizeWrenchMode(value) {
-    const normalized = typeof value === "string" ? WRENCH_MODE_VALUES.get(value) : Number(value);
+    const normalized = WRENCH_MODE_VALUES.get(value);
     if (normalized == null || !WRENCH_MODES.has(normalized)) {
         throw new RangeError(`Unknown wrench mode: ${value}`);
     }
@@ -2838,7 +2849,7 @@ function normalizeWrenchMode(value) {
 }
 
 function normalizeTurretMode(value) {
-    const normalized = typeof value === "string" ? TURRET_MODE_VALUES.get(value) : Number(value);
+    const normalized = TURRET_MODE_VALUES.get(value);
     if (normalized == null || !TURRET_MODES.has(normalized)) {
         throw new RangeError(`Unknown turret mode: ${value}`);
     }

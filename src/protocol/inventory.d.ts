@@ -1,20 +1,12 @@
-export type EquipmentSlot =
-    16
-    | 17
-    | 18
-    | 19
-    | 20
-    | 21
-    | "head"
-    | "hat"
-    | "face"
-    | "mask"
-    | "body"
-    | "back"
-    | "hand"
-    | "hands"
-    | "foot"
-    | "feet";
+export const EquipmentSlot: {
+    readonly Head: "head";
+    readonly Face: "face";
+    readonly Body: "body";
+    readonly Back: "back";
+    readonly Hands: "hands";
+    readonly Feet: "feet";
+};
+export type EquipmentSlot = typeof EquipmentSlot[keyof typeof EquipmentSlot];
 
 export interface InventoryDragCommand {
     drag: {
