@@ -455,14 +455,11 @@ interface PlayerDomain {
 ### Input setting shapes
 
 ```ts
-type WrenchMode = 0 | 1 | 2
-  | "drop-all-items"
-  | "grab-primary-items"
-  | "grab-all-items";
+const WrenchMode = { DropAllItems: "drop-all-items", GrabPrimaryItems: "grab-primary-items", GrabAllItems: "grab-all-items" } as const;
+type WrenchMode = typeof WrenchMode[keyof typeof WrenchMode];
 
-type TurretMode = 0 | 1
-  | "continuous-fire"
-  | "volley-fire";
+const TurretMode = { ContinuousFire: "continuous-fire", VolleyFire: "volley-fire" } as const;
+type TurretMode = typeof TurretMode[keyof typeof TurretMode];
 
 interface InputSettings {
   wrenchMode?: WrenchMode;
@@ -490,7 +487,8 @@ Inventory read and slot movement domain.
 ```ts
 type InventoryArea = "all" | "hotbar" | "equipment";
 type InventorySlotRef = number | EquipmentSlot | InventorySlotHandle | InventorySlotSnapshot;
-type EquipmentSlot = 16 | 17 | 18 | 19 | 20 | 21 | "head" | "hat" | "face" | "mask" | "body" | "back" | "hand" | "hands" | "foot" | "feet";
+const EquipmentSlot = { Head: "head", Face: "face", Body: "body", Back: "back", Hands: "hands", Feet: "feet" } as const;
+type EquipmentSlot = typeof EquipmentSlot[keyof typeof EquipmentSlot];
 
 interface InventoryDomain {
   state(): InventoryState | null;
@@ -985,21 +983,14 @@ interface LoaderHandle extends MachineHandle {
 Config inputs:
 
 ```ts
-type LoaderPosition =
-  0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
-  "top-left" | "topLeft" | "top-middle" | "topMiddle" | "top-right" | "topRight" |
-  "middle-left" | "middleLeft" | "center-left" | "centerLeft" |
-  "middle-right" | "middleRight" | "center-right" | "centerRight" |
-  "bottom-left" | "bottomLeft" | "bottom-middle" | "bottomMiddle" | "bottom-right" | "bottomRight";
+const LoaderPosition = { TopLeft: "top-left", TopMiddle: "top-middle", TopRight: "top-right", MiddleLeft: "middle-left", MiddleRight: "middle-right", BottomLeft: "bottom-left", BottomMiddle: "bottom-middle", BottomRight: "bottom-right" } as const;
+type LoaderPosition = typeof LoaderPosition[keyof typeof LoaderPosition];
 
-type LoaderPriority = -1 | 0 | 1 | "low" | "normal" | "medium" | "high";
+const LoaderPriority = { Low: "low", Normal: "normal", High: "high" } as const;
+type LoaderPriority = typeof LoaderPriority[keyof typeof LoaderPriority];
 
-type LoaderFilterMode =
-  | 0 | 1 | 2 | 3
-  | "allow-all" | "allowAll"
-  | "block-filter" | "blockFilter"
-  | "allow-filter" | "allowFilter"
-  | "block-all" | "blockAll";
+const LoaderFilterMode = { AllowAll: "allow-all", BlockFilter: "block-filter", AllowFilter: "allow-filter", BlockAll: "block-all" } as const;
+type LoaderFilterMode = typeof LoaderFilterMode[keyof typeof LoaderFilterMode];
 
 interface LoaderConfig {
   pick?: LoaderPosition;
@@ -1071,7 +1062,8 @@ interface PusherHandle extends MachineHandle {
 Config input:
 
 ```ts
-type PusherMode = 0 | 1 | 2 | "push" | "pull" | "do-nothing" | "doNothing" | "none";
+const PusherMode = { Push: "push", Pull: "pull", DoNothing: "do-nothing" } as const;
+type PusherMode = typeof PusherMode[keyof typeof PusherMode];
 
 interface PusherConfig {
   mode?: PusherMode;
@@ -2232,7 +2224,8 @@ type ClipboardTarget =
   | "navigation" | "navigation-unit" | "navigationUnit"
   | "nav" | "nav-unit" | "navUnit";
 
-type FixedAngleDirection = 0 | 1 | 2 | 3 | "right" | "up" | "left" | "down";
+const FixedAngleDirection = { Right: "right", Up: "up", Left: "left", Down: "down" } as const;
+type FixedAngleDirection = typeof FixedAngleDirection[keyof typeof FixedAngleDirection];
 ```
 
 ### Generator maze helpers

@@ -21,6 +21,43 @@ const LOADER_FALSE = 0x8e;
 const UI_COMMAND_END = 0x91;
 const CLIPBOARD_ACTION = 1;
 
+export const PusherMode = Object.freeze({
+    Push: "push",
+    Pull: "pull",
+    DoNothing: "do-nothing"
+});
+
+export const LoaderPosition = Object.freeze({
+    TopLeft: "top-left",
+    TopMiddle: "top-middle",
+    TopRight: "top-right",
+    MiddleLeft: "middle-left",
+    MiddleRight: "middle-right",
+    BottomLeft: "bottom-left",
+    BottomMiddle: "bottom-middle",
+    BottomRight: "bottom-right"
+});
+
+export const LoaderFilterMode = Object.freeze({
+    AllowAll: "allow-all",
+    BlockFilter: "block-filter",
+    AllowFilter: "allow-filter",
+    BlockAll: "block-all"
+});
+
+export const FixedAngleDirection = Object.freeze({
+    Right: "right",
+    Up: "up",
+    Left: "left",
+    Down: "down"
+});
+
+export const LoaderPriority = Object.freeze({
+    Low: "low",
+    Normal: "normal",
+    High: "high"
+});
+
 function requireByteInteger(value, name) {
     const number = Number(value);
     if (!Number.isInteger(number) || number < 0 || number > 255) {
@@ -48,33 +85,33 @@ function navWarpByte(value) {
 }
 
 function requirePusherMode(value, name) {
-    const number = typeof value === "string" ? PUSHER_MODE_VALUES.get(value) : Number(value);
+    const number = PUSHER_MODE_VALUES.get(value);
     if (number == null || !Number.isInteger(number) || number < 0 || number > 2) {
-        throw new RangeError(`${name} must be 0, 1, 2, "push", "pull", or "do-nothing"`);
+        throw new RangeError(`${name} must be PusherMode.Push, PusherMode.Pull, or PusherMode.DoNothing`);
     }
     return number;
 }
 
 function requireLoaderPosition(value, name) {
-    const number = typeof value === "string" ? LOADER_POSITION_VALUES.get(value) : Number(value);
+    const number = LOADER_POSITION_VALUES.get(value);
     if (number == null || !Number.isInteger(number) || number < 0 || number > 7) {
-        throw new RangeError(`${name} must be a loader position 0..7 or position name`);
+        throw new RangeError(`${name} must be a LoaderPosition value`);
     }
     return number;
 }
 
 function requireLoaderPriority(value, name) {
-    const number = typeof value === "string" ? LOADER_PRIORITY_VALUES.get(value) : Number(value);
+    const number = LOADER_PRIORITY_VALUES.get(value);
     if (number == null || !Number.isInteger(number) || number < -1 || number > 1) {
-        throw new RangeError(`${name} must be -1, 0, 1, "low", "normal", or "high"`);
+        throw new RangeError(`${name} must be a LoaderPriority value`);
     }
     return number + 1;
 }
 
 function requireLoaderFilterMode(value, name) {
-    const number = typeof value === "string" ? LOADER_FILTER_MODE_VALUES.get(value) : Number(value);
+    const number = LOADER_FILTER_MODE_VALUES.get(value);
     if (number == null || !Number.isInteger(number) || number < 0 || number > 3) {
-        throw new RangeError(`${name} must be 0..3 or a loader filter mode name`);
+        throw new RangeError(`${name} must be a LoaderFilterMode value`);
     }
     return number;
 }
@@ -104,10 +141,10 @@ const CLIPBOARD_TARGET_VALUES = new Map([
 ]);
 
 const FIXED_ANGLE_VALUES = new Map([
-    ["right", 0],
-    ["up", 1],
-    ["left", 2],
-    ["down", 3]
+    [FixedAngleDirection.Right, 0],
+    [FixedAngleDirection.Up, 1],
+    [FixedAngleDirection.Left, 2],
+    [FixedAngleDirection.Down, 3]
 ]);
 
 function requireClipboardTarget(value, name = "target") {
@@ -119,9 +156,9 @@ function requireClipboardTarget(value, name = "target") {
 }
 
 function requireFixedAngle(value, name = "direction") {
-    const number = typeof value === "string" ? FIXED_ANGLE_VALUES.get(value) : Number(value);
+    const number = FIXED_ANGLE_VALUES.get(value);
     if (number == null || !Number.isInteger(number) || number < 0 || number > 3) {
-        throw new RangeError(`${name} must be 0..3 or "right", "up", "left", or "down"`);
+        throw new RangeError(`${name} must be a FixedAngleDirection value`);
     }
     return number;
 }
@@ -209,9 +246,9 @@ function encodeUiCommandHeader(entity, commandName) {
 }
 
 function encodeLoaderConfigPayload({
-                                       pick = 0,
-                                       place = 2,
-                                       priority = 0,
+                                       pick = LoaderPosition.TopLeft,
+                                       place = LoaderPosition.TopRight,
+                                       priority = LoaderPriority.Normal,
                                        stack = 16,
                                        cycle = 1,
                                        requireOutput = false,
@@ -229,7 +266,7 @@ function encodeLoaderConfigPayload({
     ];
 }
 
-function encodeLoaderFilterConfigPayload(filterMode = 0) {
+function encodeLoaderFilterConfigPayload(filterMode = LoaderFilterMode.AllowAll) {
     return [
         NAV_UNIT_HEADER_TAG,
         requireLoaderFilterMode(filterMode, "filterMode")
@@ -324,9 +361,9 @@ export function buildPusherFilterItemsData(entity, filterSlots = []) {
 }
 
 export function buildLoaderConfigData(entity, {
-    pick = 0,
-    place = 2,
-    priority = 0,
+    pick = LoaderPosition.TopLeft,
+    place = LoaderPosition.TopRight,
+    priority = LoaderPriority.Normal,
     stack = 16,
     cycle = 1,
     requireOutput = false,
@@ -339,7 +376,7 @@ export function buildLoaderConfigData(entity, {
     ]);
 }
 
-export function buildLoaderFilterConfigData(entity, filterMode = 0) {
+export function buildLoaderFilterConfigData(entity, filterMode = LoaderFilterMode.AllowAll) {
     return Uint8Array.from([
         ...encodeUiCommandHeader(entity, LOADER_FILTER_CONFIG_COMMAND),
         ...encodeLoaderFilterConfigPayload(filterMode),
@@ -355,7 +392,7 @@ export function buildLoaderFilterItemsData(entity, filterSlots = []) {
     ]);
 }
 
-export function buildCargoHatchFilterConfigData(entity, filterMode = 0) {
+export function buildCargoHatchFilterConfigData(entity, filterMode = LoaderFilterMode.AllowAll) {
     return buildLoaderFilterConfigData(entity, filterMode);
 }
 
@@ -364,7 +401,7 @@ export function buildCargoHatchFilterItemsData(entity, filterSlots = []) {
 }
 
 function buildLoaderFullConfigPayload(entity, action, {
-    filterMode = 0,
+    filterMode = LoaderFilterMode.AllowAll,
     filterSlots = [],
     ...config
 } = {}) {
@@ -511,50 +548,31 @@ export {
 };
 
 const PUSHER_MODE_VALUES = new Map([
-    ["push", 0],
-    ["pull", 1],
-    ["do-nothing", 2],
-    ["doNothing", 2],
-    ["none", 2]
+    [PusherMode.Push, 0],
+    [PusherMode.Pull, 1],
+    [PusherMode.DoNothing, 2]
 ]);
 
 const LOADER_POSITION_VALUES = new Map([
-    ["top-left", 0],
-    ["topLeft", 0],
-    ["top-middle", 1],
-    ["topMiddle", 1],
-    ["top-right", 2],
-    ["topRight", 2],
-    ["middle-left", 3],
-    ["middleLeft", 3],
-    ["center-left", 3],
-    ["centerLeft", 3],
-    ["middle-right", 4],
-    ["middleRight", 4],
-    ["center-right", 4],
-    ["centerRight", 4],
-    ["bottom-left", 5],
-    ["bottomLeft", 5],
-    ["bottom-middle", 6],
-    ["bottomMiddle", 6],
-    ["bottom-right", 7],
-    ["bottomRight", 7]
+    [LoaderPosition.TopLeft, 0],
+    [LoaderPosition.TopMiddle, 1],
+    [LoaderPosition.TopRight, 2],
+    [LoaderPosition.MiddleLeft, 3],
+    [LoaderPosition.MiddleRight, 4],
+    [LoaderPosition.BottomLeft, 5],
+    [LoaderPosition.BottomMiddle, 6],
+    [LoaderPosition.BottomRight, 7]
 ]);
 
 const LOADER_PRIORITY_VALUES = new Map([
-    ["low", -1],
-    ["normal", 0],
-    ["medium", 0],
-    ["high", 1]
+    [LoaderPriority.Low, -1],
+    [LoaderPriority.Normal, 0],
+    [LoaderPriority.High, 1]
 ]);
 
 const LOADER_FILTER_MODE_VALUES = new Map([
-    ["allow-all", 0],
-    ["allowAll", 0],
-    ["block-filter", 1],
-    ["blockFilter", 1],
-    ["allow-filter", 2],
-    ["allowFilter", 2],
-    ["block-all", 3],
-    ["blockAll", 3]
+    [LoaderFilterMode.AllowAll, 0],
+    [LoaderFilterMode.BlockFilter, 1],
+    [LoaderFilterMode.AllowFilter, 2],
+    [LoaderFilterMode.BlockAll, 3]
 ]);

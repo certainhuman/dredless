@@ -42,23 +42,15 @@ export const SignDisplayMode: {
     readonly OnHover: "on-hover";
 };
 export type SignDisplayMode = typeof SignDisplayMode[keyof typeof SignDisplayMode];
-export type EquipmentSlot =
-    16
-    | 17
-    | 18
-    | 19
-    | 20
-    | 21
-    | "head"
-    | "hat"
-    | "face"
-    | "mask"
-    | "body"
-    | "back"
-    | "hand"
-    | "hands"
-    | "foot"
-    | "feet";
+export const EquipmentSlot: {
+    readonly Head: "head";
+    readonly Face: "face";
+    readonly Body: "body";
+    readonly Back: "back";
+    readonly Hands: "hands";
+    readonly Feet: "feet";
+};
+export type EquipmentSlot = typeof EquipmentSlot[keyof typeof EquipmentSlot];
 export type InventoryArea = "all" | "hotbar" | "equipment";
 export type InventorySlotRef = number | EquipmentSlot | InventorySlotHandle | InventorySlotSnapshot;
 export type ReadWorldScope = "ship" | "current" | "overworld" | number;
@@ -216,27 +208,36 @@ export interface InventoryDragCommand {
     };
 }
 
-export type PusherMode = 0 | 1 | 2 | "push" | "pull" | "do-nothing" | "doNothing" | "none";
-export type LoaderPosition =
-    0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
-    "top-left" | "topLeft" | "top-middle" | "topMiddle" | "top-right" | "topRight" |
-    "middle-left" | "middleLeft" | "center-left" | "centerLeft" |
-    "middle-right" | "middleRight" | "center-right" | "centerRight" |
-    "bottom-left" | "bottomLeft" | "bottom-middle" | "bottomMiddle" | "bottom-right" | "bottomRight";
-export type LoaderPriority = -1 | 0 | 1 | "low" | "normal" | "medium" | "high";
-export type LoaderFilterMode =
-    0
-    | 1
-    | 2
-    | 3
-    | "allow-all"
-    | "allowAll"
-    | "block-filter"
-    | "blockFilter"
-    | "allow-filter"
-    | "allowFilter"
-    | "block-all"
-    | "blockAll";
+export const PusherMode: {
+    readonly Push: "push";
+    readonly Pull: "pull";
+    readonly DoNothing: "do-nothing";
+};
+export type PusherMode = typeof PusherMode[keyof typeof PusherMode];
+export const LoaderPosition: {
+    readonly TopLeft: "top-left";
+    readonly TopMiddle: "top-middle";
+    readonly TopRight: "top-right";
+    readonly MiddleLeft: "middle-left";
+    readonly MiddleRight: "middle-right";
+    readonly BottomLeft: "bottom-left";
+    readonly BottomMiddle: "bottom-middle";
+    readonly BottomRight: "bottom-right";
+};
+export type LoaderPosition = typeof LoaderPosition[keyof typeof LoaderPosition];
+export const LoaderFilterMode: {
+    readonly AllowAll: "allow-all";
+    readonly BlockFilter: "block-filter";
+    readonly AllowFilter: "allow-filter";
+    readonly BlockAll: "block-all";
+};
+export type LoaderFilterMode = typeof LoaderFilterMode[keyof typeof LoaderFilterMode];
+export const LoaderPriority: {
+    readonly Low: "low";
+    readonly Normal: "normal";
+    readonly High: "high";
+};
+export type LoaderPriority = typeof LoaderPriority[keyof typeof LoaderPriority];
 export type ClipboardTarget =
     number
     | "loader"
@@ -260,7 +261,13 @@ export type ClipboardTarget =
     | "nav"
     | "nav-unit"
     | "navUnit";
-export type FixedAngleDirection = 0 | 1 | 2 | 3 | "right" | "up" | "left" | "down";
+export const FixedAngleDirection: {
+    readonly Right: "right";
+    readonly Up: "up";
+    readonly Left: "left";
+    readonly Down: "down";
+};
+export type FixedAngleDirection = typeof FixedAngleDirection[keyof typeof FixedAngleDirection];
 
 export interface PusherConfig {
     mode?: PusherMode;
@@ -1205,8 +1212,17 @@ export interface NavigationUnitConfig {
     autoWarpOnNoCaptains?: boolean;
 }
 
-export type WrenchMode = 0 | 1 | 2 | "drop-all-items" | "grab-primary-items" | "grab-all-items";
-export type TurretMode = 0 | 1 | "continuous-fire" | "volley-fire";
+export const WrenchMode: {
+    readonly DropAllItems: "drop-all-items";
+    readonly GrabPrimaryItems: "grab-primary-items";
+    readonly GrabAllItems: "grab-all-items";
+};
+export type WrenchMode = typeof WrenchMode[keyof typeof WrenchMode];
+export const TurretMode: {
+    readonly ContinuousFire: "continuous-fire";
+    readonly VolleyFire: "volley-fire";
+};
+export type TurretMode = typeof TurretMode[keyof typeof TurretMode];
 
 export interface InputSettings {
     wrenchMode?: WrenchMode;
@@ -1218,8 +1234,8 @@ export interface InputSettings {
 }
 
 export interface CurrentInputSettings {
-    wrenchMode: "drop-all-items" | "grab-primary-items" | "grab-all-items" | null;
-    turretMode: "continuous-fire" | "volley-fire" | null;
+    wrenchMode: WrenchMode | null;
+    turretMode: TurretMode | null;
     viewWidth: number | null;
     viewHeight: number | null;
     screenWidth: number | null;

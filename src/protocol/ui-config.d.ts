@@ -6,27 +6,36 @@ export interface NavigationUnitConfig {
     autoWarpOnNoCaptains?: boolean;
 }
 
-export type PusherMode = 0 | 1 | 2 | "push" | "pull" | "do-nothing" | "doNothing" | "none";
-export type LoaderPosition =
-    0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
-    "top-left" | "topLeft" | "top-middle" | "topMiddle" | "top-right" | "topRight" |
-    "middle-left" | "middleLeft" | "center-left" | "centerLeft" |
-    "middle-right" | "middleRight" | "center-right" | "centerRight" |
-    "bottom-left" | "bottomLeft" | "bottom-middle" | "bottomMiddle" | "bottom-right" | "bottomRight";
-export type LoaderPriority = -1 | 0 | 1 | "low" | "normal" | "medium" | "high";
-export type LoaderFilterMode =
-    0
-    | 1
-    | 2
-    | 3
-    | "allow-all"
-    | "allowAll"
-    | "block-filter"
-    | "blockFilter"
-    | "allow-filter"
-    | "allowFilter"
-    | "block-all"
-    | "blockAll";
+export const PusherMode: {
+    readonly Push: "push";
+    readonly Pull: "pull";
+    readonly DoNothing: "do-nothing";
+};
+export type PusherMode = typeof PusherMode[keyof typeof PusherMode];
+export const LoaderPosition: {
+    readonly TopLeft: "top-left";
+    readonly TopMiddle: "top-middle";
+    readonly TopRight: "top-right";
+    readonly MiddleLeft: "middle-left";
+    readonly MiddleRight: "middle-right";
+    readonly BottomLeft: "bottom-left";
+    readonly BottomMiddle: "bottom-middle";
+    readonly BottomRight: "bottom-right";
+};
+export type LoaderPosition = typeof LoaderPosition[keyof typeof LoaderPosition];
+export const LoaderFilterMode: {
+    readonly AllowAll: "allow-all";
+    readonly BlockFilter: "block-filter";
+    readonly AllowFilter: "allow-filter";
+    readonly BlockAll: "block-all";
+};
+export type LoaderFilterMode = typeof LoaderFilterMode[keyof typeof LoaderFilterMode];
+export const LoaderPriority: {
+    readonly Low: "low";
+    readonly Normal: "normal";
+    readonly High: "high";
+};
+export type LoaderPriority = typeof LoaderPriority[keyof typeof LoaderPriority];
 export type ClipboardTarget =
     number
     | "loader"
@@ -50,7 +59,13 @@ export type ClipboardTarget =
     | "nav"
     | "nav-unit"
     | "navUnit";
-export type FixedAngleDirection = 0 | 1 | 2 | 3 | "right" | "up" | "left" | "down";
+export const FixedAngleDirection: {
+    readonly Right: "right";
+    readonly Up: "up";
+    readonly Left: "left";
+    readonly Down: "down";
+};
+export type FixedAngleDirection = typeof FixedAngleDirection[keyof typeof FixedAngleDirection];
 
 export interface PusherConfig {
     mode?: PusherMode;
@@ -128,7 +143,7 @@ export const CLIPBOARD_ACTION: 1;
 export const CLIPBOARD_ANGLE_COMMAND: "angle";
 export const CLIPBOARD_FIXED_ANGLE_COMMAND: "angle_fixed";
 export const CLIPBOARD_TARGET_VALUES: Map<string, number>;
-export const FIXED_ANGLE_VALUES: Map<string, 0 | 1 | 2 | 3>;
+export const FIXED_ANGLE_VALUES: Map<FixedAngleDirection, 0 | 1 | 2 | 3>;
 export const GENERATOR_MAZE_PUZZLE_COMMAND: "maze_puzzle";
 export const LOADER_CONFIG_COMMAND: "config_loader";
 export const LOADER_FALSE: 0x8e;
