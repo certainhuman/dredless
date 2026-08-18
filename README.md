@@ -1,6 +1,6 @@
 # dredless
 
-A headless Javascript implementation of `drednot.io`'s client protocol.
+A headless pure Javascript implementation (with type annotations) of `drednot.io`'s client protocol.
 
 ## Quick Start
 
