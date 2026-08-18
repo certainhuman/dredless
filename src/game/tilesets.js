@@ -2,7 +2,7 @@ import {
     OFFICIAL_CLIENT_OVERWORLD_MATERIAL_NAMES,
     OFFICIAL_CLIENT_SUBWORLD_MATERIAL_NAMES,
     OFFICIAL_CLIENT_TILESETS
-} from "./official-client-data.js";
+} from "../data/official-client-data.js";
 
 function cloneFilter(filter) {
     if (!filter) return null;
