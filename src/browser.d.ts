@@ -35,6 +35,7 @@ export {
     normalizePlayerRank,
     normalizePrivacy,
     normalizeShipConfig,
+    SignDisplayMode,
     buildSignTextMessage,
     normalizeSignDisplayMode,
     signDisplayModeName,

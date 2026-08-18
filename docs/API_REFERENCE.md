@@ -1237,15 +1237,8 @@ interface SignHandle extends MachineHandle {
   mode: number | undefined;
 }
 
-type SignDisplayMode =
-  | 0 | 1 | 2
-  | "always"
-  | "when-near"
-  | "whenNear"
-  | "near"
-  | "on-hover"
-  | "onHover"
-  | "hover";
+const SignDisplayMode = { Always: "always", WhenNear: "when-near", OnHover: "on-hover" } as const;
+type SignDisplayMode = typeof SignDisplayMode[keyof typeof SignDisplayMode];
 
 interface SignSummary {
   entity: number;
@@ -2142,7 +2135,7 @@ Module: `dredless/protocol/sign` or root.
 ```ts
 function buildSignTextMessage(text?: string, mode?: SignDisplayMode): SignTextMessage;
 function normalizeSignDisplayMode(mode?: SignDisplayMode): 0 | 1 | 2;
-function signDisplayModeName(mode: number): "always" | "when-near" | "on-hover" | null;
+function signDisplayModeName(mode: number): SignDisplayMode | null;
 ```
 
 Output:

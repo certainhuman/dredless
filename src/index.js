@@ -37,6 +37,7 @@ export {
     normalizeShipConfig
 } from "./protocol/ship-management.js";
 export {
+    SignDisplayMode,
     buildSignTextMessage,
     normalizeSignDisplayMode,
     signDisplayModeName

@@ -36,17 +36,12 @@ export type ShipRef = number | string | Ship | ShipSpec | null;
 export type ShipPrivacy = 0 | 1 | boolean | "public" | "private";
 export type ShipPlayerRank = 0 | 1 | 3 | "guest" | "crew" | "captain";
 export type PlayerShipRank = "guest" | "crew" | "crew-invite-pending-deprecated" | "captain" | "banned";
-export type SignDisplayMode =
-    0
-    | 1
-    | 2
-    | "always"
-    | "when-near"
-    | "whenNear"
-    | "near"
-    | "on-hover"
-    | "onHover"
-    | "hover";
+export const SignDisplayMode: {
+    readonly Always: "always";
+    readonly WhenNear: "when-near";
+    readonly OnHover: "on-hover";
+};
+export type SignDisplayMode = typeof SignDisplayMode[keyof typeof SignDisplayMode];
 export type EquipmentSlot =
     16
     | 17
@@ -2139,7 +2134,7 @@ export function buildSignTextMessage(text?: string, mode?: SignDisplayMode): Sig
 
 export function normalizeSignDisplayMode(mode?: SignDisplayMode): 0 | 1 | 2;
 
-export function signDisplayModeName(mode: number): "always" | "when-near" | "on-hover" | null;
+export function signDisplayModeName(mode: number): SignDisplayMode | null;
 
 export function buildNavigationUnitConfigData(entity: number, config: NavigationUnitConfig & {
     destination: number
