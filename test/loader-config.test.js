@@ -122,7 +122,7 @@ function reviveLogValue(value) {
 }
 
 function captureUrl(name) {
-  return new URL(`./fixtures/captures/${name}`, import.meta.url);
+  return new URL(`./fixtures/${name}`, import.meta.url);
 }
 
 function replayCapture(name) {

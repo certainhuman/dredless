@@ -39,7 +39,7 @@ const ships = await Dredless.fetchShips(servers[0]);
 const client = await Dredless.startShip(servers[0], ships[0]);
 ```
 
-The browser entrypoint uses the current browser cookie jar with `credentials: "include"`. It does not expose Node's explicit multi-session cookie API. Browser `createAnonSession()```and `fetchAnonKey()```are tested in page and content-script contexts; background, popup, worker, and other non-page contexts are unlikely to expose `drednot.io```cookies.
+The browser entrypoint uses the current browser cookie jar with `credentials: "include"`. It does not expose Node's explicit multi-session cookie API. Browser `createAnonSession()`and `fetchAnonKey()`are tested in page and content-script contexts; background, popup, worker, and other non-page contexts are unlikely to expose `drednot.io`cookies.
 
 ## API Docs
 
@@ -60,13 +60,13 @@ import Dredless, {
 import BrowserDredless, { BrowserSession } from "dredless/browser";
 ```
 
-- `Session```stores `game_session`, notice/version state, and authenticated HTTP helpers.
-- `AnonSession```extends `Session```with `anon_key`.
-- `Connection```stores the result of `/join`: session, `game_token`, net port, and server id.
-- `DredlessClient```is the live WebSocket client that sends commands and processes packets.
-- `WorldStore```/ `WorldState```keep decoded world metadata, normalized tiles, material counts, the world tileset, model packets, and best-effort ECS model tables, plus derived entity and block occupancy summaries for ship and overworld worlds.
-- `Dredless```from `dredless/node```is the explicit multi-session Node namespace.
-- `Dredless```from `dredless/browser```assumes the current browser session/cookies.
+- `Session`stores `game_session`, notice/version state, and authenticated HTTP helpers.
+- `AnonSession`extends `Session`with `anon_key`.
+- `Connection`stores the result of `/join`: session, `game_token`, net port, and server id.
+- `DredlessClient`is the live WebSocket client that sends commands and processes packets.
+- `WorldStore`/ `WorldState`keep decoded world metadata, normalized tiles, material counts, the world tileset, model packets, and best-effort ECS model tables, plus derived entity and block occupancy summaries for ship and overworld worlds.
+- `Dredless`from `dredless/node`is the explicit multi-session Node namespace.
+- `Dredless`from `dredless/browser`assumes the current browser session/cookies.
 
 ## Sessions
 
@@ -86,7 +86,7 @@ const anonToken = await Dredless.createAnonToken(17, "https://test.drednot.io");
 ```
 
 If notice version is omitted, session factories try to scrape it and internally fall back to `17`.
-Direct `Dredless.fetchNoticeVersion()```throws when scraping fails.
+Direct `Dredless.fetchNoticeVersion()`throws when scraping fails.
 
 ## Data Fetching
 
@@ -103,8 +103,8 @@ const ships2 = await session.fetchShips(servers[0]);
 const shipList2 = await session.fetchShipList(1);
 ```
 
-`fetchShips()```returns normalized ships only.
-`fetchShipList()```returns the full response body with ```ships: Ship[]```normalized.
+`fetchShips()`returns normalized ships only.
+`fetchShipList()`returns the full response body with `ships: Ship[]`normalized.
 
 ## Connections And Clients
 
@@ -116,7 +116,7 @@ const client = new DredlessClient(connection);
 await client.whenReady();
 ```
 
-Use `{ connect: false }```only when you want a no-I/O client shell for tests or
+Use `{ connect: false }`only when you want a no-I/O client shell for tests or
 offline world-state inspection:
 
 ```js
@@ -166,26 +166,25 @@ console.log(client.management.config()?.inviteKey);
 
 ## Live Watch Script
 
-`````sh
+```sh
 npm run watch
 npm run watch:test
 ```
 
-`watch.js```joins the first owned ship, or creates an unnamed ship when none is
+`watch.js` joins the first owned ship, or creates an unnamed ship when none is
 available, and redraws known websocket state until Ctrl+C. Optional environment
 variables: `DRED_BASE_URL`, `DRED_TEST_SERVER=1`, `DRED_ANON_KEY`,
 `DRED_SERVER`, `DRED_SHIP`, `DRED_REFRESH_MS`, `DRED_LINES`, `DRED_COLUMNS`,
 `DRED_ALT_SCREEN=0`, `DRED_LOG_FILE=captures/watch.jsonl`, `DRED_LOG_APPEND=1`,
 and `DRED_LOG_PACKETS=1`.
-Use `DRED_ALT_SCREEN=0```to draw in the current terminal buffer instead of the
-alternate screen. Pass `--test```or run `npm run watch:test```to use
+Use `DRED_ALT_SCREEN=0` to draw in the current terminal buffer instead of the
+alternate screen. Pass `--test` or run `npm run watch:test` to use
 `https://test.drednot.io`. The script writes JSON-lines diagnostics to
-`captures/watch.jsonl```by default; set `DRED_LOG_FILE=0```to disable logging,
-pass `--log FILE```to choose another output path, or pass `--append```to append
+`captures/watch.jsonl` by default; set `DRED_LOG_FILE=0`to disable logging,
+pass `--log FILE` to choose another output path, or pass `--append` to append
 instead of overwriting the log at startup. Bare log filenames are written under
-`captures/`. Pass `--log-packets```to include full packet bodies. The dashboard includes initial
+`captures/`. Pass `--log-packets` to include full packet bodies. The dashboard includes initial
 model state decoded from the websocket full snapshot, including entity package
 ids, fabricator rows, storage holders, loose items, fluid tanks, shield
 generator charge/efficiency/boost state, cannon ammo/aim/barrel recoil/spin/cooling state, shield projectors, doors, signs, spawn points, and
 normalized pusher/loader configuration.
-

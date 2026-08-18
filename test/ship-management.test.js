@@ -25,7 +25,7 @@ function hex(value) {
 }
 
 function officialCaptureUrl(name) {
-  return new URL(`../captures/official-client/${name}`, import.meta.url);
+  return new URL(`./fixtures/${name}`, import.meta.url);
 }
 
 function replayOfficialCapture(name, onPacket = null) {
@@ -117,12 +117,12 @@ test("build crew-management messages match official client captures", () => {
 
 test("ship lockdown countdown is decoded from official model metadata capture", (t) => {
   const values = [];
-  const store = replayOfficialCapture("lockdown-counting-down-to-25.jsonl", ({ store }) => {
+  const store = replayOfficialCapture("ship-management-lockdown-countdown.jsonl", ({ store }) => {
     const value = store.shipWorld()?.model.shipMetadata()?.lockdownCountdownSeconds;
     if (value != null && values.at(-1) !== value) values.push(value);
   });
   if (!store) {
-    t.skip("captures/official-client/lockdown-counting-down-to-25.jsonl is not present");
+    t.skip("test/fixtures/ship-management-lockdown-countdown.jsonl is not present");
     return;
   }
 
@@ -140,8 +140,8 @@ test("ship lockdown countdown is decoded from official model metadata capture", 
 });
 
 test("ship lockdown metadata decodes owner counts from official captures", (t) => {
-  const ownerOffline = replayOfficialCapture("joining-ship-with-owner-offline.jsonl");
-  const oneOfTwoOnline = replayOfficialCapture("joining-ship-with-1-of-2-co-owners-online.jsonl");
+  const ownerOffline = replayOfficialCapture("ship-management-owner-offline.jsonl");
+  const oneOfTwoOnline = replayOfficialCapture("ship-management-co-owner-count.jsonl");
   if (!ownerOffline || !oneOfTwoOnline) {
     t.skip("official owner-lockdown captures are not present");
     return;

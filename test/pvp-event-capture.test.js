@@ -5,10 +5,10 @@ import test from "node:test";
 import { WorldStore } from "../src/game/world.js";
 import { decodeMsgpack } from "../src/protocol/msgpack.js";
 
-const capture = new URL("../captures/official-client/pvp-event.jsonl", import.meta.url);
+const capture = new URL("./fixtures/pvp-event.jsonl", import.meta.url);
 
 test("pvp event capture replays without frame or model decode errors", (t) => {
-  if (!fs.existsSync(capture)) t.skip("captures/official-client/pvp-event.jsonl is not present");
+  if (!fs.existsSync(capture)) t.skip("test/fixtures/pvp-event.jsonl is not present");
 
   const store = new WorldStore();
   const errors = [];
