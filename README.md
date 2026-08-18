@@ -1,6 +1,6 @@
 # dredless
 
-Object-oriented headless client primitives for `drednot.io`.
+A headless Javascript client implementation of `drednot.io`'s client protocol.
 
 ## Quick Start
 
