@@ -8,7 +8,7 @@ Use this entrypoint in browser contexts:
 import Dredless, { BrowserSession } from "dredless/browser";
 ```
 
-Normal browser flow:
+Normal browser usage:
 
 ```js
 const session = await Dredless.createAnonSession();
