@@ -31,7 +31,7 @@ export {
     normalizePrivacy,
     normalizeShipConfig
 } from "./protocol/ship-management.js";
-export {buildSignTextMessage, normalizeSignDisplayMode, signDisplayModeName} from "./protocol/sign.js";
+export {SignDisplayMode, buildSignTextMessage, normalizeSignDisplayMode, signDisplayModeName} from "./protocol/sign.js";
 export {
     buildCargoEjectorClipboardDirectionData,
     buildCargoEjectorCopyConfigData,

@@ -7,7 +7,7 @@ Object-oriented headless client primitives for `drednot.io`.
 Node (multi-session) usage:
 
 ```js
-import Dredless from "dredless/node";
+import Dredless, {SignDisplayMode} from "dredless/node";
 
 const servers = await Dredless.fetchServers();
 const client = await Dredless.startNewShip(servers[0], "bot", "#de9797");
@@ -22,7 +22,7 @@ loader?.configure({ cycle: 5, stack: 12 });
 
 const sign = ship?.machines.signs()[0];
 sign?.open();
-sign?.setText("Dock here", "when-near");
+sign?.setText("Dock here", SignDisplayMode.WhenNear);
 
 client.on("inventory", () => console.log(client.inventory.hotbarSlots().map((slot) => slot.snapshot())));
 client.on("model", ({ world }) => console.log(world.model.transforms()));
