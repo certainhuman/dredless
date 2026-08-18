@@ -1,1 +1,1 @@
-export { DredlessClient } from "./index.js";
+export {DredlessClient} from "./index.js";

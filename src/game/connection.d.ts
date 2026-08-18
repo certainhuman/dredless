@@ -1,1 +1,1 @@
-export { Connection } from "../index.js";
+export {Connection} from "../index.js";

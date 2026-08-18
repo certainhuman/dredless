@@ -1,146 +1,134 @@
 {
-  "name": "dredless",
-  "version": "0.2.0",
-  "description": "A from-scratch simple headless drednot.io client.",
-  "type": "module",
-  "main": "src/index.js",
-  "types": "./src/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./src/index.d.ts",
-      "browser": "./src/browser.js",
-      "node": "./src/node.js",
-      "import": "./src/index.js",
-      "default": "./src/index.js"
-    },
-    "./browser": {
-      "types": "./src/browser.d.ts",
-      "import": "./src/browser.js",
-      "default": "./src/browser.js"
-    },
-    "./node": {
-      "types": "./src/node.d.ts",
-      "import": "./src/node.js",
-      "default": "./src/node.js"
-    },
-    "./client": {
-      "types": "./src/client.d.ts",
-      "import": "./src/client.js",
-      "default": "./src/client.js"
-    },
-    "./session": {
-      "types": "./src/net/session.d.ts",
-      "import": "./src/net/session.js",
-      "default": "./src/net/session.js"
-    },
-    "./servers": {
-      "types": "./src/net/servers.d.ts",
-      "import": "./src/net/servers.js",
-      "default": "./src/net/servers.js"
-    },
-    "./ships": {
-      "types": "./src/game/ships.d.ts",
-      "import": "./src/game/ships.js",
-      "default": "./src/game/ships.js"
-    },
-    "./connection": {
-      "types": "./src/game/connection.d.ts",
-      "import": "./src/game/connection.js",
-      "default": "./src/game/connection.js"
-    },
-    "./world": {
-      "types": "./src/game/world.d.ts",
-      "import": "./src/game/world.js",
-      "default": "./src/game/world.js"
-    },
-    "./model": {
-      "types": "./src/game/model.d.ts",
-      "import": "./src/game/model.js",
-      "default": "./src/game/model.js"
-    },
-    "./game/generator-maze": {
-      "types": "./src/game/generator-maze.d.ts",
-      "import": "./src/game/generator-maze.js",
-      "default": "./src/game/generator-maze.js"
-    },
-    "./game/model": {
-      "types": "./src/game/model.d.ts",
-      "import": "./src/game/model.js",
-      "default": "./src/game/model.js"
-    },
-    "./protocol/msgpack": {
-      "types": "./src/protocol/msgpack.d.ts",
-      "import": "./src/protocol/msgpack.js",
-      "default": "./src/protocol/msgpack.js"
-    },
-    "./protocol/blueprint": {
-      "types": "./src/protocol/blueprint.d.ts",
-      "import": "./src/protocol/blueprint.js",
-      "default": "./src/protocol/blueprint.js"
-    },
-    "./protocol/comms": {
-      "types": "./src/protocol/comms.d.ts",
-      "import": "./src/protocol/comms.js",
-      "default": "./src/protocol/comms.js"
-    },
-    "./protocol/commands": {
-      "types": "./src/protocol/commands.d.ts",
-      "import": "./src/protocol/commands.js",
-      "default": "./src/protocol/commands.js"
-    },
-    "./protocol/inventory": {
-      "types": "./src/protocol/inventory.d.ts",
-      "import": "./src/protocol/inventory.js",
-      "default": "./src/protocol/inventory.js"
-    },
-    "./protocol/ship-management": {
-      "types": "./src/protocol/ship-management.d.ts",
-      "import": "./src/protocol/ship-management.js",
-      "default": "./src/protocol/ship-management.js"
-    },
-    "./protocol/sign": {
-      "types": "./src/protocol/sign.d.ts",
-      "import": "./src/protocol/sign.js",
-      "default": "./src/protocol/sign.js"
-    },
-    "./protocol/ui-config": {
-      "types": "./src/protocol/ui-config.d.ts",
-      "import": "./src/protocol/ui-config.js",
-      "default": "./src/protocol/ui-config.js"
-    },
-    "./crypto/chacha": {
-      "types": "./src/crypto/chacha.d.ts",
-      "import": "./src/crypto/chacha.js",
-      "default": "./src/crypto/chacha.js"
-    },
-    "./compression/lz4": {
-      "types": "./src/compression/lz4.d.ts",
-      "import": "./src/compression/lz4.js",
-      "default": "./src/compression/lz4.js"
-    }
-  },
-  "dependencies": {
-    "box2d-wasm": "^7.0.0",
-    "ws": "^8.18.0"
-  },
-  "scripts": {
-    "benchmark": "node benchmark.js",
-    "check": "node --check src/index.js && find src -name '*.js' -print0 | xargs -0 -n1 node --check",
-    "analyze:entities": "node analyze-entities.js",
-    "capture": "node capture.js",
-    "decode:official-ws": "node official-ws-decode.js",
-    "drox:serve": "node packages/drox/scripts/serve-playground.js",
-    "drox:check": "npm --prefix packages/drox run check",
-    "watch": "node watch.js",
-    "watch:test": "node watch.js --test",
-    "test:loader": "node --test test/loader-config.test.js",
-    "update:item-schema": "node scripts/update-item-schema.js",
-    "build:ws-observer-extension": "node scripts/build-ws-observer-extension.js",
-    "drox:box2d:build": "npm --prefix packages/drox run box2d:build",
-    "drox:box2d:verify": "npm --prefix packages/drox run box2d:verify",
-    "drox:emsdk:setup": "npm --prefix packages/drox run emsdk:setup"
-  },
-  "devDependencies": {
-    "dsa-shipshape": "^0.1.2"
-  }
+    "name":  "dredless",
+    "version":  "0.2.0",
+    "description":  "A from-scratch simple headless drednot.io client.",
+    "type":  "module",
+    "main":  "src/index.js",
+    "types":  "./src/index.d.ts",
+    "exports":  {
+                    ".":  {
+                              "types":  "./src/index.d.ts",
+                              "browser":  "./src/browser.js",
+                              "node":  "./src/node.js",
+                              "import":  "./src/index.js",
+                              "default":  "./src/index.js"
+                          },
+                    "./browser":  {
+                                      "types":  "./src/browser.d.ts",
+                                      "import":  "./src/browser.js",
+                                      "default":  "./src/browser.js"
+                                  },
+                    "./node":  {
+                                   "types":  "./src/node.d.ts",
+                                   "import":  "./src/node.js",
+                                   "default":  "./src/node.js"
+                               },
+                    "./client":  {
+                                     "types":  "./src/client.d.ts",
+                                     "import":  "./src/client.js",
+                                     "default":  "./src/client.js"
+                                 },
+                    "./session":  {
+                                      "types":  "./src/net/session.d.ts",
+                                      "import":  "./src/net/session.js",
+                                      "default":  "./src/net/session.js"
+                                  },
+                    "./servers":  {
+                                      "types":  "./src/net/servers.d.ts",
+                                      "import":  "./src/net/servers.js",
+                                      "default":  "./src/net/servers.js"
+                                  },
+                    "./ships":  {
+                                    "types":  "./src/game/ships.d.ts",
+                                    "import":  "./src/game/ships.js",
+                                    "default":  "./src/game/ships.js"
+                                },
+                    "./connection":  {
+                                         "types":  "./src/game/connection.d.ts",
+                                         "import":  "./src/game/connection.js",
+                                         "default":  "./src/game/connection.js"
+                                     },
+                    "./world":  {
+                                    "types":  "./src/game/world.d.ts",
+                                    "import":  "./src/game/world.js",
+                                    "default":  "./src/game/world.js"
+                                },
+                    "./model":  {
+                                    "types":  "./src/game/model.d.ts",
+                                    "import":  "./src/game/model.js",
+                                    "default":  "./src/game/model.js"
+                                },
+                    "./game/generator-maze":  {
+                                                  "types":  "./src/game/generator-maze.d.ts",
+                                                  "import":  "./src/game/generator-maze.js",
+                                                  "default":  "./src/game/generator-maze.js"
+                                              },
+                    "./game/model":  {
+                                         "types":  "./src/game/model.d.ts",
+                                         "import":  "./src/game/model.js",
+                                         "default":  "./src/game/model.js"
+                                     },
+                    "./protocol/msgpack":  {
+                                               "types":  "./src/protocol/msgpack.d.ts",
+                                               "import":  "./src/protocol/msgpack.js",
+                                               "default":  "./src/protocol/msgpack.js"
+                                           },
+                    "./protocol/blueprint":  {
+                                                 "types":  "./src/protocol/blueprint.d.ts",
+                                                 "import":  "./src/protocol/blueprint.js",
+                                                 "default":  "./src/protocol/blueprint.js"
+                                             },
+                    "./protocol/comms":  {
+                                             "types":  "./src/protocol/comms.d.ts",
+                                             "import":  "./src/protocol/comms.js",
+                                             "default":  "./src/protocol/comms.js"
+                                         },
+                    "./protocol/commands":  {
+                                                "types":  "./src/protocol/commands.d.ts",
+                                                "import":  "./src/protocol/commands.js",
+                                                "default":  "./src/protocol/commands.js"
+                                            },
+                    "./protocol/inventory":  {
+                                                 "types":  "./src/protocol/inventory.d.ts",
+                                                 "import":  "./src/protocol/inventory.js",
+                                                 "default":  "./src/protocol/inventory.js"
+                                             },
+                    "./protocol/ship-management":  {
+                                                       "types":  "./src/protocol/ship-management.d.ts",
+                                                       "import":  "./src/protocol/ship-management.js",
+                                                       "default":  "./src/protocol/ship-management.js"
+                                                   },
+                    "./protocol/sign":  {
+                                            "types":  "./src/protocol/sign.d.ts",
+                                            "import":  "./src/protocol/sign.js",
+                                            "default":  "./src/protocol/sign.js"
+                                        },
+                    "./protocol/ui-config":  {
+                                                 "types":  "./src/protocol/ui-config.d.ts",
+                                                 "import":  "./src/protocol/ui-config.js",
+                                                 "default":  "./src/protocol/ui-config.js"
+                                             },
+                    "./crypto/chacha":  {
+                                            "types":  "./src/crypto/chacha.d.ts",
+                                            "import":  "./src/crypto/chacha.js",
+                                            "default":  "./src/crypto/chacha.js"
+                                        },
+                    "./compression/lz4":  {
+                                              "types":  "./src/compression/lz4.d.ts",
+                                              "import":  "./src/compression/lz4.js",
+                                              "default":  "./src/compression/lz4.js"
+                                          }
+                },
+    "dependencies":  {
+                         "box2d-wasm":  "^7.0.0",
+                         "ws":  "^8.18.0"
+                     },
+    "scripts":  {
+                    "check":  "node --check src/index.js \u0026\u0026 find src -name \u0027*.js\u0027 -print0 | xargs -0 -n1 node --check",
+                    "test:loader":  "node --test test/loader-config.test.js",
+                    "update:item-schema":  "node scripts/update-item-schema.js"
+                },
+    "devDependencies":  {
+                            "dsa-shipshape":  "^0.1.2"
+                        }
 }
