@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {DredlessClient} from "../src/client.js";
-import {encodeMsgpack} from "../src/protocol/msgpack.js";
+import {DredlessClient} from "../src/client/index.js";
+import {encodeMsgpack} from "../src/protocol/codec/msgpack.js";
 
 class MockWebSocket {
     constructor() {

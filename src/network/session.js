@@ -3,9 +3,9 @@ import {asNumber, isNode, normalizeBaseUrl} from "../runtime.js";
 import {cookieName, cookiePrefix, readSetCookies, setCookieValues} from "./cookies.js";
 import {HttpClient} from "./http.js";
 import {fetchGameVersion, resolveServer, serverId} from "./servers.js";
-import {createInviteShipSpec, createShipSpec, fetchShipList, fetchShips, shipRef} from "../game/ships.js";
-import {Connection} from "../game/connection.js";
-import {DredlessClient} from "../client.js";
+import {createInviteShipSpec, createShipSpec, fetchShipList, fetchShips, shipRef} from "./ships.js";
+import {Connection} from "./connection.js";
+import {DredlessClient} from "../client/index.js";
 
 export class Session {
     constructor(gameSession = null, gameVersion = null, baseUrl = DEFAULT_BASE_URL) {

@@ -1,4 +1,4 @@
-import {itemNameFromId} from "../game/items.js";
+import {itemNameFromId} from "../../state/items.js";
 
 export const EquipmentSlot = Object.freeze({
     Head: "head",

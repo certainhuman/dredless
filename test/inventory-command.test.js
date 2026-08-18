@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {DredlessClient} from "../src/client.js";
-import {Connection} from "../src/game/connection.js";
-import {buildCommandDefaults} from "../src/protocol/commands.js";
+import {DredlessClient} from "../src/client/index.js";
+import {Connection} from "../src/network/connection.js";
+import {buildCommandDefaults} from "../src/protocol/outbound/commands.js";
 import {
     buildEquipItemCommand,
     buildInventoryDragCommand,
@@ -12,7 +12,7 @@ import {
     equipmentSlotName,
     normalizeEquipmentSlot,
     normalizeInventoryEvent
-} from "../src/protocol/inventory.js";
+} from "../src/protocol/outbound/inventory.js";
 
 function sampleInventory() {
     return normalizeInventoryEvent({

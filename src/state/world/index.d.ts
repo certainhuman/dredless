@@ -26,4 +26,4 @@ export {
     type ShieldProjectorSummary,
     type ShieldGeneratorSummary,
     type MachineSummary
-} from "../index.js";
+} from "../../index.js";

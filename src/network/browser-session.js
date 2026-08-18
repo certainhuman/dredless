@@ -8,9 +8,9 @@ import {
     fetchShipList,
     fetchShips as fetchSessionShips,
     shipRef
-} from "../game/ships.js";
-import {Connection} from "../game/connection.js";
-import {DredlessClient} from "../client.js";
+} from "./ships.js";
+import {Connection} from "./connection.js";
+import {DredlessClient} from "../client/index.js";
 import {Session} from "./session.js";
 
 export class BrowserSession extends Session {

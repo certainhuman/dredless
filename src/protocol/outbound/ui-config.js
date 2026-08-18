@@ -1,4 +1,4 @@
-import {encoder} from "../constants.js";
+import {encoder} from "../../constants.js";
 
 const NAV_UNIT_COMMAND = "config_nav_unit";
 const GENERATOR_MAZE_PUZZLE_COMMAND = "maze_puzzle";

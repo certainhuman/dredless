@@ -1,6 +1,6 @@
 import {DEFAULT_BASE_URL} from "../constants.js";
 import {normalizeBaseUrl} from "../runtime.js";
-import {cookieName} from "../net/cookies.js";
+import {cookieName} from "./cookies.js";
 
 export class Connection {
     constructor(session, gameToken, netPort, serverId, server = null) {

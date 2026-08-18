@@ -1,12 +1,12 @@
-export {Connection} from "./game/connection.js";
-export {DredlessClient, WrenchMode, TurretMode} from "./client.js";
-export {WorldStore, WorldState} from "./game/world.js";
-export {FabricatorType, ModelState, decodeModelData} from "./game/model.js";
-export {generateGeneratorMaze, solveGeneratorMazeSeed, maybeSolveGeneratorMazeSeed} from "./game/generator-maze.js";
-export {buildBlueprintPlacementMessage} from "./protocol/blueprint.js";
-export {decodeMsgpack, encodeMsgpack} from "./protocol/msgpack.js";
-export {buildCommsMessage, flattenRichText, normalizeCommsEvent} from "./protocol/comms.js";
-export {buildSignedCommandPacket} from "./protocol/commands.js";
+export {Connection} from "./network/connection.js";
+export {DredlessClient, WrenchMode, TurretMode} from "./client/index.js";
+export {WorldStore, WorldState} from "./state/world/index.js";
+export {FabricatorType, ModelState, decodeModelData} from "./state/model/index.js";
+export {generateGeneratorMaze, solveGeneratorMazeSeed, maybeSolveGeneratorMazeSeed} from "./state/generator-maze.js";
+export {buildBlueprintPlacementMessage} from "./protocol/outbound/blueprint.js";
+export {decodeMsgpack, encodeMsgpack} from "./protocol/codec/msgpack.js";
+export {buildCommsMessage, flattenRichText, normalizeCommsEvent} from "./protocol/outbound/comms.js";
+export {buildSignedCommandPacket} from "./protocol/outbound/commands.js";
 export {
     buildEquipItemCommand,
     buildInventoryDragCommand,
@@ -15,7 +15,7 @@ export {
     normalizeEquipmentSlot,
     normalizeInventoryEvent,
     EquipmentSlot
-} from "./protocol/inventory.js";
+} from "./protocol/outbound/inventory.js";
 export {
     buildBanPlayerMessage,
     buildDemoteSelfMessage,
@@ -31,8 +31,8 @@ export {
     normalizePlayerRank,
     normalizePrivacy,
     normalizeShipConfig
-} from "./protocol/ship-management.js";
-export {SignDisplayMode, buildSignTextMessage, normalizeSignDisplayMode, signDisplayModeName} from "./protocol/sign.js";
+} from "./protocol/outbound/ship-management.js";
+export {SignDisplayMode, buildSignTextMessage, normalizeSignDisplayMode, signDisplayModeName} from "./protocol/outbound/sign.js";
 export {
     buildCargoEjectorClipboardDirectionData,
     buildCargoEjectorCopyConfigData,
@@ -63,11 +63,11 @@ export {
     LoaderFilterMode,
     FixedAngleDirection,
     LoaderPriority
-} from "./protocol/ui-config.js";
+} from "./protocol/outbound/ui-config.js";
 export {decryptPayload} from "./crypto/chacha.js";
 export {decompressLz4Frame} from "./compression/lz4.js";
-export {fetchNoticeVersion, fetchGameVersion, fetchServers} from "./net/servers.js";
-export {fetchShips as fetchShipsWithSession, fetchShipList as fetchShipListWithSession} from "./game/ships.js";
+export {fetchNoticeVersion, fetchGameVersion, fetchServers} from "./network/servers.js";
+export {fetchShips as fetchShipsWithSession, fetchShipList as fetchShipListWithSession} from "./network/ships.js";
 export {
     BrowserSession,
     browserSession,
@@ -84,11 +84,11 @@ export {
     startShip,
     startNewShip,
     joinInvite
-} from "./net/browser-session.js";
+} from "./network/browser-session.js";
 
-import {Connection} from "./game/connection.js";
-import {DredlessClient} from "./client.js";
-import {fetchGameVersion, fetchNoticeVersion, fetchServers} from "./net/servers.js";
+import {Connection} from "./network/connection.js";
+import {DredlessClient} from "./client/index.js";
+import {fetchGameVersion, fetchNoticeVersion, fetchServers} from "./network/servers.js";
 import {
     BrowserSession,
     browserSession,
@@ -105,7 +105,7 @@ import {
     setBrowserSession,
     startNewShip,
     startShip
-} from "./net/browser-session.js";
+} from "./network/browser-session.js";
 
 export const DredlessBrowser = {
     BrowserSession,

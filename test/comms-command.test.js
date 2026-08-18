@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {buildCommsMessage, flattenRichText, normalizeCommsEvent} from "../src/protocol/comms.js";
-import {encodeMsgpack} from "../src/protocol/msgpack.js";
+import {buildCommsMessage, flattenRichText, normalizeCommsEvent} from "../src/protocol/outbound/comms.js";
+import {encodeMsgpack} from "../src/protocol/codec/msgpack.js";
 
 function hex(value) {
     return Buffer.from(value).toString("hex");

@@ -1,4 +1,4 @@
-import {toUint8Array} from "../protocol/binary.js";
+import {toUint8Array} from "../protocol/codec/binary.js";
 
 // Growable typed-array sink. LZ4 block headers carry the compressed size, not
 // the decompressed size, so the output buffer starts at a generous multiple and

@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
-import {FabricatorType} from "../src/game/model.js";
-import {WorldStore} from "../src/game/world.js";
-import {decodeMsgpack} from "../src/protocol/msgpack.js";
+import {FabricatorType} from "../src/state/model/index.js";
+import {WorldStore} from "../src/state/world/index.js";
+import {decodeMsgpack} from "../src/protocol/codec/msgpack.js";
 
 function officialCaptureUrl(name) {
     return new URL(`./fixtures/${name}`, import.meta.url);

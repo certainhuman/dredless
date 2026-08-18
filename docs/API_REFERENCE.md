@@ -18,7 +18,7 @@ Subpath imports are available for focused low-level helpers:
 import { DredlessClient } from "dredless/client";
 import { WorldStore, WorldState } from "dredless/world";
 import { generateGeneratorMaze } from "dredless/game/generator-maze";
-import { encodeMsgpack, decodeMsgpack } from "dredless/protocol/msgpack";
+import { encodeMsgpack, decodeMsgpack, decodeIncomingFrame } from "dredless/protocol";
 ```
 
 ## Public Package Exports
@@ -30,6 +30,8 @@ dredless
 dredless/browser
 dredless/node
 dredless/client
+dredless/network
+dredless/state
 dredless/session
 dredless/servers
 dredless/ships
@@ -38,7 +40,7 @@ dredless/world
 dredless/model
 dredless/game/generator-maze
 dredless/game/model
-dredless/protocol/msgpack
+dredless/protocol
 dredless/protocol/blueprint
 dredless/protocol/comms
 dredless/protocol/commands
