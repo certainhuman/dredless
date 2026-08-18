@@ -1,4 +1,4 @@
-import {ITEM_SCHEMA} from "./item-schema.js";
+import {ITEM_SCHEMA} from "../data/item-schema.js";
 
 const ITEM_TYPE_NAMES = new Map(ITEM_SCHEMA.map((item) => [Number(item.id), item.name]));
 const ITEM_EQUIPMENT_SLOTS = new Map(ITEM_SCHEMA.flatMap((item) => {

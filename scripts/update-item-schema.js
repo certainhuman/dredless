@@ -2,7 +2,7 @@
 import fs from "node:fs/promises";
 
 const DEFAULT_SCHEMA_URL = "https://pub.drednot.io/prod/econ/item_schema.json";
-const OUTPUT_FILE = new URL("../src/game/item-schema.js", import.meta.url);
+const OUTPUT_FILE = new URL("../src/data/item-schema.js", import.meta.url);
 
 async function main() {
   const source = process.argv[2] || process.env.DRED_ITEM_SCHEMA_URL || DEFAULT_SCHEMA_URL;
