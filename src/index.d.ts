@@ -36,6 +36,13 @@ export type ShipRef = number | string | Ship | ShipSpec | null;
 export type ShipPrivacy = 0 | 1 | boolean | "public" | "private";
 export type ShipPlayerRank = 0 | 1 | 3 | "guest" | "crew" | "captain";
 export type PlayerShipRank = "guest" | "crew" | "crew-invite-pending-deprecated" | "captain" | "banned";
+export const FabricatorType: {
+    readonly Starter: "starter";
+    readonly Munitions: "munitions";
+    readonly Engineering: "engineering";
+    readonly Equipment: "equipment";
+};
+export type FabricatorType = typeof FabricatorType[keyof typeof FabricatorType];
 export const SignDisplayMode: {
     readonly Always: "always";
     readonly WhenNear: "when-near";
@@ -1748,6 +1755,9 @@ export interface BotSummary {
 
 export interface FabricatorSummary {
     entity: number;
+    type: FabricatorType | null;
+  typeIndex: number | null;
+    typeIndex: number | null;
     state: ModelRecord;
     rows: { itemId: number | null; itemName: string | null; count: number | null }[];
     progress: number | null;

@@ -6,6 +6,7 @@ export {
     WorldStore,
     WorldState,
     ModelState,
+    FabricatorType,
     decodeModelData,
     generateGeneratorMaze,
     solveGeneratorMazeSeed,
