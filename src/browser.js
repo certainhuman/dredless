@@ -1,7 +1,7 @@
 export {Connection} from "./game/connection.js";
 export {DredlessClient, WrenchMode, TurretMode} from "./client.js";
 export {WorldStore, WorldState} from "./game/world.js";
-export {ModelState, decodeModelData} from "./game/model.js";
+export {FabricatorType, ModelState, decodeModelData} from "./game/model.js";
 export {generateGeneratorMaze, solveGeneratorMazeSeed, maybeSolveGeneratorMazeSeed} from "./game/generator-maze.js";
 export {buildBlueprintPlacementMessage} from "./protocol/blueprint.js";
 export {decodeMsgpack, encodeMsgpack} from "./protocol/msgpack.js";

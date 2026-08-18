@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
+import {FabricatorType} from "../src/game/model.js";
 import {WorldStore} from "../src/game/world.js";
 import {decodeMsgpack} from "../src/protocol/msgpack.js";
 
@@ -68,6 +69,8 @@ test("fabricator progress exposes clamped progress, raw progress, and crafting i
     assert.equal(Math.max(...samples.map((fab) => fab.progressRaw ?? -Infinity)), 102);
     assert.equal(Math.max(...samples.map((fab) => fab.progress ?? -Infinity)), 100);
     assert.ok(samples.some((fab) => fab.active && fab.craftingItemId === 105), "fabricator reports the ship shield booster while crafting");
+    assert.ok(samples.some((fab) => fab.type === FabricatorType.Starter), "fabricator exposes its starter subtype");
+    assert.ok(samples.every((fab) => fab.typeIndex === 0), "fabricator exposes its source type index");
     assert.equal(samples.at(-1).active, false);
     assert.equal(samples.at(-1).progress, 0);
 });

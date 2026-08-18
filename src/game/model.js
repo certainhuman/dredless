@@ -478,6 +478,20 @@ const PLACED_ENTITY_TYPE_IDS = new Set([
     253, 255, 256, 257, 258, 259, 260, 261, 263, 264, 265
 ]);
 
+export const FabricatorType = Object.freeze({
+    Starter: "starter",
+    Munitions: "munitions",
+    Engineering: "engineering",
+    Equipment: "equipment"
+});
+
+const FABRICATOR_TYPES = new Map([
+    [0, FabricatorType.Starter],
+    [1, FabricatorType.Munitions],
+    [2, FabricatorType.Engineering],
+    [3, FabricatorType.Equipment]
+]);
+
 const HELM_TYPE_IDS = new Set([215, 216]);
 const COMMS_STATION_TYPE_ID = 217;
 const COMMS_STATION_MAX_CHARGES = 5;
@@ -674,12 +688,14 @@ function boundedProgress(value) {
     return Math.max(0, Math.min(100, number));
 }
 
-function summarizeFabricator(entity, record, itemHolderRecord = null) {
+function summarizeFabricator(entity, record, itemHolderRecord = null, typeRecord = null) {
     if (!record) return null;
     const progressRaw = record.q24 ?? null;
     const craftingItem = itemSummary(itemHolderRecord?.q20, itemHolderRecord?.q24 ?? null);
     return {
         entity,
+        type: FABRICATOR_TYPES.get(typeRecord?.q32) ?? null,
+        typeIndex: typeRecord?.q32 ?? null,
         state: cloneRecord(record),
         rows: [
             itemSummary(record.q28, record.q40 ?? null),
@@ -1740,7 +1756,7 @@ export class ModelState {
     }
 
     fabricators() {
-        return this.#records(53).map((entry) => summarizeFabricator(entry.entity, entry));
+        return this.#records(53).map((entry) => summarizeFabricator(entry.entity, entry, this.record(6, entry.entity), this.record(7, entry.entity)));
     }
 
     players() {
@@ -2317,7 +2333,7 @@ export class ModelState {
         const itemHolder = summarizeItemHolder(entityId, itemHolderRecord);
         const isExpandoBox = typeId === EXPANDO_BOX_TYPE_ID || markerTypeId === EXPANDO_BOX_TYPE_ID;
         const health = summarizeHealth(entityId, healthRecord);
-        const fabricator = summarizeFabricator(entityId, fabricatorRecord, itemHolderRecord);
+        const fabricator = summarizeFabricator(entityId, fabricatorRecord, itemHolderRecord, typeRecord);
         const cargoEjector = summarizeCargoEjector(entityId, typeId, cargoEjectorRecord);
         const cannon = summarizeCannon(entityId, cannonRecord, typeId);
         const thruster = summarizeThruster(entityId, typeId, thrusterRecord);

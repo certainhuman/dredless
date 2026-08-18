@@ -1,4 +1,5 @@
 export {
+    FabricatorType,
     ModelState,
     decodeModelData,
     type ModelRecord,

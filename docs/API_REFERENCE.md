@@ -1185,8 +1185,13 @@ interface FabricatorHandle extends MachineHandle {
   eject(row: number): DredlessClient;
 }
 
+const FabricatorType = { Starter: "starter", Munitions: "munitions", Engineering: "engineering", Equipment: "equipment" } as const;
+type FabricatorType = typeof FabricatorType[keyof typeof FabricatorType];
+
 interface FabricatorSummary {
   entity: number;
+  type: FabricatorType | null;
+  typeIndex: number | null;
   state: ModelRecord;
   rows: { itemId: number | null; itemName: string | null; count: number | null }[];
   progress: number | null;
