@@ -44,5 +44,5 @@ const client = await Dredless.startShip(servers[0], ships[0]);
 ## API Docs
 
 - [Node top-level API](docs/NODE_API.md): explicit session/token/start helpers. Use this if you are running in a Node environment.
-- [Browser top-level API](docs/BROWSER_API.md): ambient browser-session helpers. Use this if you ar running in a browser environment.
+- [Browser top-level API](docs/BROWSER_API.md): ambient browser-session helpers. Use this if you are running in a browser environment.
 - [Shared API reference](docs/API_REFERENCE.md): client, world, entity, machine, inventory, management, and protocol APIs. Used by both runtime environments.
