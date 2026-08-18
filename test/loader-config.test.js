@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import {Blueprint, Item, Structure} from "dsa-shipshape";
-import {ModelState} from "../src/game/model.js";
-import {generateGeneratorMaze, solveGeneratorMazeSeed} from "../src/game/generator-maze.js";
-import {WorldState, WorldStore} from "../src/game/world.js";
+import {ModelState} from "../src/state/model/index.js";
+import {generateGeneratorMaze, solveGeneratorMazeSeed} from "../src/state/generator-maze.js";
+import {WorldState, WorldStore} from "../src/state/world/index.js";
 import {
     buildCargoEjectorClipboardDirectionData,
     buildCargoEjectorCopyConfigData,
@@ -27,7 +27,7 @@ import {
     buildNavigationUnitPasteConfigData,
     buildPusherConfigData,
     buildPusherFilterItemsData
-} from "../src/protocol/ui-config.js";
+} from "../src/protocol/outbound/ui-config.js";
 import {fixtureByName, loaderBlueprintFixtures, normalizeLoaderBuild} from "./loader-blueprint-fixtures.js";
 
 const WORLD = 11479;

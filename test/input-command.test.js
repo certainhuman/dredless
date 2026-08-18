@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {buildCommandDefaults} from "../src/protocol/commands.js";
+import {buildCommandDefaults} from "../src/protocol/outbound/commands.js";
 
 test("held item placement command fields match door placement captures", () => {
     const command = buildCommandDefaults({

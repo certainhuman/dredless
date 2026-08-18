@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
-import {WorldStore} from "../src/game/world.js";
-import {decodeMsgpack} from "../src/protocol/msgpack.js";
+import {WorldStore} from "../src/state/world/index.js";
+import {decodeMsgpack} from "../src/protocol/codec/msgpack.js";
 
 const capture = new URL("./fixtures/pvp-event.jsonl", import.meta.url);
 

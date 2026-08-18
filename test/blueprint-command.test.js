@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {buildBlueprintPlacementMessage} from "../src/protocol/blueprint.js";
-import {encodeMsgpack} from "../src/protocol/msgpack.js";
+import {buildBlueprintPlacementMessage} from "../src/protocol/outbound/blueprint.js";
+import {encodeMsgpack} from "../src/protocol/codec/msgpack.js";
 
 function hex(value) {
     return Buffer.from(value).toString("hex");

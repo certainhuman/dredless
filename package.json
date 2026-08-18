@@ -24,89 +24,104 @@
             "default": "./src/node.js"
         },
         "./client": {
-            "types": "./src/client.d.ts",
-            "import": "./src/client.js",
-            "default": "./src/client.js"
+            "types": "./src/client/index.d.ts",
+            "import": "./src/client/index.js",
+            "default": "./src/client/index.js"
         },
         "./session": {
-            "types": "./src/net/session.d.ts",
-            "import": "./src/net/session.js",
-            "default": "./src/net/session.js"
+            "types": "./src/network/session.d.ts",
+            "import": "./src/network/session.js",
+            "default": "./src/network/session.js"
         },
         "./servers": {
-            "types": "./src/net/servers.d.ts",
-            "import": "./src/net/servers.js",
-            "default": "./src/net/servers.js"
+            "types": "./src/network/servers.d.ts",
+            "import": "./src/network/servers.js",
+            "default": "./src/network/servers.js"
         },
         "./ships": {
-            "types": "./src/game/ships.d.ts",
-            "import": "./src/game/ships.js",
-            "default": "./src/game/ships.js"
+            "types": "./src/network/ships.d.ts",
+            "import": "./src/network/ships.js",
+            "default": "./src/network/ships.js"
         },
         "./connection": {
-            "types": "./src/game/connection.d.ts",
-            "import": "./src/game/connection.js",
-            "default": "./src/game/connection.js"
+            "types": "./src/network/connection.d.ts",
+            "import": "./src/network/connection.js",
+            "default": "./src/network/connection.js"
         },
         "./world": {
-            "types": "./src/game/world.d.ts",
-            "import": "./src/game/world.js",
-            "default": "./src/game/world.js"
+            "types": "./src/state/world/index.d.ts",
+            "import": "./src/state/world/index.js",
+            "default": "./src/state/world/index.js"
         },
         "./model": {
-            "types": "./src/game/model.d.ts",
-            "import": "./src/game/model.js",
-            "default": "./src/game/model.js"
+            "types": "./src/state/model/index.d.ts",
+            "import": "./src/state/model/index.js",
+            "default": "./src/state/model/index.js"
+        },
+        "./network": {
+            "types": "./src/network/index.d.ts",
+            "import": "./src/network/index.js",
+            "default": "./src/network/index.js"
+        },
+        "./state": {
+            "types": "./src/state/index.d.ts",
+            "import": "./src/state/index.js",
+            "default": "./src/state/index.js"
+        },
+        "./protocol": {
+            "types": "./src/protocol/index.d.ts",
+            "import": "./src/protocol/index.js",
+            "default": "./src/protocol/index.js"
         },
         "./game/generator-maze": {
-            "types": "./src/game/generator-maze.d.ts",
-            "import": "./src/game/generator-maze.js",
-            "default": "./src/game/generator-maze.js"
+            "types": "./src/state/generator-maze.d.ts",
+            "import": "./src/state/generator-maze.js",
+            "default": "./src/state/generator-maze.js"
         },
         "./game/model": {
-            "types": "./src/game/model.d.ts",
-            "import": "./src/game/model.js",
-            "default": "./src/game/model.js"
+            "types": "./src/state/model/index.d.ts",
+            "import": "./src/state/model/index.js",
+            "default": "./src/state/model/index.js"
         },
         "./protocol/msgpack": {
-            "types": "./src/protocol/msgpack.d.ts",
-            "import": "./src/protocol/msgpack.js",
-            "default": "./src/protocol/msgpack.js"
+            "types": "./src/protocol/codec/msgpack.d.ts",
+            "import": "./src/protocol/codec/msgpack.js",
+            "default": "./src/protocol/codec/msgpack.js"
         },
         "./protocol/blueprint": {
-            "types": "./src/protocol/blueprint.d.ts",
-            "import": "./src/protocol/blueprint.js",
-            "default": "./src/protocol/blueprint.js"
+            "types": "./src/protocol/outbound/blueprint.d.ts",
+            "import": "./src/protocol/outbound/blueprint.js",
+            "default": "./src/protocol/outbound/blueprint.js"
         },
         "./protocol/comms": {
-            "types": "./src/protocol/comms.d.ts",
-            "import": "./src/protocol/comms.js",
-            "default": "./src/protocol/comms.js"
+            "types": "./src/protocol/outbound/comms.d.ts",
+            "import": "./src/protocol/outbound/comms.js",
+            "default": "./src/protocol/outbound/comms.js"
         },
         "./protocol/commands": {
-            "types": "./src/protocol/commands.d.ts",
-            "import": "./src/protocol/commands.js",
-            "default": "./src/protocol/commands.js"
+            "types": "./src/protocol/outbound/commands.d.ts",
+            "import": "./src/protocol/outbound/commands.js",
+            "default": "./src/protocol/outbound/commands.js"
         },
         "./protocol/inventory": {
-            "types": "./src/protocol/inventory.d.ts",
-            "import": "./src/protocol/inventory.js",
-            "default": "./src/protocol/inventory.js"
+            "types": "./src/protocol/outbound/inventory.d.ts",
+            "import": "./src/protocol/outbound/inventory.js",
+            "default": "./src/protocol/outbound/inventory.js"
         },
         "./protocol/ship-management": {
-            "types": "./src/protocol/ship-management.d.ts",
-            "import": "./src/protocol/ship-management.js",
-            "default": "./src/protocol/ship-management.js"
+            "types": "./src/protocol/outbound/ship-management.d.ts",
+            "import": "./src/protocol/outbound/ship-management.js",
+            "default": "./src/protocol/outbound/ship-management.js"
         },
         "./protocol/sign": {
-            "types": "./src/protocol/sign.d.ts",
-            "import": "./src/protocol/sign.js",
-            "default": "./src/protocol/sign.js"
+            "types": "./src/protocol/outbound/sign.d.ts",
+            "import": "./src/protocol/outbound/sign.js",
+            "default": "./src/protocol/outbound/sign.js"
         },
         "./protocol/ui-config": {
-            "types": "./src/protocol/ui-config.d.ts",
-            "import": "./src/protocol/ui-config.js",
-            "default": "./src/protocol/ui-config.js"
+            "types": "./src/protocol/outbound/ui-config.d.ts",
+            "import": "./src/protocol/outbound/ui-config.js",
+            "default": "./src/protocol/outbound/ui-config.js"
         },
         "./crypto/chacha": {
             "types": "./src/crypto/chacha.d.ts",

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {DredlessClient} from "../src/client.js";
-import {Connection} from "../src/game/connection.js";
+import {DredlessClient} from "../src/client/index.js";
+import {Connection} from "../src/network/connection.js";
 
 const encoder = new TextEncoder();
 

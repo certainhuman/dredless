@@ -1,6 +1,6 @@
-import * as modelDecoder from "./model-decoder.js";
+import * as modelDecoder from "./decoder.js";
 import {LoaderConfigTracker} from "./loader-config.js";
-import {navigationDestinationFromEncodedValue} from "./overworld.js";
+import {navigationDestinationFromEncodedValue} from "../overworld.js";
 
 const {
     ModelReader,

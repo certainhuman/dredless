@@ -11,7 +11,7 @@ import {
     buildLoaderConfigData,
     buildLoaderFilterConfigData,
     buildPusherConfigData
-} from "../src/protocol/ui-config.js";
+} from "../src/protocol/outbound/ui-config.js";
 
 test("UI configuration helpers accept enum values", () => {
     assert.doesNotThrow(() => buildPusherConfigData(1, {

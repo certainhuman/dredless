@@ -1,6 +1,6 @@
 import {DEFAULT_BASE_URL} from "../constants.js";
 import {asNumber} from "../runtime.js";
-import {HttpClient} from "../net/http.js";
+import {HttpClient} from "./http.js";
 
 export function createShipSpec(name = "", color = "") {
     return {type: "new", name: String(name ?? ""), color: String(color ?? "")};

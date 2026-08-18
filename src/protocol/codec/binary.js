@@ -1,4 +1,4 @@
-import {encoder} from "../constants.js";
+import {encoder} from "../../constants.js";
 
 function objectTag(value) {
     return Object.prototype.toString.call(value);

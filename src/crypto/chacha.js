@@ -1,5 +1,5 @@
 import {encoder, SHARED_CHACHA_MATERIAL} from "../constants.js";
-import {toUint8Array} from "../protocol/binary.js";
+import {toUint8Array} from "../protocol/codec/binary.js";
 
 function rotl32(x, n) {
     n &= 31;

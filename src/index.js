@@ -1,17 +1,17 @@
-export {Session, AnonSession} from "./net/session.js";
-export {Connection} from "./game/connection.js";
-export {DredlessClient, WrenchMode, TurretMode} from "./client.js";
-export {WorldStore, WorldState} from "./game/world.js";
-export {FabricatorType, ModelState, decodeModelData} from "./game/model.js";
-export {generateGeneratorMaze, solveGeneratorMazeSeed, maybeSolveGeneratorMazeSeed} from "./game/generator-maze.js";
-export {buildBlueprintPlacementMessage} from "./protocol/blueprint.js";
-export {decodeMsgpack, encodeMsgpack} from "./protocol/msgpack.js";
+export {Session, AnonSession} from "./network/session.js";
+export {Connection} from "./network/connection.js";
+export {DredlessClient, WrenchMode, TurretMode} from "./client/index.js";
+export {WorldStore, WorldState} from "./state/world/index.js";
+export {FabricatorType, ModelState, decodeModelData} from "./state/model/index.js";
+export {generateGeneratorMaze, solveGeneratorMazeSeed, maybeSolveGeneratorMazeSeed} from "./state/generator-maze.js";
+export {buildBlueprintPlacementMessage} from "./protocol/outbound/blueprint.js";
+export {decodeMsgpack, encodeMsgpack} from "./protocol/codec/msgpack.js";
 export {
     buildCommsMessage,
     flattenRichText,
     normalizeCommsEvent
-} from "./protocol/comms.js";
-export {buildSignedCommandPacket} from "./protocol/commands.js";
+} from "./protocol/outbound/comms.js";
+export {buildSignedCommandPacket} from "./protocol/outbound/commands.js";
 export {
     buildEquipItemCommand,
     buildInventoryDragCommand,
@@ -20,7 +20,7 @@ export {
     normalizeEquipmentSlot,
     normalizeInventoryEvent,
     EquipmentSlot
-} from "./protocol/inventory.js";
+} from "./protocol/outbound/inventory.js";
 export {
     buildBanPlayerMessage,
     buildDemoteSelfMessage,
@@ -36,13 +36,13 @@ export {
     normalizePlayerRank,
     normalizePrivacy,
     normalizeShipConfig
-} from "./protocol/ship-management.js";
+} from "./protocol/outbound/ship-management.js";
 export {
     SignDisplayMode,
     buildSignTextMessage,
     normalizeSignDisplayMode,
     signDisplayModeName
-} from "./protocol/sign.js";
+} from "./protocol/outbound/sign.js";
 export {
     buildCargoEjectorClipboardDirectionData,
     buildCargoEjectorCopyConfigData,
@@ -73,15 +73,15 @@ export {
     LoaderFilterMode,
     FixedAngleDirection,
     LoaderPriority
-} from "./protocol/ui-config.js";
+} from "./protocol/outbound/ui-config.js";
 export {decryptPayload} from "./crypto/chacha.js";
 export {decompressLz4Frame} from "./compression/lz4.js";
 
-import {AnonSession, createAnonSession, createAnonToken, createSession, Session} from "./net/session.js";
-import {Connection} from "./game/connection.js";
-import {DredlessClient} from "./client.js";
-import {fetchGameVersion, fetchNoticeVersion, fetchServers} from "./net/servers.js";
-import {fetchShipList, fetchShips} from "./game/ships.js";
+import {AnonSession, createAnonSession, createAnonToken, createSession, Session} from "./network/session.js";
+import {Connection} from "./network/connection.js";
+import {DredlessClient} from "./client/index.js";
+import {fetchGameVersion, fetchNoticeVersion, fetchServers} from "./network/servers.js";
+import {fetchShipList, fetchShips} from "./network/ships.js";
 
 async function sessionOrAnon(session) {
     return session || createAnonSession();

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {encodeMsgpack} from "../src/protocol/msgpack.js";
-import {SignDisplayMode, buildSignTextMessage, normalizeSignDisplayMode, signDisplayModeName} from "../src/protocol/sign.js";
+import {encodeMsgpack} from "../src/protocol/codec/msgpack.js";
+import {SignDisplayMode, buildSignTextMessage, normalizeSignDisplayMode, signDisplayModeName} from "../src/protocol/outbound/sign.js";
 
 function hex(value) {
     return Buffer.from(value).toString("hex");

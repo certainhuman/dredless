@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
-import {WorldStore} from "../src/game/world.js";
-import {decodeMsgpack, encodeMsgpack} from "../src/protocol/msgpack.js";
+import {WorldStore} from "../src/state/world/index.js";
+import {decodeMsgpack, encodeMsgpack} from "../src/protocol/codec/msgpack.js";
 import {
     buildBanPlayerMessage,
     buildDemoteSelfMessage,
@@ -18,7 +18,7 @@ import {
     normalizePrivacy,
     normalizeShipConfig,
     normalizeShipPlayerList
-} from "../src/protocol/ship-management.js";
+} from "../src/protocol/outbound/ship-management.js";
 
 function hex(value) {
     return Buffer.from(value).toString("hex");
