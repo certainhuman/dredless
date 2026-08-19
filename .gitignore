@@ -6,7 +6,6 @@ watch.log
 /AGENTS.md
 /_tmp_*.mjs
 /drednot-official-client/
-/package-lock.json
 /.dredless-local.json
 /test.js
 /watch.js
