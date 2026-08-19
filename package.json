@@ -2,6 +2,21 @@
     "name": "dredless",
     "version": "0.2.0",
     "description": "A from-scratch simple headless drednot.io client.",
+    "license": "MIT",
+    "homepage": "https://github.com/certainhuman/dredless#readme",
+    "repository": {
+        "type": "git",
+        "url": "git+ssh://git@github.com/certainhuman/dredless.git"
+    },
+    "bugs": {
+        "url": "https://github.com/certainhuman/dredless/issues"
+    },
+    "keywords": [
+        "drednot",
+        "drednot.io",
+        "headless",
+        "websocket"
+    ],
     "type": "module",
     "main": "src/index.js",
     "types": "./src/index.d.ts",
@@ -137,9 +152,19 @@
     "dependencies": {
         "ws": "^8.18.0"
     },
+    "files": [
+        "src",
+        "docs",
+        "README.md"
+    ],
+    "publishConfig": {
+        "access": "public"
+    },
     "scripts": {
-        "check": "node --check src/index.js && find src -name '*.js' -print0 | xargs -0 -n1 node --check",
+        "check": "node scripts/check-syntax.js",
         "test": "node --test \"test/*.test.js\"",
+        "pack:check": "npm pack --dry-run",
+        "prepublishOnly": "npm run check && npm test",
         "update:item-schema": "node scripts/update-item-schema.js"
     },
     "devDependencies": {
