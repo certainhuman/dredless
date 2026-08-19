@@ -12,3 +12,4 @@ watch.log
 /spec/
 /benchmark.js
 /capture.js
+/dist/

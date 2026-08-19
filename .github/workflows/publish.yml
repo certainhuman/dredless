@@ -1,4 +1,4 @@
-name: Publish Package
+﻿name: Publish Package
 
 on:
   push:
@@ -26,5 +26,6 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm test
+      - run: npm run build
       - run: npm run pack:check
       - run: npm publish
