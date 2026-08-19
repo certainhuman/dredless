@@ -2,9 +2,26 @@
 
 A headless pure Javascript implementation (with type annotations) of `drednot.io`'s client protocol.
 
+## Install
+
+### Node
+```sh
+npm install dredless
+```
+
+### Browser
+Use a bundler, or load the browser bundle directly from a CDN:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/dredless/dist/browser/dredless.global.js"></script>
+<script>
+  const session = await Dredless.createAnonSession();
+</script>
+```
+
 ## Quick Start
 
-Node (multi-session) usage:
+### Node (multi-session) usage:
 
 ```js
 import Dredless, {EquipmentSlot, SignDisplayMode} from "dredless/node";
@@ -28,7 +45,7 @@ client.on("inventory", () => console.log(client.inventory.hotbarSlots().map((slo
 client.on("model", ({ world }) => console.log(world.model.transforms()));
 ```
 
-Browser (ambient-session) usage:
+### Browser (ambient-session) usage:
 
 ```js
 import Dredless from "dredless/browser";

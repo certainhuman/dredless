@@ -20,6 +20,8 @@
     "type": "module",
     "main": "src/index.js",
     "types": "./src/index.d.ts",
+    "unpkg": "./dist/browser/dredless.global.js",
+    "jsdelivr": "./dist/browser/dredless.global.js",
     "exports": {
         ".": {
             "types": "./src/index.d.ts",
@@ -152,22 +154,20 @@
     "dependencies": {
         "ws": "^8.18.0"
     },
-    "files": [
-        "src",
-        "docs",
-        "README.md"
-    ],
+    "files": ["src", "docs", "README.md", "dist"],
     "publishConfig": {
         "access": "public"
     },
     "scripts": {
+        "build": "node scripts/build-browser.js",
         "check": "node scripts/check-syntax.js",
         "test": "node --test \"test/*.test.js\"",
         "pack:check": "npm pack --dry-run",
-        "prepublishOnly": "npm run check && npm test",
+        "prepublishOnly": "npm run check && npm test && npm run build",
         "update:item-schema": "node scripts/update-item-schema.js"
     },
     "devDependencies": {
-        "dsa-shipshape": "^0.1.2"
+        "dsa-shipshape": "^0.1.2",
+        "esbuild": "^0.28.2"
     }
 }

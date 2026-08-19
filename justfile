@@ -9,12 +9,16 @@ check:
 test:
     npm test
 
+build:
+    npm run build
+
 pack:
     npm run pack:check
 
 ready:
     npm run check
     npm test
+    npm run build
     npm run pack:check
 
 release kind="patch":
