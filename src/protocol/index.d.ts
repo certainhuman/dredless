@@ -3,6 +3,7 @@ export * from "./codec/binary.js";
 export * from "./inbound/frame.js";
 export * from "./inbound/world-payload.js";
 export * from "./outbound/blueprint.js";
+export * from "./outbound/chat.js";
 export * from "./outbound/comms.js";
 export * from "./outbound/commands.js";
 export * from "./outbound/inventory.js";
