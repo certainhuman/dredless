@@ -2131,7 +2131,7 @@ chat-command path used by its chat commands, so client.sendChatMessage() can
 send executable chat commands as well as ordinary chat text. For example:
 
 ```js
-client.sendChatMessage("/help");
+client.sendChatMessage("/save");
 ```
 
 ### Comms helpers
