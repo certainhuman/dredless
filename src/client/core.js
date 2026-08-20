@@ -144,7 +144,7 @@ export class DredlessClient extends EventBus {
         this.inventory = new InventoryDomain(this);
         this.management = new ShipManagementDomain(this);
         this.cpuLoad = null;
-        this.inventoryState = null;
+        this.inventoryState = normalizeInventoryEvent({type: "inventory", general_slots: 5});
         this.puiPanels = new Map();
         this.commsPanels = new Map();
         this.currentCommsPanel = null;

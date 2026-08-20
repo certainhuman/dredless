@@ -322,7 +322,7 @@ interface ClientSnapshot {
   currentWorldId: number | null;
   worlds: WorldSnapshot[];
   cpuLoad: number | null;
-  inventory: InventoryState | null;
+  inventory: InventoryState;
   puiPanels: PuiEvent[];
   commsPanels: CommsEvent[];
   currentCommsPanel: CommsEvent | null;
@@ -493,7 +493,7 @@ const EquipmentSlot = { Head: "head", Face: "face", Body: "body", Back: "back", 
 type EquipmentSlot = typeof EquipmentSlot[keyof typeof EquipmentSlot];
 
 interface InventoryDomain {
-  state(): InventoryState | null;
+  state(): InventoryState;
   hotbarSize(): number;
   allSlots(): InventorySlotHandle[];
   slot(ref: InventorySlotRef): InventorySlotHandle;
@@ -1320,7 +1320,7 @@ interface HelmHandle extends MachineHandle {
   occupied: boolean | undefined;
 }
 
-interface DoorHandle extends MachineHandle {
+interface DoorHandle extends EntityHandle {
   state: DoorSummary | null;
   rank: number | undefined;
   open: boolean | undefined;

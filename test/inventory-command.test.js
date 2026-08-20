@@ -42,6 +42,25 @@ function createInventoryClient() {
     return {client, sent};
 }
 
+test("client starts with an empty normalized inventory", () => {
+    const session = {
+        baseUrl: "https://drednot.io",
+        cookies: new Map(),
+        toJSON() {
+            return {test: true};
+        }
+    };
+    const client = new DredlessClient(new Connection(session, "token", 1, 0, {domain: "localhost"}), {connect: false});
+    const inventory = client.inventory.state();
+
+    assert.equal(inventory.type, "inventory");
+    assert.equal(inventory.hotbarSize, 5);
+    assert.equal(inventory.hotbar.length, 5);
+    assert.equal(inventory.slots.length, 11);
+    assert.equal(inventory.equipment.head.empty, true);
+    assert.equal(inventory.equipment.feet.empty, true);
+});
+
 test("equipment drag commands match official client captures", () => {
     assert.deepEqual(buildEquipItemCommand(0, "head"), {
         drag: {source: 0, target: 16, split: false}

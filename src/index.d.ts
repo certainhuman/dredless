@@ -612,7 +612,7 @@ export interface ShipManagementDomain {
 }
 
 export interface InventoryDomain {
-    state(): InventoryState | null;
+    state(): InventoryState;
 
     hotbarSize(): number;
 
@@ -1114,7 +1114,7 @@ export interface HelmHandle extends MachineHandle {
     occupied: boolean | undefined;
 }
 
-export interface DoorHandle extends MachineHandle {
+export interface DoorHandle extends EntityHandle {
     state: DoorSummary | null;
     rank: number | undefined;
     open: boolean | undefined;
@@ -1180,7 +1180,7 @@ export interface ClientSnapshot {
     currentWorldId: number | null;
     worlds: WorldSnapshot[];
     cpuLoad: number | null;
-    inventory: InventoryState | null;
+    inventory: InventoryState;
     puiPanels: PuiEvent[];
     commsPanels: CommsEvent[];
     currentCommsPanel: CommsEvent | null;
@@ -1763,7 +1763,6 @@ export interface BotSummary {
 export interface FabricatorSummary {
     entity: number;
     type: FabricatorType | null;
-  typeIndex: number | null;
     typeIndex: number | null;
     state: ModelRecord;
     rows: { itemId: number | null; itemName: string | null; count: number | null }[];
