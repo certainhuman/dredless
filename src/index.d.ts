@@ -132,6 +132,11 @@ export interface BlueprintPlacement {
     source: string;
 }
 
+export interface ChatMessage {
+    type: 2;
+    msg: string;
+}
+
 export interface BlueprintPlacementMessage {
     type: 9;
     x: number;
@@ -463,6 +468,8 @@ export class DredlessClient {
     close(code?: number, reason?: string): this;
 
     disconnect(code?: number, reason?: string): this;
+    sendChatMessage(message?: string): this;
+    sendCommsMessage(message?: string): this;
 
     currentShip(): ShipDomain | null;
 
@@ -2107,6 +2114,8 @@ export interface MachineSummary {
 export function decodeMsgpack(bytes: Uint8Array | ArrayBuffer | number[]): unknown;
 
 export function encodeMsgpack(value: unknown): Uint8Array;
+
+export function buildChatMessage(message?: string): ChatMessage;
 
 export function buildCommsMessage(message?: string): CommsMessage;
 

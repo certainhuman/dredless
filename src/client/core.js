@@ -7,6 +7,7 @@ import {Connection} from "../network/connection.js";
 import {itemEquipmentSlotFromId} from "../state/items.js";
 import {WorldStore} from "../state/world/index.js";
 import {buildBlueprintPlacementMessage} from "../protocol/outbound/blueprint.js";
+import {buildChatMessage} from "../protocol/outbound/chat.js";
 import {buildCommsMessage, normalizeCommsEvent} from "../protocol/outbound/comms.js";
 import {buildSignedCommandPacket} from "../protocol/outbound/commands.js";
 import {buildInventoryDragCommand, normalizeEquipmentSlot, normalizeInventoryEvent} from "../protocol/outbound/inventory.js";
@@ -284,6 +285,10 @@ export class DredlessClient extends EventBus {
 
     sendEntityCommand(cmd, args = [-1, -1, -1]) {
         return this.sendMessage({type: 5, cmd, args});
+    }
+
+    sendChatMessage(message = "") {
+        return this.sendMessage(buildChatMessage(message));
     }
 
     sendCommsMessage(message = "") {

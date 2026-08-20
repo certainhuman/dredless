@@ -2117,6 +2117,23 @@ interface InventoryDragCommand {
 
 `normalizeInventoryEvent()` returns the normalized `InventoryState` shape documented under `client.inventory`.
 
+### Chat helpers
+
+Module: `dredless/protocol/chat` or root.
+
+```ts
+function buildChatMessage(message?: string): ChatMessage;
+```
+
+Ship chat uses protocol message type 2. It is separate from comms-station
+messages, which use type 3. The game handles ship chat through the same
+chat-command path used by its chat commands, so client.sendChatMessage() can
+send executable chat commands as well as ordinary chat text. For example:
+
+```js
+client.sendChatMessage("/help");
+```
+
 ### Comms helpers
 
 Module: `dredless/protocol/comms` or root.

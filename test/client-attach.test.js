@@ -56,6 +56,17 @@ test("attachWebSocket observe mode decodes packets and only sends explicit write
     assert.equal(ws.sent.length, 1, "explicit message sends are allowed in observe mode");
 });
 
+test("attachWebSocket sends ship chat separately from comms messages", async () => {
+    const ws = new MockWebSocket();
+    const client = DredlessClient.attachWebSocket(ws);
+
+    ws.message({type: 21, sid: 123, world: 55});
+    await client.whenReady();
+    client.sendChatMessage("hello ship");
+
+    assert.deepEqual(Buffer.from(ws.sent[0]), Buffer.from(encodeMsgpack({type: 2, msg: "hello ship"})));
+});
+
 test("attachWebSocket readonly mode decodes but blocks writes and close", async () => {
     const ws = new MockWebSocket();
     const client = DredlessClient.attachWebSocket(ws, {mode: "readonly"});
