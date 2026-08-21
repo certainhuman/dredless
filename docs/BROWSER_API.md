@@ -41,6 +41,8 @@ interface DredlessBrowserNamespace {
   fetchNoticeVersion: typeof fetchNoticeVersion;
   fetchGameVersion: typeof fetchGameVersion;
   fetchServers: typeof fetchServers;
+  fetchServerStatus: typeof fetchServerStatus;
+  fetchServerStatuses: typeof fetchServerStatuses;
   fetchShips: typeof fetchShips;
   fetchShipList: typeof fetchShipList;
   joinShip: typeof joinShip;

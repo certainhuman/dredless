@@ -66,7 +66,7 @@ export {
 } from "./protocol/outbound/ui-config.js";
 export {decryptPayload} from "./crypto/chacha.js";
 export {decompressLz4Frame} from "./compression/lz4.js";
-export {fetchNoticeVersion, fetchGameVersion, fetchServers} from "./network/servers.js";
+export {fetchNoticeVersion, fetchGameVersion, fetchServerStatus, fetchServerStatuses, fetchServers} from "./network/servers.js";
 export {fetchShips as fetchShipsWithSession, fetchShipList as fetchShipListWithSession} from "./network/ships.js";
 export {
     BrowserSession,
@@ -88,7 +88,7 @@ export {
 
 import {Connection} from "./network/connection.js";
 import {DredlessClient} from "./client/index.js";
-import {fetchGameVersion, fetchNoticeVersion, fetchServers} from "./network/servers.js";
+import {fetchGameVersion, fetchNoticeVersion, fetchServerStatus, fetchServerStatuses, fetchServers} from "./network/servers.js";
 import {
     BrowserSession,
     browserSession,
@@ -121,6 +121,8 @@ export const DredlessBrowser = {
     fetchAccountStatus,
     fetchNoticeVersion,
     fetchGameVersion,
+    fetchServerStatus,
+    fetchServerStatuses,
     fetchServers,
     fetchShips,
     fetchShipList: fetchShipListForBrowser,
