@@ -60,11 +60,11 @@ export async function fetchServerStatus(server, baseUrl = DEFAULT_BASE_URL) {
     const resolved = await resolveServer(server, baseUrl);
     if (!resolved?.domain) throw new Error(`Unable to resolve server ${serverId(server)}`);
     const WebSocket = await getWebSocket();
-    const startedAt = Date.now();
     const socket = new WebSocket(`wss://${resolved.domain}:4000/`);
 
     return new Promise((resolve, reject) => {
         let settled = false;
+        let startedAt = 0;
         const finish = (callback, value) => {
             if (settled) return;
             settled = true;
@@ -73,7 +73,10 @@ export async function fetchServerStatus(server, baseUrl = DEFAULT_BASE_URL) {
             if (socket.readyState === 0 || socket.readyState === 1) socket.close();
         };
         const timeout = setTimeout(() => finish(reject, new Error(`Timed out fetching status for ${resolved.domain}`)), 10000);
-        const onOpen = () => socket.send("yo");
+        const onOpen = () => {
+            startedAt = Date.now();
+            socket.send("yo");
+        };
         const onMessage = async (event) => {
             try {
                 const data = JSON.parse(await websocketText(event?.data ?? event));
