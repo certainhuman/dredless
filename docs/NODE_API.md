@@ -108,7 +108,22 @@ Scrapes the current game version string from the site.
 function fetchServers(): Promise<Server[]>;
 ```
 
-Scrapes and returns known game servers.
+Scrapes and returns game servers.
+### `Dredless.fetchServerStatus(server)`
+
+```ts
+function fetchServerStatus(server: ServerRef): Promise<{ playerCount: number; maxPlayerCount: number; ping: number }>;
+```
+
+Pings the server and returns the current player counts and measured response time in milliseconds.
+
+### `Dredless.fetchServerStatuses()`
+
+```ts
+function fetchServerStatuses(): Promise<Server[]>;
+```
+
+Fetches status for every server and returns server objects with updated `playerCount`, `maxPlayerCount`, and `ping` fields.
 
 ### `Dredless.fetchShips(session, server)`
 

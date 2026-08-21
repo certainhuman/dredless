@@ -81,7 +81,7 @@ export {decompressLz4Frame} from "./compression/lz4.js";
 import {AnonSession, createAnonSession, createAnonToken, createSession, Session} from "./network/session.js";
 import {Connection} from "./network/connection.js";
 import {DredlessClient} from "./client/index.js";
-import {fetchGameVersion, fetchNoticeVersion, fetchServers} from "./network/servers.js";
+import {fetchGameVersion, fetchNoticeVersion, fetchServerStatus, fetchServerStatuses, fetchServers} from "./network/servers.js";
 import {fetchShipList, fetchShips} from "./network/ships.js";
 
 async function sessionOrAnon(session) {
@@ -114,6 +114,8 @@ export const Dredless = {
     createAnonToken,
     fetchNoticeVersion,
     fetchGameVersion,
+    fetchServerStatus,
+    fetchServerStatuses,
     fetchServers,
     fetchShips,
     fetchShipList,

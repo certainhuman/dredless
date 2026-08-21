@@ -60,16 +60,13 @@ Both runtime entrypoints re-export world/model classes, protocol builders, confi
 
 ### `Server`
 
-Returned by `fetchServers()`.
+Returned by `fetchServers()`. Player counts and ping are returned separately by `fetchServerStatus()` or `fetchServerStatuses()`.
 
 ```ts
 interface Server {
   index: number;
   domain: string;
   description: string;
-  playerCount: number;
-  maxPlayerCount: number;
-  ping: number | null;
 }
 ```
 

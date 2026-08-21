@@ -1,5 +1,5 @@
 import {DEFAULT_BASE_URL} from "../constants.js";
-import {hostName, normalizeBaseUrl} from "../runtime.js";
+import {getWebSocket, hostName, normalizeBaseUrl} from "../runtime.js";
 import {HttpClient} from "./http.js";
 
 const cache = new Map();
@@ -56,6 +56,56 @@ class ServerDirectory {
 
 export const fetchGameVersion = (baseUrl = DEFAULT_BASE_URL) => new ServerDirectory(baseUrl).version();
 export const fetchServers = (baseUrl = DEFAULT_BASE_URL) => new ServerDirectory(baseUrl).servers();
+export async function fetchServerStatus(server, baseUrl = DEFAULT_BASE_URL) {
+    const resolved = await resolveServer(server, baseUrl);
+    if (!resolved?.domain) throw new Error(`Unable to resolve server ${serverId(server)}`);
+    const WebSocket = await getWebSocket();
+    const startedAt = Date.now();
+    const socket = new WebSocket(`wss://${resolved.domain}:4000/`);
+
+    return new Promise((resolve, reject) => {
+        let settled = false;
+        const finish = (callback, value) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeout);
+            callback(value);
+            if (socket.readyState === 0 || socket.readyState === 1) socket.close();
+        };
+        const timeout = setTimeout(() => finish(reject, new Error(`Timed out fetching status for ${resolved.domain}`)), 10000);
+        const onOpen = () => socket.send("yo");
+        const onMessage = async (event) => {
+            try {
+                const data = JSON.parse(await websocketText(event?.data ?? event));
+                const playerCount = Number(data.player_count);
+                const maxPlayerCount = Number(data.player_max);
+                if (!Number.isFinite(playerCount) || !Number.isFinite(maxPlayerCount)) throw new Error("Invalid server status response");
+                finish(resolve, {playerCount, maxPlayerCount, ping: Date.now() - startedAt});
+            } catch (error) {
+                finish(reject, new Error(`Invalid status response from ${resolved.domain}: ${error.message}`));
+            }
+        };
+        const onError = (event) => finish(reject, event?.error || new Error(`WebSocket error while fetching ${resolved.domain}`));
+        if (typeof socket.on === "function") {
+            socket.on("open", onOpen);
+            socket.on("message", onMessage);
+            socket.on("error", onError);
+        } else if (typeof socket.addEventListener === "function") {
+            socket.addEventListener("open", onOpen);
+            socket.addEventListener("message", onMessage);
+            socket.addEventListener("error", onError);
+        } else {
+            socket.onopen = onOpen;
+            socket.onmessage = onMessage;
+            socket.onerror = onError;
+        }
+    });
+}
+
+export async function fetchServerStatuses(baseUrl = DEFAULT_BASE_URL) {
+    const servers = await fetchServers(baseUrl);
+    return Promise.all(servers.map(async (server) => ({...server, ...await fetchServerStatus(server, baseUrl)})));
+}
 
 export async function fetchNoticeVersion(baseUrl = DEFAULT_BASE_URL) {
     const response = await new HttpClient({baseUrl}).request("index.html");
@@ -128,6 +178,13 @@ function parseServerInfo(text, baseUrl) {
     };
 }
 
+async function websocketText(data) {
+    if (typeof data === "string") return data;
+    if (data instanceof ArrayBuffer) return new TextDecoder().decode(data);
+    if (ArrayBuffer.isView(data)) return new TextDecoder().decode(data);
+    if (typeof data?.text === "function") return data.text();
+    return String(data);
+}
 function server(index, domain, description) {
-    return {index, domain, description, playerCount: 0, maxPlayerCount: 0, ping: null};
+    return {index, domain, description};
 }

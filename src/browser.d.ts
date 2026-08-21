@@ -76,6 +76,8 @@ export {
     decompressLz4Frame,
     fetchNoticeVersion,
     fetchGameVersion,
+    fetchServerStatus,
+    fetchServerStatuses,
     fetchServers
 } from "./index.js";
 
@@ -199,7 +201,7 @@ export interface DredlessBrowserNamespace {
     fetchAccountStatus: typeof fetchAccountStatus;
     fetchNoticeVersion: typeof import("./index.js").fetchNoticeVersion;
     fetchGameVersion: typeof import("./index.js").fetchGameVersion;
-    fetchServers: typeof import("./index.js").fetchServers;
+    fetchServers: typeof import("./index.js").fetchServers;`r`n    fetchServerStatus: typeof import("./index.js").fetchServerStatus;`r`n    fetchServerStatuses: typeof import("./index.js").fetchServerStatuses;
     fetchShips: typeof fetchShips;
     fetchShipList: typeof fetchShipList;
     joinShip: typeof joinShip;

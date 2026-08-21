@@ -2,9 +2,6 @@ export interface Server {
     index: number;
     domain: string;
     description: string;
-    playerCount: number;
-    maxPlayerCount: number;
-    ping: number | null;
 }
 
 export interface Ship {
@@ -30,6 +27,12 @@ export type ShipSpec =
     | { type: "join_or_load"; id: number | string }
     | { type: "new"; name?: string | null; color?: string | null }
     | { type: "invite"; code: string };
+
+export interface ServerStatus {
+    playerCount: number;
+    maxPlayerCount: number;
+    ping: number;
+}
 
 export type ServerRef = number | Server;
 export type ShipRef = number | string | Ship | ShipSpec | null;
@@ -2248,6 +2251,10 @@ export function fetchGameVersion(): Promise<string>;
 
 export function fetchServers(): Promise<Server[]>;
 
+export function fetchServerStatus(server: ServerRef): Promise<ServerStatus>;
+
+export function fetchServerStatuses(): Promise<(Server & ServerStatus)[]>;
+
 export function fetchShips(session: Session, server: ServerRef): Promise<Ship[]>;
 
 export function fetchShipList(session: Session, server: ServerRef): Promise<ShipList>;
@@ -2273,6 +2280,8 @@ export interface DredlessNamespace {
     fetchNoticeVersion: typeof fetchNoticeVersion;
     fetchGameVersion: typeof fetchGameVersion;
     fetchServers: typeof fetchServers;
+    fetchServerStatus: typeof fetchServerStatus;
+    fetchServerStatuses: typeof fetchServerStatuses;
     fetchShips: typeof fetchShips;
     fetchShipList: typeof fetchShipList;
     joinShip: typeof joinShip;
@@ -2280,6 +2289,5 @@ export interface DredlessNamespace {
     startNewShip: typeof startNewShip;
     joinInvite: typeof joinInvite;
 }
-
 export const Dredless: DredlessNamespace;
 export default Dredless;
