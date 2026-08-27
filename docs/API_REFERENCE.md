@@ -99,6 +99,29 @@ interface Ship {
 }
 ```
 
+Ship names are returned exactly as provided by the Drednot server. In
+particular, `fetchShips()` and `fetchShipList()` preserve leading and trailing
+spaces; it is up to callers to optionally trim those spaces from `name`.
+
+### `InviteMetadata`
+
+Returned by `fetchInviteMetadata()`.
+
+```ts
+interface InviteMetadata {
+  shipId: string | null;
+  name: string | null;
+  previewImageUrl: string | null;
+  hostname: string;
+  inviteCode: string;
+  color?: string | null;
+}
+```
+
+Invite metadata also preserves leading and trailing spaces in the
+ship name returned by the invite page. The optional `color` field is included
+only when `includeColor: true` is passed and is sampled from the preview image.
+
 ### `ShipList`
 
 Returned by `fetchShipList()`.

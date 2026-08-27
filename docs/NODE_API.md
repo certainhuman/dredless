@@ -44,6 +44,7 @@ interface DredlessNamespace {
   fetchServers: typeof fetchServers;
   fetchShips: typeof fetchShips;
   fetchShipList: typeof fetchShipList;
+  fetchInviteMetadata: typeof fetchInviteMetadata;
   joinShip: typeof joinShip;
   startShip: typeof startShip;
   startNewShip: typeof startNewShip;
@@ -133,6 +134,9 @@ function fetchShips(session: Session, server: ServerRef): Promise<Ship[]>;
 
 Authenticated convenience wrapper around `session.fetchShips(server)`.
 
+Ship names in the returned objects are canonical Drednot server data. Leading
+and trailing spaces are preserved exactly; callers should not trim them.
+
 ### `Dredless.fetchShipList(session, server)`
 
 ```ts
@@ -140,6 +144,22 @@ function fetchShipList(session: Session, server: ServerRef): Promise<ShipList>;
 ```
 
 Authenticated convenience wrapper around `session.fetchShipList(server)`.
+
+Ship names in the returned objects are canonical Drednot server data. Leading
+and trailing spaces are preserved exactly; callers should not trim them.
+
+### `Dredless.fetchInviteMetadata(invite, options?)`
+
+```ts
+function fetchInviteMetadata(
+  invite: string | URL,
+  options?: { includeColor?: boolean }
+): Promise<InviteMetadata>;
+```
+
+Fetches and parses an invite page. The returned ship name preserves leading
+and trailing spaces exactly as returned by Drednot. Set `includeColor: true`
+to sample the preview image’s top-left pixel; otherwise no image is fetched.
 
 ### `Dredless.joinShip(server, ship?, session?)`
 
@@ -371,4 +391,3 @@ interface ConnectionSnapshot {
   session: SessionSnapshot;
 }
 ```
-
