@@ -29,7 +29,7 @@ function normalizeInviteUrl(invite) {
 }
 
 function parseInviteTitle(title) {
-    const match = title.match(/^Invite:\s*(.*?)\s*\{([^{}]+)}(?:\s*-\s*drednot\.io)?\s*$/i);
+    const match = title.match(/^Invite:\s?(.*?)\s*\{([^{}]+)}(?:\s*-\s*drednot\.io)?\s*$/i);
     return match ? {name: decodeHtml(match[1]), shipId: decodeHtml(match[2])} : {name: null, shipId: null};
 }
 

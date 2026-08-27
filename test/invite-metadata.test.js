@@ -13,6 +13,12 @@ test("parseInviteMetadata extracts invite fields", () => {
     });
 });
 
+test("parseInviteMetadata preserves leading spaces in ship names", () => {
+    const leadingSpaceHtml = html.replace("pink princess", " d").replace("75ECD", "D85DAC");
+    assert.equal(parseInviteMetadata(leadingSpaceHtml).name, " d");
+    assert.equal(parseInviteMetadata(leadingSpaceHtml).shipId, "D85DAC");
+});
+
 test("fetchInviteMetadata requests only the invite page", async () => {
     let requested;
     const metadata = await fetchInviteMetadata("https://drednot.io/invite/example", {
