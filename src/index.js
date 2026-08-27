@@ -77,12 +77,14 @@ export {
 } from "./protocol/outbound/ui-config.js";
 export {decryptPayload} from "./crypto/chacha.js";
 export {decompressLz4Frame} from "./compression/lz4.js";
+export {fetchInviteMetadata, parseInviteMetadata} from "./network/invites.js";
 
 import {AnonSession, createAnonSession, createAnonToken, createSession, Session} from "./network/session.js";
 import {Connection} from "./network/connection.js";
 import {DredlessClient} from "./client/index.js";
 import {fetchGameVersion, fetchNoticeVersion, fetchServerStatus, fetchServerStatuses, fetchServers} from "./network/servers.js";
 import {fetchShipList, fetchShips} from "./network/ships.js";
+import {fetchInviteMetadata} from "./network/invites.js";
 
 async function sessionOrAnon(session) {
     return session || createAnonSession();
@@ -119,6 +121,7 @@ export const Dredless = {
     fetchServers,
     fetchShips,
     fetchShipList,
+    fetchInviteMetadata,
     joinShip,
     startShip,
     startNewShip,
