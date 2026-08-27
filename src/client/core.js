@@ -72,6 +72,7 @@ import {
     shipReadSummary,
     currentPlayerSummary,
     summariesFor,
+    entitySnapshotFor,
     emptyMachineSummary,
     normalizeDegrees,
     normalizeLauncherPower,

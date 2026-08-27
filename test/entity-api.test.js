@@ -17,7 +17,7 @@ function createClientWithPusher() {
     const client = new DredlessClient(new Connection(session, "token", 1, 0, {domain: "localhost"}), {connect: false});
     const world = client.worlds.get(1);
     client.worlds.currentWorldId = 1;
-    client.sid = 99;
+    client.sid = 100055;
     client.captainSubrank = {subrank: 2, enableCheats: true};
     world.isOverworld = false;
     world.model.setWorldKind(false);
@@ -42,7 +42,7 @@ function createClientWithPusher() {
     world.model.tables.set(47, new Map([[33, {q21: 1}]]));
     world.model.tables.set(62, new Map([[34, {q21: 1}]]));
     world.model.tables.set(50, new Map([[35, {q20: 2, q24: 63}]]));
-    world.model.tables.set(55, new Map([[99, {q28: 109, q72: 3, q76: 0, blob92: encoder.encode("Captain Test")}]]));
+    world.model.tables.set(55, new Map([[99, {q28: 109, q72: 3, q76: 0, q109: 1, blob92: encoder.encode("Captain Test")}]]));
     return client;
 }
 

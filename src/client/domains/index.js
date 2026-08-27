@@ -427,7 +427,7 @@ export class OverworldDomain extends WorldDomain {
 
 const ENTITY_SNAPSHOT_CACHE = new WeakMap();
 
-function entitySnapshotFor(summary) {
+export function entitySnapshotFor(summary) {
     if (!summary || typeof summary !== "object") return null;
     let snapshot = ENTITY_SNAPSHOT_CACHE.get(summary);
     if (!snapshot) {
@@ -1587,7 +1587,10 @@ function normalizeInventorySlotIndex(value, name = "slot") {
 export function currentPlayerSummary(client, scope = "current") {
     const sid = Number(client?.sid);
     if (!Number.isFinite(sid)) return null;
-    return worldStateFor(client, scope)?.model.players().find((player) => player.entity === sid) || null;
+    const players = worldStateFor(client, scope)?.model.players() || [];
+    // `sid` is the websocket session id, not the ECS entity id used by the
+    // player component. The local-player flag identifies the ECS entity.
+    return players.find((player) => player.state?.q109) || null;
 }
 
 function currentPlayerRank(client) {
