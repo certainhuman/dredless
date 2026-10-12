@@ -325,6 +325,59 @@ once(type: string, callback: (...args: unknown[]) => void): this;
 
 Events are implementation-defined strings emitted by the client event bus.
 
+### Context menus: `client.tips`
+
+```js
+const door = client.currentShip().machines.doors()[0];
+const menu = await door.openTips();
+console.log(menu.options);
+client.tips.select("Restrict to Crew"); // Also accepts a zero-based option index.
+
+// Open and select in one operation:
+await client.tips.choose(door, "Restrict to Captains");
+
+// Dismiss without selecting an option:
+await door.openTips();
+await client.tips.close();
+
+// Set access and wait for the server's model update:
+await door.setRank("guest");
+await client.currentShip().machines.spawnPoints()[0].setRank("crew");
+```
+
+`client.tips.open(entity, options?)` accepts an entity handle or an entity id in
+the current world and resolves to a frozen `TipList` with
+`{ entity, world, filter, x, y, options }`. Every entity handle also exposes
+`openTips(options?)`. `client.tips.current` is the latest menu, or `null` after
+selection, an empty menu, or disconnect. The `tip-list` event receives
+`(menu, world)` including empty menus; the existing raw `side-event` is preserved.
+The server does not send an entity id in a tip list: `entity` is inferred from
+the API's requested target and is `null` for unsolicited menus. Avoid mixing raw
+context-menu commands with an API operation in progress.
+
+`select(option, command?)` sends the selected index and returns the client.
+`choose(entity, option, options?)` opens a fresh menu and selects by exact text
+or index, resolving to the client once selection is sent. Neither method waits
+for the resulting action to complete.
+
+`close(options?)` sends the captured left-click dismissal input with no focused
+entity or selected option, then resolves to the client after the server sends an
+empty tip list for the menu's world. It skips sending when no menu is open and
+uses the same timeout and overlap rules as `open()`. Optional `command` fields
+can supply click coordinates or inventory/view settings.
+
+Door and spawn-point `setRank(rank, options?)` accept `"guest"`, `"crew"`,
+`"captain"`, or `0`, `1`, `3`. They resolve to the client after the model confirms
+the requested rank, and skip sending when the rank already matches. These are
+access restrictions; they do not change a player's ship rank.
+
+Options are `{ timeout?: number, command?: Command }`. The timeout defaults to
+5000 milliseconds per response (menu and, for `setRank`, rank confirmation).
+Calls reject on timeout, disconnect, unknown options, invalid ranks, or a target
+outside the current world. Only one asynchronous tip operation may run per
+client; overlapping calls reject. The server still enforces permissions and
+interaction range; these helpers do not move the player or grant access.
+
 ## `client.state()` Output
 
 ```ts

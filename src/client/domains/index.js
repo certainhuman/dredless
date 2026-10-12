@@ -835,6 +835,10 @@ export class EntityHandle {
     use(options = {}, command = {}) {
         return this.client.player.useEntity(this.id, options, command);
     }
+
+    openTips(options = {}) {
+        return this.client.tips.open(this, options);
+    }
 }
 
 export class MachineHandle extends EntityHandle {
@@ -1228,6 +1232,10 @@ export class HelmHandle extends MachineHandle {
 }
 
 export class DoorHandle extends MachineHandle {
+    setRank(rank, options = {}) {
+        return this.client.tips.setRank(this, rank, options);
+    }
+
     get state() {
         return summaryForEntity(this.client, this.scope, this.id)?.contents?.door || null;
     }
@@ -1242,6 +1250,10 @@ export class DoorHandle extends MachineHandle {
 }
 
 export class SpawnPointHandle extends MachineHandle {
+    setRank(rank, options = {}) {
+        return this.client.tips.setRank(this, rank, options);
+    }
+
     get state() {
         return summaryForEntity(this.client, this.scope, this.id)?.contents?.spawnPoint || null;
     }

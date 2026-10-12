@@ -37,6 +37,20 @@ const ship = client.currentShip();
 const loader = ship?.machines.loaders()[0];
 loader?.configure({ cycle: 5, stack: 12 });
 
+const door = ship?.machines.doors()[0];
+if (door) await door.setRank("crew");
+const spawn = ship?.machines.spawnPoints()[0];
+if (spawn) await spawn.setRank("captain");
+
+// Other context-menu actions can be selected by their displayed text.
+const cannon = ship?.machines.cannons()[0];
+if (cannon) await client.tips.choose(cannon, "Unload Cannon");
+
+if (door) {
+  console.log((await door.openTips()).options);
+  await client.tips.close();
+}
+
 const sign = ship?.machines.signs()[0];
 sign?.open();
 sign?.setText("Dock here", SignDisplayMode.WhenNear);

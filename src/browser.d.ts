@@ -82,6 +82,9 @@ export {
 } from "./index.js";
 
 export type {
+    TipDomain,
+    TipList,
+    TipOptions,
     Server,
     Ship,
     ShipList,

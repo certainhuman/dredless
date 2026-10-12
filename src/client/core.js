@@ -1,6 +1,7 @@
 import {INITIAL_OUTFIT_MESSAGE, JOIN_USER_AGENT, KEEPALIVE_INTERVAL_MS, KEEPALIVE_MESSAGE} from "../constants.js";
 import {getWebSocket, isNode} from "../runtime.js";
 import {EventBus} from "../events.js";
+import {TipDomain} from "./domains/tips.js";
 import {cookieHeader} from "../network/cookies.js";
 import {fetchServers} from "../network/servers.js";
 import {Connection} from "../network/connection.js";
@@ -143,6 +144,7 @@ export class DredlessClient extends EventBus {
         this.debug = new ClientDebugDomain(this);
         this.player = new PlayerDomain(this);
         this.inventory = new InventoryDomain(this);
+        this.tips = new TipDomain(this);
         this.management = new ShipManagementDomain(this);
         this.cpuLoad = null;
         this.inventoryState = normalizeInventoryEvent({type: "inventory", general_slots: 5});
@@ -1042,6 +1044,7 @@ export class DredlessClient extends EventBus {
 
     #handleSideEvent(event, world) {
         if (!event || typeof event !== "object") return;
+        if (event.type === "tip_list") this.tips.receive(event, world);
         if (event.type === "inventory") {
             this.inventoryState = normalizeInventoryEvent(event);
             this.emit("inventory", this.inventoryState, world);

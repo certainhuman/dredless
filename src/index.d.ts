@@ -479,6 +479,7 @@ export class DredlessClient {
     debug: ClientDebugDomain;
     player: PlayerDomain;
     inventory: InventoryDomain;
+    tips: TipDomain;
     management: ShipManagementDomain;
     readyPromise: Promise<this>;
 
@@ -512,11 +513,39 @@ export class DredlessClient {
 
     entity(entityId: number, scope?: number | string): EntitySnapshot | null;
 
+    on(type: "tip-list", callback: (menu: TipList, world: WorldState) => void): this;
     on(type: string, callback: (...args: unknown[]) => void): this;
 
+    off(type: "tip-list", callback: (menu: TipList, world: WorldState) => void): this;
     off(type: string, callback: (...args: unknown[]) => void): this;
 
+    once(type: "tip-list", callback: (menu: TipList, world: WorldState) => void): this;
     once(type: string, callback: (...args: unknown[]) => void): this;
+}
+
+export interface TipList {
+    /** Target inferred from tips.open(); null for unsolicited menus. */
+    readonly entity: number | null;
+    readonly world: number | null;
+    readonly filter: number | null;
+    readonly x: number;
+    readonly y: number;
+    readonly options: readonly string[];
+}
+
+export interface TipOptions {
+    /** Milliseconds to wait per server response; default 5000. */
+    timeout?: number;
+    command?: Command;
+}
+
+export interface TipDomain {
+    readonly current: TipList | null;
+    open(entity: number | EntityHandle, options?: TipOptions): Promise<TipList>;
+    /** Dismiss the menu and wait for the server's empty tip list. */
+    close(options?: TipOptions): Promise<DredlessClient>;
+    select(option: number | string, command?: Command): DredlessClient;
+    choose(entity: number | EntityHandle, option: number | string, options?: TipOptions): Promise<DredlessClient>;
 }
 
 export interface ClientNetDomain {
@@ -952,6 +981,7 @@ export interface EntityHandle {
     asExpandoBox(): ExpandoBoxHandle | null;
 
     use(options?: { invSlot?: number; hold?: boolean }, command?: Command): DredlessClient;
+    openTips(options?: TipOptions): Promise<TipList>;
 }
 
 export interface MachineHandle extends EntityHandle {
@@ -1137,11 +1167,13 @@ export interface DoorHandle extends EntityHandle {
     state: DoorSummary | null;
     rank: number | undefined;
     open: boolean | undefined;
+    setRank(rank: ShipPlayerRank, options?: TipOptions): Promise<DredlessClient>;
 }
 
 export interface SpawnPointHandle extends MachineHandle {
     state: SpawnPointSummary | null;
     rank: number | undefined;
+    setRank(rank: ShipPlayerRank, options?: TipOptions): Promise<DredlessClient>;
 }
 
 export interface ShieldProjectorHandle extends MachineHandle {
