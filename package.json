@@ -1,6 +1,6 @@
 {
     "name": "dredless",
-    "version": "0.6.2",
+    "version": "0.6.3",
     "description": "A fully-featured and from-scratch headless drednot.io client implementation written in pure js.",
     "license": "MIT",
     "homepage": "https://github.com/certainhuman/dredless#readme",
