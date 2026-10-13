@@ -5,6 +5,12 @@ function timeoutValue(options) {
   if (!Number.isFinite(timeout) || timeout <= 0) throw new RangeError("timeout must be positive milliseconds");
   return timeout;
 }
+function marginPacketValue(options) {
+	const marginPacket = options.marginPacket ?? 20;
+	if(!Number.isFinite(marginPacket) || marginPacket < 0)
+		throw new RangeError("marginPacket must be a positive finite number");
+	return marginPacket;
+}
 
 function waitFor(client, eventType, read, timeout, label, send = null) {
   return new Promise((resolve, reject) => {
@@ -66,6 +72,7 @@ export class TipDomain {
   async #open(entity, options) {
     if (!this.client.ready || !this.client.connected) throw new Error("Client must be connected and ready to open tips");
     const timeout = timeoutValue(options);
+    const marginPacket = marginPacketValue(options);
     const handle = typeof entity === "number" ? this.client.currentShip()?.entities.get(entity) : entity;
     if (!handle || handle.client !== this.client || !handle.exists()) throw new Error("Tip target must be an existing entity on this client");
     const world = this.client.worlds.currentWorldId;
@@ -86,6 +93,8 @@ export class TipDomain {
       return this.#current?.entity === handle.id && this.#current.world === world ? this.#current : null;
     }, timeout, "tip menu", () => {
       this.client.send({...this.#target.command, act1: false, act2: true, tip_select: null});
+      for(let i=0;i<marginPacket;i++)
+      	this.client.send({...this.#target.command, act1: false, act2: false, tip_select: null});
     });
   }
 
