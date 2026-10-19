@@ -1352,7 +1352,7 @@ test("ModelState decodes starter cannon aim-only and firing updates", () => {
     assert.equal(cannon.ammoItemId, 150);
     assert.equal(cannon.ammoName, "Standard Ammo");
     assert.equal(cannon.ammoCount, 16);
-    assert.equal(cannon.aim, 2);
+    assert.equal(cannon.relativeAngleRadians, 2 / 200);
     assert.equal(cannon.recoil, null);
     assert.deepEqual(cannon.recoils, [null, null]);
 
@@ -1362,7 +1362,7 @@ test("ModelState decodes starter cannon aim-only and firing updates", () => {
     ));
 
     cannon = model.entity(entity).contents.cannon;
-    assert.equal(cannon.aim, 205);
+    assert.equal(cannon.relativeAngleRadians, 205 / 200);
     assert.equal(cannon.ammoCount, 16);
 
     model.apply(modelData(
@@ -1372,7 +1372,7 @@ test("ModelState decodes starter cannon aim-only and firing updates", () => {
 
     cannon = model.entity(entity).contents.cannon;
     assert.equal(cannon.ammoCount, 15);
-    assert.equal(cannon.aim, 205);
+    assert.equal(cannon.relativeAngleRadians, 205 / 200);
     assert.equal(cannon.recoil, -24);
     assert.deepEqual(cannon.recoils, [-24, null]);
 
@@ -1402,7 +1402,8 @@ test("ModelState decodes machine cannon high-bit state without metadata spillove
     assert.equal(cannon.typeName, "Machine Cannon (Packaged)");
     assert.equal(cannon.ammoItemId, 150);
     assert.equal(cannon.ammoCount, 15);
-    assert.equal(cannon.aim, -40);
+    assert.equal(cannon.relativeAngleRadians, -40 / 200);
+    assert.equal(cannon.absoluteAngleRadians, null);
     assert.equal(cannon.spin, 129);
     assert.equal(cannon.coolingCellCount, 0);
     assert.equal(model.snapshot().entities.length, 1);
@@ -1413,7 +1414,7 @@ test("ModelState decodes machine cannon high-bit state without metadata spillove
     ));
 
     cannon = model.entity(entity).contents.cannon;
-    assert.equal(cannon.aim, 217);
+    assert.equal(cannon.relativeAngleRadians, 217 / 200);
     assert.equal(cannon.ammoItemId, null);
     assert.equal(cannon.state.q44, 3);
     assert.equal(cannon.recoil, 0);
@@ -1440,6 +1441,37 @@ test("ModelState decodes machine cannon high-bit state without metadata spillove
     assert.equal(model.snapshot().entities.length, 1);
 });
 
+test("ModelState combines cannon mount and barrel angles in normalized ship radians", () => {
+    const model = new ModelState();
+    const entity = 50;
+    const tau = 2 * Math.PI;
+
+    model.apply(modelData(
+        1,
+        tableSection(1, entity, 7, [0, 0, -200].flatMap(fieldDelta)),
+        tableSection(43, entity, 1, fieldDelta(227)),
+        table54Section(entity, 3, [1, 40])
+    ));
+
+    let cannon = model.entity(entity).contents.cannon;
+    assert.equal(cannon.relativeAngleRadians, 0.2);
+    assert.ok(Math.abs(cannon.absoluteAngleRadians - (tau - 200 / 127.324 + 0.2)) < 1e-12);
+    assert.equal("aim" in cannon, false);
+    assert.equal(cannon.state.q32, 40);
+
+    // A transform-only update must also refresh the absolute barrel direction.
+    model.apply(modelData(2, tableSection(1, entity, 4, fieldDelta(1000))));
+    cannon = model.entity(entity).contents.cannon;
+    assert.equal(cannon.relativeAngleRadians, 0.2);
+    assert.ok(Math.abs(cannon.absoluteAngleRadians - (800 / 127.324 + 0.2 - tau)) < 1e-12);
+    assert.ok(cannon.absoluteAngleRadians >= 0 && cannon.absoluteAngleRadians < tau);
+
+    model.apply(modelData(3, table54Section(entity, 2, [-80])));
+    cannon = model.entity(entity).contents.cannon;
+    assert.equal(cannon.relativeAngleRadians, -0.2);
+    assert.ok(Math.abs(cannon.absoluteAngleRadians - (800 / 127.324 - 0.2)) < 1e-12);
+});
+
 test("ModelState decodes machine cannon cooling cell count", () => {
     const model = new ModelState();
     const none = 20;
@@ -1460,6 +1492,8 @@ test("ModelState decodes machine cannon cooling cell count", () => {
     ));
 
     assert.equal(model.entity(none).contents.cannon.coolingCellCount, 0);
+    assert.equal(model.entity(none).contents.cannon.relativeAngleRadians, null);
+    assert.equal(model.entity(none).contents.cannon.absoluteAngleRadians, null);
     assert.equal(model.entity(one).contents.cannon.coolingCellCount, 1);
     assert.equal(model.entity(twoLoaded).contents.cannon.coolingCellCount, 2);
     assert.equal(model.entity(twoLoaded).contents.cannon.ammoCount, 16);

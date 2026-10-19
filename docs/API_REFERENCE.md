@@ -1440,6 +1440,11 @@ interface CargoEjectorHandle extends MachineHandle {
 
 Associated summary shapes:
 
+Cannon summaries expose `relativeAngleRadians` relative to the mount and
+`absoluteAngleRadians` in ship coordinates, normalized to `[0, 2π)`, replacing
+the raw `aim` field. The relative angle is `null` when aim is unavailable; the
+absolute angle is `null` when either aim or mounting rotation is unavailable.
+
 ```ts
 interface CannonSummary {
   entity: number;
@@ -1448,7 +1453,8 @@ interface CannonSummary {
   ammoItemId: number | null;
   ammoName: string | null;
   ammoCount: number;
-  aim: number | null;
+  relativeAngleRadians: number | null; // Barrel angle relative to its mount.
+  absoluteAngleRadians: number | null; // Ship coordinates, normalized to [0, 2π).
   recoil: number | null;
   recoil2: number | null;
   recoils: [number | null, number | null];

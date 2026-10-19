@@ -1832,7 +1832,10 @@ export interface CannonSummary {
     ammoItemId: number | null;
     ammoName: string | null;
     ammoCount: number;
-    aim: number | null;
+    /** Barrel angle relative to its mount, in radians. */
+    relativeAngleRadians: number | null;
+    /** Barrel direction in ship coordinates, normalized to [0, 2π); null if aim or mounting rotation is unavailable. */
+    absoluteAngleRadians: number | null;
     recoil: number | null;
     recoil2: number | null;
     recoils: [number | null, number | null];
