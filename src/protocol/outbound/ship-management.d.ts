@@ -37,12 +37,24 @@ export interface ShipManagementMessage {
     rank?: unknown;
 }
 
+export interface ShipPatronPerk {
+    name: string;
+    /** Packed RGB color, as sent by the server. */
+    color: number;
+    /** Official tiers include bronze, silver, gold, plat, and flux. */
+    tier: string;
+}
+
+export interface PatronPerksResponse {
+    readonly failure: boolean;
+}
+
 export interface ShipConfig {
     privacy: number | null;
     privacyName: "public" | "private" | null;
     inviteKey: string | null;
     teamId: number | null;
-    patronPerks: unknown[];
+    patronPerks: ShipPatronPerk[];
 }
 
 export interface CaptainSubrank {
@@ -79,6 +91,8 @@ export function buildShipManagementMessage(act: string, arg?: unknown, extra?: R
 export function buildShipPrivacyMessage(privacy: ShipPrivacy): ShipManagementMessage;
 
 export function buildShipGravityMessage(direction: ShipGravityDirection): ShipManagementMessage;
+
+export function buildSetPatronPerksMessage(enabled: boolean): ShipManagementMessage;
 
 export function normalizeGravityDirection(direction: ShipGravityDirection): 0 | 1 | 2 | 3;
 
@@ -118,6 +132,7 @@ export function normalizeShipPlayerList(event: unknown, previous?: ShipPlayerLis
 
 export const CREW_LOG_LENGTH: 500;
 export const GRAVITY_ACTION: "gravity";
+export const SET_PATRON_PERKS_ACTION: "set_patron_perks";
 export const BAN_ACTION: "ban";
 export const UNBAN_ACTION: "unban";
 export const DEMOTE_SELF_ACTION: "demote_self";

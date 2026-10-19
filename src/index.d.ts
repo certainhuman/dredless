@@ -153,12 +153,24 @@ export type InventorySlotRef = number | EquipmentSlot | InventorySlotHandle | In
 export type ReadWorldScope = "ship" | "current" | "overworld" | number;
 export type EntityRef = number | EntityHandle | EntitySummary | EntityDebugSummary;
 
+export interface ShipPatronPerk {
+    name: string;
+    /** Packed RGB color, as sent by the server. */
+    color: number;
+    /** Official tiers include bronze, silver, gold, plat, and flux. */
+    tier: string;
+}
+
+export interface PatronPerksResponse {
+    readonly failure: boolean;
+}
+
 export interface ShipConfig {
     privacy: number | null;
     privacyName: "public" | "private" | null;
     inviteKey: string | null;
     teamId: number | null;
-    patronPerks: unknown[];
+    patronPerks: ShipPatronPerk[];
 }
 
 export interface CaptainSubrank {
@@ -591,6 +603,7 @@ export class DredlessClient {
     renameShip(name: string, options?: RenameShipOptions): Promise<void>;
     unbanPlayer(refId: number): this;
     setShipGravity(direction: ShipGravityDirection): this;
+    setShipPatronPerks(enabled: boolean): this;
     /** Await recovery success; reject with the server's failure reason. */
     recoverStarterItem(itemId: number, options?: StarterRecoveryOptions): Promise<void>;
 
@@ -619,6 +632,7 @@ export class DredlessClient {
     on(type: "disconnect", callback: (info: DisconnectInfo) => void): this;
     on(type: "starter-recovery", callback: (result: StarterRecoveryResult, packet: unknown) => void): this;
     on(type: "demote", callback: (packet: unknown) => void): this;
+    on(type: "patron-perks-response", callback: (response: PatronPerksResponse, packet: unknown) => void): this;
     on(type: "crew-log", callback: (log: CrewLog | null, packet: unknown) => void): this;
     on(type: "tip-list", callback: (menu: TipList, world: WorldState) => void): this;
     on(type: string, callback: (...args: unknown[]) => void): this;
@@ -626,6 +640,7 @@ export class DredlessClient {
     off(type: "disconnect", callback: (info: DisconnectInfo) => void): this;
     off(type: "starter-recovery", callback: (result: StarterRecoveryResult, packet: unknown) => void): this;
     off(type: "demote", callback: (packet: unknown) => void): this;
+    off(type: "patron-perks-response", callback: (response: PatronPerksResponse, packet: unknown) => void): this;
     off(type: "crew-log", callback: (log: CrewLog | null, packet: unknown) => void): this;
     off(type: "tip-list", callback: (menu: TipList, world: WorldState) => void): this;
     off(type: string, callback: (...args: unknown[]) => void): this;
@@ -633,6 +648,7 @@ export class DredlessClient {
     once(type: "disconnect", callback: (info: DisconnectInfo) => void): this;
     once(type: "starter-recovery", callback: (result: StarterRecoveryResult, packet: unknown) => void): this;
     once(type: "demote", callback: (packet: unknown) => void): this;
+    once(type: "patron-perks-response", callback: (response: PatronPerksResponse, packet: unknown) => void): this;
     once(type: "crew-log", callback: (log: CrewLog | null, packet: unknown) => void): this;
     once(type: "tip-list", callback: (menu: TipList, world: WorldState) => void): this;
     once(type: string, callback: (...args: unknown[]) => void): this;
@@ -769,6 +785,15 @@ export interface ShipManagementDomain {
 
     /** Set gravity using the official coolsnake303 command. Does not await confirmation. */
     setGravity(direction: ShipGravityDirection): DredlessClient;
+
+    /** Apply or remove the caller's perks; does not await server confirmation. */
+    setPatronPerks(enabled: boolean): DredlessClient;
+    enablePatronPerks(): DredlessClient;
+    disablePatronPerks(): DredlessClient;
+    /** Current server-reported patrons; null when config is unavailable. */
+    patronPerks(): ShipPatronPerk[] | null;
+    /** Any applied patron, or an exact patron name match when supplied. */
+    hasPatronPerks(name?: string): boolean;
 
     /** Await recovery success; reject with the server's failure reason. */
     recoverStarterItem(itemId: number, options?: StarterRecoveryOptions): Promise<void>;
@@ -2331,6 +2356,8 @@ export function buildShipManagementMessage(act: string, arg?: unknown, extra?: R
 export function buildShipPrivacyMessage(privacy: ShipPrivacy): ShipManagementMessage;
 
 export function buildShipGravityMessage(direction: ShipGravityDirection): ShipManagementMessage;
+
+export function buildSetPatronPerksMessage(enabled: boolean): ShipManagementMessage;
 
 export function normalizeGravityDirection(direction: ShipGravityDirection): 0 | 1 | 2 | 3;
 
