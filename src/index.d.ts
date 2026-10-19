@@ -258,6 +258,25 @@ export interface Command {
     drag?: DragPayload | null;
 }
 
+export interface CrewLogEntry {
+    icon: string | null;
+    /** Plain text; formatting, images, badges, and date tokens remain in rawText. */
+    text: string;
+    rawText: unknown;
+    count: number;
+    refId: number | null;
+    secondaryRefId: number | null;
+}
+
+export interface CrewLog {
+    /** Retained entries in server order, oldest first; at most 500. */
+    entries: CrewLogEntry[];
+    /** Entries appended by the latest message, including amended replacements. */
+    changes: CrewLogEntry[];
+    reset: boolean;
+    amend: boolean;
+}
+
 export interface ShipManagementMessage {
     type: 4;
     act: string;
@@ -539,6 +558,7 @@ export class DredlessClient {
     packetCount: number;
     lastPacket: unknown;
     lastDisconnect: DisconnectInfo | null;
+    crewLog: CrewLog | null;
     net: ClientNetDomain;
     debug: ClientDebugDomain;
     player: PlayerDomain;
@@ -589,18 +609,21 @@ export class DredlessClient {
     on(type: "disconnect", callback: (info: DisconnectInfo) => void): this;
     on(type: "starter-recovery", callback: (result: StarterRecoveryResult, packet: unknown) => void): this;
     on(type: "demote", callback: (packet: unknown) => void): this;
+    on(type: "crew-log", callback: (log: CrewLog | null, packet: unknown) => void): this;
     on(type: "tip-list", callback: (menu: TipList, world: WorldState) => void): this;
     on(type: string, callback: (...args: unknown[]) => void): this;
 
     off(type: "disconnect", callback: (info: DisconnectInfo) => void): this;
     off(type: "starter-recovery", callback: (result: StarterRecoveryResult, packet: unknown) => void): this;
     off(type: "demote", callback: (packet: unknown) => void): this;
+    off(type: "crew-log", callback: (log: CrewLog | null, packet: unknown) => void): this;
     off(type: "tip-list", callback: (menu: TipList, world: WorldState) => void): this;
     off(type: string, callback: (...args: unknown[]) => void): this;
 
     once(type: "disconnect", callback: (info: DisconnectInfo) => void): this;
     once(type: "starter-recovery", callback: (result: StarterRecoveryResult, packet: unknown) => void): this;
     once(type: "demote", callback: (packet: unknown) => void): this;
+    once(type: "crew-log", callback: (log: CrewLog | null, packet: unknown) => void): this;
     once(type: "tip-list", callback: (menu: TipList, world: WorldState) => void): this;
     once(type: string, callback: (...args: unknown[]) => void): this;
 }
@@ -753,6 +776,8 @@ export interface ShipManagementDomain {
     hasCheats(): boolean;
 
     playerList(): ShipPlayerList | null;
+
+    crewLog(): CrewLog | null;
 }
 
 export interface InventoryDomain {
@@ -1342,6 +1367,7 @@ export interface ClientSnapshot {
     shipConfig: ShipConfig | null;
     captainSubrank: CaptainSubrank | null;
     playerList: ShipPlayerList | null;
+    crewLog: CrewLog | null;
     outfits: { sid: number; outfit: unknown }[];
     commandAcks: CommandAck[];
     lastCommandAck: CommandAck | null;
@@ -2320,6 +2346,8 @@ export function normalizePlayerRank(rank: ShipPlayerRank): 0 | 1 | 3;
 export function normalizeShipConfig(event: unknown): ShipConfig;
 
 export function normalizeCaptainSubrank(event: unknown): CaptainSubrank;
+
+export function normalizeCrewLog(event: unknown, previous?: CrewLog | null): CrewLog;
 
 export function normalizeShipPlayerList(event: unknown, previous?: ShipPlayerList | null, currentCaptainSubrank?: CaptainSubrank | null): ShipPlayerList;
 

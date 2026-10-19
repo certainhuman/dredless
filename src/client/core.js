@@ -28,6 +28,7 @@ import {
     buildShipPrivacyMessage,
     buildStarterRecoveryMessage,
     normalizeCaptainSubrank,
+    normalizeCrewLog,
     normalizeShipConfig,
     normalizeShipPlayerList
 } from "../protocol/outbound/ship-management.js";
@@ -167,6 +168,7 @@ export class DredlessClient extends EventBus {
         this.shipConfig = null;
         this.captainSubrank = null;
         this.playerList = null;
+        this.crewLog = null;
         this.outfits = new Map();
         this.commandAcks = new Map();
         this.lastCommandAck = null;
@@ -830,6 +832,7 @@ export class DredlessClient extends EventBus {
             shipConfig: this.shipConfig,
             captainSubrank: this.captainSubrank,
             playerList: this.playerList,
+            crewLog: this.crewLog,
             outfits: [...this.outfits.entries()].map(([sid, outfit]) => ({sid, outfit})),
             commandAcks: [...this.commandAcks.entries()].map(([world, commandNumber]) => ({world, commandNumber})),
             lastCommandAck: this.lastCommandAck,
@@ -1062,6 +1065,7 @@ export class DredlessClient extends EventBus {
         this.shipConfig = null;
         this.captainSubrank = null;
         this.playerList = null;
+        this.crewLog = null;
         this.puiPanels.clear();
         this.commsPanels.clear();
         this.currentCommsPanel = null;
@@ -1226,10 +1230,17 @@ export class DredlessClient extends EventBus {
             this.shipConfig = null;
             this.captainSubrank = null;
             this.playerList = null;
+            this.crewLog = null;
             this.emit("demote", packet);
             this.emit("ship-config", null, packet);
             this.emit("captain-subrank", null, packet);
             this.emit("player-list", null, packet);
+            this.emit("crew-log", null, packet);
+            return;
+        }
+        if (submessage.type === "log") {
+            this.crewLog = normalizeCrewLog(submessage, this.crewLog);
+            this.emit("crew-log", this.crewLog, packet);
             return;
         }
         if (submessage.type === "starter_recovery_response") {

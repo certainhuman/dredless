@@ -32,6 +32,7 @@ export {
     buildShipPrivacyMessage,
     buildStarterRecoveryMessage,
     normalizeCaptainSubrank,
+    normalizeCrewLog,
     normalizeShipPlayerList,
     normalizePlayerRank,
     normalizePrivacy,
