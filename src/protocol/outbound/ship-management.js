@@ -7,6 +7,7 @@ const SET_RANK_ACTION = "set_rank";
 const KICK_ACTION = "kick";
 const BAN_ACTION = "ban";
 const DEMOTE_SELF_ACTION = "demote_self";
+const SAVE_SHIP_ACTION = "save_team";
 
 function requireNonNegativeInteger(value, name) {
     const number = Number(value);
@@ -68,6 +69,10 @@ export function buildBanPlayerMessage(refId) {
 
 export function buildDemoteSelfMessage() {
     return buildShipManagementMessage(DEMOTE_SELF_ACTION);
+}
+
+export function buildSaveShipMessage() {
+    return buildShipManagementMessage(SAVE_SHIP_ACTION);
 }
 
 export function normalizeShipConfig(event = {}) {
@@ -212,6 +217,7 @@ export {
     INVITE_RESET_ACTION,
     KICK_ACTION,
     PLAYER_LIST_ACTION,
+    SAVE_SHIP_ACTION,
     SET_PRIVACY_ACTION,
     SET_RANK_ACTION,
     SHIP_MANAGEMENT_TYPE,

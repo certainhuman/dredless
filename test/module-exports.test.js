@@ -24,3 +24,17 @@ test("protocol frame decoding is independent of client state", async () => {
     assert.deepEqual(decodeIncomingFrame(encodeMsgpack(packet)), packet);
     assert.deepEqual(decodeIncomingFrame(JSON.stringify(packet)), packet);
 });
+
+test("disconnect utilities are shared by Node, browser, and network entrypoints", async () => {
+    const modules = await Promise.all([
+        import("../src/node.js"),
+        import("../src/browser.js"),
+        import("../src/network/index.js")
+    ]);
+    for (const module of modules) {
+        assert.equal(module.DropReason.Saved, 4015);
+        assert.equal(module.DropReason, modules[0].DropReason);
+        assert.equal(module.DisconnectError, modules[0].DisconnectError);
+        assert.equal(module.normalizeDisconnect(4015).name, "Saved");
+    }
+});

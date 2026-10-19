@@ -277,7 +277,45 @@ close(code?: number, reason?: string): this;
 disconnect(code?: number, reason?: string): this;
 ```
 
-`whenReady()` resolves once the ready packet is received. For normally-owned clients and `attachWebSocket(..., { mode: "bootstrap" })`, bootstrap commands have also been sent.
+`whenReady()` resolves once the ready packet is received, or rejects with
+`DisconnectError` if the socket closes first. For normally-owned clients and
+`attachWebSocket(..., { mode: "bootstrap" })`, bootstrap commands have also been sent.
+
+### Disconnect reasons
+
+`DropReason`, `DisconnectError`, and `normalizeDisconnect()` are exported from
+the Node, browser, root, and `dredless/network` entrypoints. `DropReason` contains
+the official application's close codes, including `Kicked` (4008), `Banned`
+(4009), `Saved` (4015), `Shutdown` (4017), and `ServerError` (4018).
+
+```ts
+interface DisconnectInfo {
+  readonly code: number;
+  readonly name: keyof typeof DropReason | null;
+  readonly reason: string;
+  readonly wasClean: boolean | null;
+}
+```
+
+Listen to `client.on("disconnect", info => ...)` for normalized details.
+`client.lastDisconnect`, `client.net.lastDisconnect`, and
+`client.state().lastDisconnect` retain the latest details (initially `null`).
+Names are `null` for standard WebSocket and unknown codes. `wasClean` is `null`
+when the socket API does not report it, such as Node EventEmitter callbacks.
+Byte-buffer reasons are decoded as UTF-8. Missing codes default to `1006`.
+
+The existing `close` event still receives the original browser close event or
+Node `(code, reason)` arguments. State is cleaned before either event: the client
+sets `connected` and `ready` to `false`, clears the session ID, pending writes,
+keepalive, active management/panel state, and command acknowledgements. World
+snapshots and historical packet data remain available. Further writes reject
+with `DisconnectError`. Dredless does not automatically reconnect.
+
+```js
+client.on("disconnect", info => {
+  console.log(info.name, info.code, info.reason);
+});
+```
 
 ### World/domain endpoints
 
@@ -392,6 +430,7 @@ interface ClientSnapshot {
   sid: number | null;
   ready: boolean;
   connected: boolean;
+  lastDisconnect: DisconnectInfo | null;
   currentWorldId: number | null;
   worlds: WorldSnapshot[];
   cpuLoad: number | null;
@@ -637,6 +676,8 @@ Ship-management command and state domain.
 
 ```ts
 interface ShipManagementDomain {
+  canSave(): boolean;
+  save(options?: SaveShipOptions): Promise<DisconnectInfo>;
   requestPlayerList(): DredlessClient;
   resetInvite(): DredlessClient;
   setPrivacy(privacy: ShipPrivacy): DredlessClient;
@@ -648,6 +689,32 @@ interface ShipManagementDomain {
   config(): ShipConfig | null;
   hasCheats(): boolean;
   playerList(): ShipPlayerList | null;
+}
+
+interface SaveShipOptions {
+  timeout?: number; // Milliseconds; default 10000.
+}
+```
+
+`canSave()` returns `true` when the client is connected and ready, the current
+ship's parent world is known, and that parent's `danger_level` is `0` (Safe Zone).
+It returns `false` for missing metadata or an unsafe parent world. The server
+still checks the player's permission to save.
+
+`save({timeout = 10000} = {})` sends `{type: 4, act: "save_team", arg: null}`
+and resolves with `DisconnectInfo` when the server closes the connection with
+`DropReason.Saved` (4015). Saving ejects all players so captains can reload the ship.
+It rejects if `canSave()` is false, the socket closes with a different code, a
+save is already pending, sending fails, or the timeout expires. Disconnect
+failures use `DisconnectError`, whose `disconnect` property contains the details.
+The timeout must be positive milliseconds, at most `2147483647`. A timeout stops
+waiting; it does not cancel a save already requested from the server.
+The client also exposes `canSaveShip()` and `saveShip(options?)` directly.
+
+```js
+if (client.management.canSave()) {
+  const saved = await client.management.save({timeout: 10000});
+  console.log(saved.name); // "Saved"
 }
 ```
 
@@ -2259,6 +2326,7 @@ function buildShipManagementMessage(act: string, arg?: unknown, extra?: Record<s
 function buildShipPrivacyMessage(privacy: ShipPrivacy): ShipManagementMessage;
 function buildStarterRecoveryMessage(itemId: number): ShipManagementMessage;
 function buildPlayerListMessage(): ShipManagementMessage;
+function buildSaveShipMessage(): ShipManagementMessage;
 function buildInviteResetMessage(): ShipManagementMessage;
 function buildSetPlayerRankMessage(refId: number, rank: ShipPlayerRank): ShipManagementMessage;
 function buildKickPlayerMessage(refId: number): ShipManagementMessage;
@@ -2445,6 +2513,7 @@ const BAN_ACTION: "ban";
 const DEMOTE_SELF_ACTION: "demote_self";
 const KICK_ACTION: "kick";
 const PLAYER_LIST_ACTION: "player_list";
+const SAVE_SHIP_ACTION: "save_team";
 const INVITE_RESET_ACTION: "invite_reset";
 const SET_PRIVACY_ACTION: "set_privacy";
 const SET_RANK_ACTION: "set_rank";

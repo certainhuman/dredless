@@ -53,6 +53,8 @@ export function buildStarterRecoveryMessage(itemId: number): ShipManagementMessa
 
 export function buildPlayerListMessage(): ShipManagementMessage;
 
+export function buildSaveShipMessage(): ShipManagementMessage;
+
 export function buildInviteResetMessage(): ShipManagementMessage;
 
 export function buildSetPlayerRankMessage(refId: number, rank: ShipPlayerRank): ShipManagementMessage;
@@ -77,6 +79,7 @@ export const BAN_ACTION: "ban";
 export const DEMOTE_SELF_ACTION: "demote_self";
 export const KICK_ACTION: "kick";
 export const PLAYER_LIST_ACTION: "player_list";
+export const SAVE_SHIP_ACTION: "save_team";
 export const INVITE_RESET_ACTION: "invite_reset";
 export const SET_PRIVACY_ACTION: "set_privacy";
 export const SET_RANK_ACTION: "set_rank";
