@@ -1,5 +1,6 @@
 export {Session, AnonSession} from "./network/session.js";
 export {Connection} from "./network/connection.js";
+export {DropReason, DisconnectError, normalizeDisconnect} from "./network/disconnect.js";
 export {DredlessClient, WrenchMode, TurretMode} from "./client/index.js";
 export {WorldStore, WorldState} from "./state/world/index.js";
 export {FabricatorType, ModelState, decodeModelData} from "./state/model/index.js";
@@ -28,6 +29,7 @@ export {
     buildInviteResetMessage,
     buildKickPlayerMessage,
     buildPlayerListMessage,
+    buildSaveShipMessage,
     buildShipManagementMessage,
     buildSetPlayerRankMessage,
     buildShipPrivacyMessage,

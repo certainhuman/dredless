@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
+import {DredlessClient} from "../src/client/index.js";
+import {Connection} from "../src/network/connection.js";
+import {DropReason, normalizeDisconnect} from "../src/network/disconnect.js";
 import {WorldStore} from "../src/state/world/index.js";
 import {decodeMsgpack, encodeMsgpack} from "../src/protocol/codec/msgpack.js";
 import {
@@ -10,6 +13,7 @@ import {
     buildInviteResetMessage,
     buildKickPlayerMessage,
     buildPlayerListMessage,
+    buildSaveShipMessage,
     buildSetPlayerRankMessage,
     buildShipPrivacyMessage,
     buildStarterRecoveryMessage,
@@ -80,6 +84,74 @@ test("buildPlayerListMessage matches official client ship-management captures", 
         "83a47479706504a3616374ab706c617965725f6c697374a3617267c0",
         "open-manage-ship-menu.jsonl"
     );
+});
+
+test("buildSaveShipMessage matches the official Manage Ship save action", () => {
+    assert.deepEqual(buildSaveShipMessage(), {type: 4, act: "save_team", arg: null});
+    assert.deepEqual(decodeMsgpack(encodeMsgpack(buildSaveShipMessage())), {
+        type: 4, act: "save_team", arg: null
+    });
+});
+
+function saveTestClient() {
+    const session = {baseUrl: "https://drednot.io", cookies: new Map()};
+    const connection = new Connection(session, "token", 1, 0, {domain: "localhost"});
+    const client = new DredlessClient(connection, {connect: false});
+    const messages = [];
+    client.ws = {send: bytes => messages.push(decodeMsgpack(bytes))};
+    client.connected = true;
+    client.ready = true;
+    return {client, messages};
+}
+
+test("canSave follows the current ship's parent world and requires known Safe Zone metadata", () => {
+    const {client} = saveTestClient();
+    assert.equal(client.management.canSave(), false);
+    const ship = client.worlds.get(10);
+    ship.readMeta({is_overworld: false, danger_level: 0});
+    client.worlds.currentWorldId = 10;
+    assert.equal(client.management.canSave(), false, "the ship's own danger level is insufficient");
+    ship.readMeta({parent_world: 0});
+    const parent = client.worlds.get(0);
+    assert.equal(client.management.canSave(), false, "unknown parent danger level");
+    client.worlds.get(20).readMeta({is_overworld: true, danger_level: 0});
+    parent.readMeta({is_overworld: true, danger_level: 1});
+    assert.equal(client.management.canSave(), false, "another Safe Zone does not make this ship saveable");
+    parent.readMeta({danger_level: 0});
+    assert.equal(client.management.canSave(), true);
+    assert.equal(client.canSaveShip(), true);
+    parent.readMeta({danger_level: 2});
+    assert.equal(client.management.canSave(), false, "eligibility updates when danger changes");
+    parent.readMeta({danger_level: 0});
+    client.ready = false;
+    assert.equal(client.management.canSave(), false);
+    client.ready = true;
+    client.connected = false;
+    assert.equal(client.management.canSave(), false);
+    client.connected = true;
+    client.worlds.currentWorldId = 0;
+    assert.equal(client.management.canSave(), false, "an overworld is not a ship");
+    client.worlds.currentWorldId = 10;
+    ship.readMeta({parent_world: 99});
+    assert.equal(client.management.canSave(), false, "missing parent world");
+    assert.equal(client.worlds.worlds.has(99), false, "checking eligibility does not create worlds");
+});
+
+test("management.save sends the save action only when locally eligible", async () => {
+    const {client, messages} = saveTestClient();
+    await assert.rejects(client.management.save(), /known Safe Zone/);
+    assert.deepEqual(messages, []);
+    client.worlds.currentWorldId = 10;
+    client.worlds.get(10).readMeta({is_overworld: false, parent_world: 0});
+    client.worlds.get(0).readMeta({is_overworld: true, danger_level: 0});
+    const saving = client.management.save();
+    assert.deepEqual(messages, [{type: 4, act: "save_team", arg: null}]);
+    const saved = normalizeDisconnect(DropReason.Saved);
+    client.emit("disconnect", saved);
+    assert.equal(await saving, saved);
+    client.connected = false;
+    await assert.rejects(client.saveShip(), /connected, ready/);
+    assert.equal(messages.length, 1, "disconnected clients must not queue save commands");
 });
 
 test("buildInviteResetMessage matches official client invite reset capture", () => {

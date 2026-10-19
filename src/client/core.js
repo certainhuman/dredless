@@ -5,6 +5,7 @@ import {TipDomain} from "./domains/tips.js";
 import {cookieHeader} from "../network/cookies.js";
 import {fetchServers} from "../network/servers.js";
 import {Connection} from "../network/connection.js";
+import {DropReason, DisconnectError, normalizeDisconnect} from "../network/disconnect.js";
 import {itemEquipmentSlotFromId} from "../state/items.js";
 import {WorldStore} from "../state/world/index.js";
 import {buildBlueprintPlacementMessage} from "../protocol/outbound/blueprint.js";
@@ -18,6 +19,7 @@ import {
     buildInviteResetMessage,
     buildKickPlayerMessage,
     buildPlayerListMessage,
+    buildSaveShipMessage,
     buildSetPlayerRankMessage,
     buildShipManagementMessage,
     buildShipPrivacyMessage,
@@ -133,6 +135,7 @@ export class DredlessClient extends EventBus {
         this.ready = false;
         this.packetCount = 0;
         this.lastPacket = null;
+        this.lastDisconnect = null;
         this.packets = [];
         // Retained history is bounded by default: these arrays previously grew for
         // the lifetime of the client, holding every decoded packet and its binary
@@ -169,6 +172,9 @@ export class DredlessClient extends EventBus {
             this.#resolveReady = resolve;
             this.#rejectReady = reject;
         });
+        // Consumers may attach only close listeners. Keep the original promise
+        // rejectable through whenReady() without an unhandled rejection on close.
+        this.readyPromise.catch(() => {});
 
         this.attachMode = attachMode;
         this.attached = Boolean(attachMode);
@@ -193,6 +199,7 @@ export class DredlessClient extends EventBus {
     #attachedOpened = false;
     #resolveReady = null;
     #rejectReady = null;
+    #savePending = false;
     #inputSettings = {
         wrench_mode: 1,
         turret_mode: 0
@@ -240,6 +247,51 @@ export class DredlessClient extends EventBus {
 
     sendShipManagement(act, arg = null) {
         return this.sendMessage(buildShipManagementMessage(act, arg));
+    }
+
+    canSaveShip() {
+        if (!this.connected || !this.ready) return false;
+        const ship = this.worlds.shipWorld();
+        if (!ship || ship.isOverworld !== false || ship.parentWorld == null) return false;
+        const parent = this.worlds.worlds.get(Number(ship.parentWorld));
+        return parent?.meta?.danger_level === 0;
+    }
+
+    async saveShip({timeout = 10000} = {}) {
+        this.#assertWritable();
+        if (!Number.isFinite(timeout) || timeout <= 0 || timeout > 2147483647) {
+            throw new RangeError("timeout must be positive milliseconds no greater than 2147483647");
+        }
+        if (this.#savePending) throw new Error("A ship save is already in progress");
+        if (!this.canSaveShip()) throw new Error("Saving requires a connected, ready client with its ship in a known Safe Zone");
+        this.#savePending = true;
+        try {
+            return await new Promise((resolve, reject) => {
+                const cleanup = () => {
+                    clearTimeout(timer);
+                    this.off("disconnect", disconnected);
+                };
+                const disconnected = (info) => {
+                    cleanup();
+                    if (info.code === DropReason.Saved) resolve(info);
+                    else reject(new DisconnectError(info, "Ship save was not confirmed"));
+                };
+                const timer = setTimeout(() => {
+                    cleanup();
+                    reject(new Error("Timed out waiting for ship save confirmation (Saved close code)"));
+                }, timeout);
+                // Subscribe before sending; attached sockets can close synchronously.
+                this.on("disconnect", disconnected);
+                try {
+                    this.sendMessage(buildSaveShipMessage());
+                } catch (error) {
+                    cleanup();
+                    reject(error);
+                }
+            });
+        } finally {
+            this.#savePending = false;
+        }
     }
 
     requestPlayerList() {
@@ -668,7 +720,8 @@ export class DredlessClient extends EventBus {
             lastCommandAck: this.lastCommandAck,
             decodeErrors: this.decodeErrors.slice(-50),
             packetCount: this.packetCount,
-            lastPacket: this.lastPacket
+            lastPacket: this.lastPacket,
+            lastDisconnect: this.lastDisconnect
         };
     }
 
@@ -819,6 +872,7 @@ export class DredlessClient extends EventBus {
             }
             this.#resolveReady?.(this);
             this.#resolveReady = null;
+            this.#rejectReady = null;
         }
         this.#bindAttachedSocket();
         if (this.connected && this.#ownsSocket) this.#attachedOpen();
@@ -827,6 +881,7 @@ export class DredlessClient extends EventBus {
 
     #bindSocket() {
         this.ws.onopen = () => {
+            this.lastDisconnect = null;
             this.connected = true;
             this.ws.send(encodeMsgpack({type: 1}));
             this.emit("open", this);
@@ -842,7 +897,7 @@ export class DredlessClient extends EventBus {
         const open = () => this.#attachedOpen();
         const message = (event) => this.#handleSocketMessage(event?.data ?? event);
         const error = (event) => this.#fail(event?.error || new Error("WebSocket error"));
-        const close = (event) => this.#handleSocketClose(event);
+        const close = (event, reason) => this.#handleSocketClose(event, reason);
 
         if (typeof this.ws.addEventListener === "function") {
             this.ws.addEventListener("open", open);
@@ -858,14 +913,17 @@ export class DredlessClient extends EventBus {
             this.ws.on("close", close);
             return;
         }
-        const previousMessage = this.ws.onmessage;
-        this.ws.onmessage = (event) => {
-            if (typeof previousMessage === "function") previousMessage.call(this.ws, event);
-            message(event);
-        };
+        for (const [type, handler] of Object.entries({open, message, error, close})) {
+            const previous = this.ws[`on${type}`];
+            this.ws[`on${type}`] = (...args) => {
+                if (typeof previous === "function") previous.apply(this.ws, args);
+                handler(...args);
+            };
+        }
     }
 
     #attachedOpen() {
+        this.lastDisconnect = null;
         this.connected = true;
         if (this.#attachedOpened) return;
         this.#attachedOpened = true;
@@ -874,11 +932,31 @@ export class DredlessClient extends EventBus {
         if (this.#allowWrites) this.#flushMessages();
     }
 
-    #handleSocketClose(event) {
+    #handleSocketClose(event, reason) {
+        const info = normalizeDisconnect(event, reason);
         this.connected = false;
+        this.ready = false;
+        this.sid = null;
+        this.lastDisconnect = info;
         clearInterval(this.#keepalive);
         this.#keepalive = null;
-        this.emit("close", event);
+        this.#bootstrapped = false;
+        this.#attachedOpened = false;
+        this.#queuedCommands.length = 0;
+        this.#queuedMessages.length = 0;
+        this.shipConfig = null;
+        this.captainSubrank = null;
+        this.playerList = null;
+        this.puiPanels.clear();
+        this.commsPanels.clear();
+        this.currentCommsPanel = null;
+        this.commandAcks.clear();
+        this.lastCommandAck = null;
+        this.#rejectReady?.(new DisconnectError(info, "Disconnected before the client was ready"));
+        this.#resolveReady = null;
+        this.#rejectReady = null;
+        this.emit("disconnect", info);
+        this.emit("close", event, reason);
     }
 
     #socketLooksOpen(websocket) {
@@ -887,6 +965,7 @@ export class DredlessClient extends EventBus {
 
     #assertWritable() {
         if (!this.#allowWrites) throw new Error("DredlessClient is attached in readonly mode");
+        if (this.lastDisconnect) throw new DisconnectError(this.lastDisconnect);
     }
 
     #handleSocketMessage(data) {
@@ -900,6 +979,7 @@ export class DredlessClient extends EventBus {
     }
 
     #handleMessage(data) {
+        if (this.lastDisconnect) return;
         let packet;
         try {
             packet = decodeIncomingFrame(data);
@@ -940,6 +1020,7 @@ export class DredlessClient extends EventBus {
         }
         this.#resolveReady?.(this);
         this.#resolveReady = null;
+        this.#rejectReady = null;
         this.emit("ready", this);
     }
 

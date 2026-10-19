@@ -54,6 +54,51 @@ export type ServerRef = number | Server;
 export type ShipRef = number | string | Ship | ShipSpec | null;
 export type ShipPrivacy = 0 | 1 | boolean | "public" | "private";
 export type ShipPlayerRank = 0 | 1 | 3 | "guest" | "crew" | "captain";
+
+export const DropReason: Readonly<{
+    ProtocolError: 4000;
+    BadVersion: 4001;
+    ConnectLimit: 4002;
+    ConnectRate: 4003;
+    TeamLimit: 4004;
+    FullPlayers: 4005;
+    FullTeams: 4006;
+    TeamNotAvailable: 4007;
+    Kicked: 4008;
+    Banned: 4009;
+    Idle: 4010;
+    ShipDestruct: 4011;
+    JoinBlocked: 4012;
+    HardBanned: 4013;
+    NoLoad: 4014;
+    Saved: 4015;
+    InvalidInvite: 4016;
+    Shutdown: 4017;
+    ServerError: 4018;
+    GTFO: 4019;
+}>;
+export type DropReason = typeof DropReason[keyof typeof DropReason];
+
+export interface DisconnectInfo {
+    readonly code: number;
+    /** Official application reason name; null for standard WebSocket or unknown codes. */
+    readonly name: keyof typeof DropReason | null;
+    readonly reason: string;
+    /** Null when the socket API does not report handshake cleanliness. */
+    readonly wasClean: boolean | null;
+}
+
+export class DisconnectError extends Error {
+    constructor(disconnect: DisconnectInfo, message?: string);
+    disconnect: DisconnectInfo;
+}
+
+export function normalizeDisconnect(eventOrCode?: unknown, reason?: unknown): DisconnectInfo;
+
+export interface SaveShipOptions {
+    /** Milliseconds to wait for the Saved disconnect code; default 10000. */
+    timeout?: number;
+}
 export type PlayerShipRank = "guest" | "crew" | "crew-invite-pending-deprecated" | "captain" | "banned";
 export const FabricatorType: {
     readonly Starter: "starter";
@@ -475,6 +520,7 @@ export class DredlessClient {
     ready: boolean;
     packetCount: number;
     lastPacket: unknown;
+    lastDisconnect: DisconnectInfo | null;
     net: ClientNetDomain;
     debug: ClientDebugDomain;
     player: PlayerDomain;
@@ -490,6 +536,10 @@ export class DredlessClient {
     disconnect(code?: number, reason?: string): this;
     sendChatMessage(message?: string): this;
     sendCommsMessage(message?: string): this;
+    /** Whether the connected, ready client's ship has parent-world danger level 0. */
+    canSaveShip(): boolean;
+    /** Save and await the server's Saved close code; reject on ineligibility, timeout, or any other disconnect. */
+    saveShip(options?: SaveShipOptions): Promise<DisconnectInfo>;
 
     currentShip(): ShipDomain | null;
 
@@ -513,12 +563,15 @@ export class DredlessClient {
 
     entity(entityId: number, scope?: number | string): EntitySnapshot | null;
 
+    on(type: "disconnect", callback: (info: DisconnectInfo) => void): this;
     on(type: "tip-list", callback: (menu: TipList, world: WorldState) => void): this;
     on(type: string, callback: (...args: unknown[]) => void): this;
 
+    off(type: "disconnect", callback: (info: DisconnectInfo) => void): this;
     off(type: "tip-list", callback: (menu: TipList, world: WorldState) => void): this;
     off(type: string, callback: (...args: unknown[]) => void): this;
 
+    once(type: "disconnect", callback: (info: DisconnectInfo) => void): this;
     once(type: "tip-list", callback: (menu: TipList, world: WorldState) => void): this;
     once(type: string, callback: (...args: unknown[]) => void): this;
 }
@@ -554,6 +607,7 @@ export interface ClientNetDomain {
     sid: number | null;
     packetCount: number;
     lastPacket: unknown;
+    readonly lastDisconnect: DisconnectInfo | null;
 
     send(command?: Command): DredlessClient;
 
@@ -636,6 +690,12 @@ export interface PlayerDomain {
 }
 
 export interface ShipManagementDomain {
+    /** Checks the current ship's parent-world danger level; server permissions still apply. */
+    canSave(): boolean;
+
+    /** Save and await the server's Saved close code; reject on ineligibility, timeout, or any other disconnect. */
+    save(options?: SaveShipOptions): Promise<DisconnectInfo>;
+
     requestPlayerList(): DredlessClient;
 
     resetInvite(): DredlessClient;
@@ -1228,6 +1288,7 @@ export interface ClientSnapshot {
     sid: number | null;
     ready: boolean;
     connected: boolean;
+    lastDisconnect: DisconnectInfo | null;
     currentWorldId: number | null;
     worlds: WorldSnapshot[];
     cpuLoad: number | null;
@@ -2197,6 +2258,8 @@ export function buildShipPrivacyMessage(privacy: ShipPrivacy): ShipManagementMes
 export function buildStarterRecoveryMessage(itemId: number): ShipManagementMessage;
 
 export function buildPlayerListMessage(): ShipManagementMessage;
+
+export function buildSaveShipMessage(): ShipManagementMessage;
 
 export function buildInviteResetMessage(): ShipManagementMessage;
 

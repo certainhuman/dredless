@@ -32,6 +32,10 @@ export class ClientNetDomain {
         return this.client.lastPacket;
     }
 
+    get lastDisconnect() {
+        return this.client.lastDisconnect;
+    }
+
     send(command = {}) {
         return this.client.send(command);
     }
@@ -189,6 +193,14 @@ export class PlayerDomain {
 export class ShipManagementDomain {
     constructor(client) {
         this.client = client;
+    }
+
+    canSave() {
+        return this.client.canSaveShip();
+    }
+
+    save(options = {}) {
+        return this.client.saveShip(options);
     }
 
     requestPlayerList() {

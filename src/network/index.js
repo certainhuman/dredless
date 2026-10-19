@@ -1,4 +1,5 @@
 export {Connection} from "./connection.js";
+export {DropReason, DisconnectError, normalizeDisconnect} from "./disconnect.js";
 export {fetchGameVersion, fetchNoticeVersion, fetchServerStatus, fetchServerStatuses, fetchServers, resolveServer} from "./servers.js";
 export {fetchShips, fetchShipList, createShipSpec, createInviteShipSpec, shipRef} from "./ships.js";
 export {Session, AnonSession, createSession, createAnonSession, createAnonToken} from "./session.js";
