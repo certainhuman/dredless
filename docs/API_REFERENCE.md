@@ -691,6 +691,7 @@ interface ShipManagementDomain {
   config(): ShipConfig | null;
   hasCheats(): boolean;
   playerList(): ShipPlayerList | null;
+  crewLog(): CrewLog | null;
 }
 
 interface StarterRecoveryOptions {
@@ -774,13 +775,58 @@ Every recovery response also emits `"starter-recovery"` with
 including responses to commands sent through the low-level API.
 
 On the server's `demote` message, Dredless clears `shipConfig`, `captainSubrank`,
-and `playerList` before notifying listeners. `management.config()` and
+`playerList`, and `crewLog` before notifying listeners. `management.config()` and
 `management.playerList()` then return `null`, and `management.hasCheats()` returns
 `false`. Pending renames and starter recoveries reject. The client emits
 `"demote"` with the original session packet, followed by `"ship-config"`,
-`"captain-subrank"`, and `"player-list"` with `null` state and the original packet.
+`"captain-subrank"`, `"player-list"`, and `"crew-log"` with `null` state and the original packet.
 Fresh server messages can populate management state again. These responses
 continue to be available through the raw `"session"` event.
+
+Crew logs arrive automatically through captain session messages with
+`submessage.type === "log"`; the official client has no separate log request.
+`client.management.crewLog()` (also `client.crewLog` and `client.state().crewLog`)
+returns `null` before the first log message, otherwise a `CrewLog`:
+
+```ts
+interface CrewLogEntry {
+  icon: string | null;
+  text: string;
+  rawText: unknown;
+  count: number;
+  refId: number | null;
+  secondaryRefId: number | null;
+}
+
+interface CrewLog {
+  entries: CrewLogEntry[];
+  changes: CrewLogEntry[];
+  reset: boolean;
+  amend: boolean;
+}
+```
+
+Messages apply in official client order: `reset` clears existing entries,
+`amend` removes the last remaining entry, then `changes` are appended. `entries`
+contains the resulting log, oldest first, retaining the newest 500 entries.
+`changes` contains only entries supplied by the latest message, including any
+replacement for an amended entry. Empty reset or amend messages still update
+state. Missing counts default to `1`; entries are not expanded by count.
+
+`text` flattens strings and styled text using `flattenRichText`; date, image, and
+badge tokens are preserved in `rawText` for custom rendering. `refId` and
+`secondaryRefId` preserve the official entry's `ref` and `ref2`, which the official
+UI uses to filter the player list. Icon paths are preserved without URL conversion.
+
+```js
+client.on("crew-log", (log) => {
+  if (log) console.log(log.entries);
+});
+```
+
+The event receives the updated log and original session packet. Demotion clears
+the log and emits `"crew-log"` with `null`; disconnect clears the cached log
+before emitting `"disconnect"`. Raw messages remain available through `"session"`.
 
 Input aliases:
 
@@ -2403,6 +2449,7 @@ function normalizePrivacy(privacy: ShipPrivacy): 0 | 1;
 function normalizePlayerRank(rank: ShipPlayerRank): 0 | 1 | 3;
 function normalizeShipConfig(event: unknown): ShipConfig;
 function normalizeCaptainSubrank(event: unknown): CaptainSubrank;
+function normalizeCrewLog(event: unknown, previous?: CrewLog | null): CrewLog;
 function normalizeShipPlayerList(event: unknown, previous?: ShipPlayerList | null, currentCaptainSubrank?: CaptainSubrank | null): ShipPlayerList;
 ```
 
@@ -2577,6 +2624,7 @@ const EQUIPMENT_SLOT_INDEXES: Readonly<{
 ### `dredless/protocol/ship-management`
 
 ```ts
+const CREW_LOG_LENGTH: 500;
 const BAN_ACTION: "ban";
 const UNBAN_ACTION: "unban";
 const DEMOTE_SELF_ACTION: "demote_self";

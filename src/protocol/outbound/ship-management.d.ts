@@ -1,6 +1,25 @@
 export type ShipPrivacy = 0 | 1 | boolean | "public" | "private";
 export type ShipPlayerRank = 0 | 1 | 3 | "guest" | "crew" | "captain";
 
+export interface CrewLogEntry {
+    icon: string | null;
+    /** Plain text; formatting, images, badges, and date tokens remain in rawText. */
+    text: string;
+    rawText: unknown;
+    count: number;
+    refId: number | null;
+    secondaryRefId: number | null;
+}
+
+export interface CrewLog {
+    /** Retained entries in server order, oldest first; at most 500. */
+    entries: CrewLogEntry[];
+    /** Entries appended by the latest message, including amended replacements. */
+    changes: CrewLogEntry[];
+    reset: boolean;
+    amend: boolean;
+}
+
 export interface ShipManagementMessage {
     type: 4;
     act: string;
@@ -80,8 +99,11 @@ export function normalizeShipConfig(event: unknown): ShipConfig;
 
 export function normalizeCaptainSubrank(event: unknown): CaptainSubrank;
 
+export function normalizeCrewLog(event: unknown, previous?: CrewLog | null): CrewLog;
+
 export function normalizeShipPlayerList(event: unknown, previous?: ShipPlayerList | null, currentCaptainSubrank?: CaptainSubrank | null): ShipPlayerList;
 
+export const CREW_LOG_LENGTH: 500;
 export const BAN_ACTION: "ban";
 export const UNBAN_ACTION: "unban";
 export const DEMOTE_SELF_ACTION: "demote_self";

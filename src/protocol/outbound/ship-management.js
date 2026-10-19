@@ -1,4 +1,7 @@
+import {flattenRichText} from "./comms.js";
+
 const SHIP_MANAGEMENT_TYPE = 4;
+const CREW_LOG_LENGTH = 500;
 const SET_PRIVACY_ACTION = "set_privacy";
 const STARTER_RECOVERY_ACTION = "starter_recovery";
 const PLAYER_LIST_ACTION = "player_list";
@@ -113,6 +116,28 @@ export function normalizeCaptainSubrank(event = {}) {
         subrank: source.subrank ?? null,
         enableCheats: Boolean(source.enable_cheats)
     };
+}
+
+export function normalizeCrewLog(event = {}, previous = null) {
+    const source = event && typeof event === "object" ? event : {};
+    const reset = Boolean(source.reset);
+    const amend = Boolean(source.amend);
+    const entries = reset ? [] : (previous?.entries || []).slice();
+    if (amend) entries.pop();
+    const changes = Array.isArray(source.entries) ? source.entries.map((entry) => {
+        const value = entry && typeof entry === "object" ? entry : {};
+        return {
+            icon: value.icon ?? null,
+            text: flattenRichText(value.text),
+            rawText: value.text ?? null,
+            count: value.count ?? 1,
+            refId: value.ref ?? null,
+            secondaryRefId: value.ref2 ?? null
+        };
+    }) : [];
+    for (const entry of changes) entries.push(entry);
+    if (entries.length > CREW_LOG_LENGTH) entries.splice(0, entries.length - CREW_LOG_LENGTH);
+    return {entries, changes, reset, amend};
 }
 
 export function normalizeShipPlayerList(event = {}, previous = null, currentCaptainSubrank = null) {
@@ -233,6 +258,7 @@ function playerCanBeManagedBy(player, currentRank) {
 
 export {
     BAN_ACTION,
+    CREW_LOG_LENGTH,
     UNBAN_ACTION,
     DEMOTE_SELF_ACTION,
     INVITE_RESET_ACTION,

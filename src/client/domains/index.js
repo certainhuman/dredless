@@ -254,6 +254,10 @@ export class ShipManagementDomain {
     playerList() {
         return this.client.playerList;
     }
+
+    crewLog() {
+        return this.client.crewLog;
+    }
 }
 
 export class InventoryDomain {
