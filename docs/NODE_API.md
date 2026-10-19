@@ -294,7 +294,7 @@ Fetches and applies account status. Returns the decoded server response as
 
 ```js
 const details = await session.fetchAccountDetails();
-// {email, identity, identityService, clan: {tag, otherUsers}, shipsWithPerks}
+// {name, color, email, identity, identityService, clan: {tag, otherUsers}, shipsWithPerks}
 
 const clan = await session.fetchClanTag();
 const updated = await session.setClanTag("Example Clan");
@@ -314,6 +314,8 @@ interface AccountPerkShip {
 }
 
 interface AccountDetails {
+  name: string | null;
+  color: number | null;
   email: string | null;
   identity: string | null;
   identityService: string | null;
@@ -322,7 +324,12 @@ interface AccountDetails {
 }
 ```
 
-`fetchAccountDetails()` requests the authenticated `/account/` HTML page. Email
+`fetchAccountDetails()` requests the authenticated `/account/` HTML page.
+`name` comes from the page's "You are" account label, preserving its text spacing.
+`color` is the label's background color as a packed RGB number, matching the
+format of `session.account.color`; it is not the foreground text color.
+Missing or unrecognized name/color fields return `null`.
+Email
 and identity come from the account fields' `data-info` attributes, not their
 masked visible text. `identity` excludes the final parenthesized service name;
 `identityService` contains that service name as displayed (for example, `Discord`).

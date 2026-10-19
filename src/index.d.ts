@@ -448,6 +448,9 @@ export interface AccountPerkShip {
 }
 
 export interface AccountDetails {
+    name: string | null;
+    /** Packed RGB account color from the name's background, matching account/status. */
+    color: number | null;
     email: string | null;
     /** Identity value without the parenthesized service suffix. */
     identity: string | null;

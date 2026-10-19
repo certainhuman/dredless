@@ -86,21 +86,42 @@ export function parseAccountDetails(html) {
     if (!found) throw new Error("Account page has no clan form; authentication may be required or the page format has changed");
 
     const fields = new Map();
+    let name = null;
+    let color = null;
     for (const paragraph of source.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p\s*>/gi)) {
         const label = paragraph[1].match(/<b\b[^>]*>([\s\S]*?)<\/b\s*>/i);
-        const code = paragraph[1].match(/<code\b((?:"[^"]*"|'[^']*'|[^'">])*)>/i);
-        if (label && code) fields.set(text(label[1]).replace(/:\s*$/, "").toLowerCase(), attributes(code[1]).get("data-info") ?? null);
+        const code = paragraph[1].match(/<code\b((?:"[^"]*"|'[^']*'|[^'">])*)>([\s\S]*?)<\/code\s*>/i);
+        if (!code) continue;
+        const attrs = attributes(code[1]);
+        if (label) fields.set(text(label[1]).replace(/:\s*$/, "").toLowerCase(), attrs.get("data-info") ?? null);
+        if ((attrs.get("class") || "").split(/\s+/).includes("user") && /^You are:$/i.test(text(paragraph[1].slice(0, code.index)))) {
+            name = decodeHtml(code[2].replace(/<[^>]*>/g, ""));
+            color = parseAccountColor(attrs.get("style") || "");
+        }
     }
     const rawIdentity = fields.get("identity (service)") || null;
     const identityParts = rawIdentity?.match(/^(.*?)\s*\(([^()]*)\)\s*$/);
     const count = text(source).match(/Your current clan tag has\s+([\d,]+)\s+other users?\b/i);
     return {
+        name,
+        color,
         email: fields.get("email") || null,
         identity: identityParts ? identityParts[1].trim() : rawIdentity,
         identityService: identityParts ? identityParts[2].trim() : null,
         clan: {tag, otherUsers: tag !== null && count ? Number(count[1].replace(/,/g, "")) : null},
         shipsWithPerks: parseShipsWithPerks(source)
     };
+}
+
+function parseAccountColor(style) {
+    let color = null;
+    for (const declaration of style.split(";")) {
+        const match = declaration.match(/^\s*background(?:-color)?\s*:\s*#([0-9a-f]{6}|[0-9a-f]{3})\s*(?:!important\s*)?$/i);
+        if (!match) continue;
+        const hex = match[1].length === 3 ? [...match[1]].map((digit) => digit + digit).join("") : match[1];
+        color = parseInt(hex, 16);
+    }
+    return color;
 }
 
 function parseShipsWithPerks(source) {
