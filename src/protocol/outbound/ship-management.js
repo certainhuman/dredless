@@ -6,6 +6,7 @@ const INVITE_RESET_ACTION = "invite_reset";
 const SET_RANK_ACTION = "set_rank";
 const KICK_ACTION = "kick";
 const BAN_ACTION = "ban";
+const UNBAN_ACTION = "unban";
 const DEMOTE_SELF_ACTION = "demote_self";
 const SAVE_SHIP_ACTION = "save_team";
 const RENAME_REQUEST_ACTION = "rename_request";
@@ -67,6 +68,10 @@ export function buildKickPlayerMessage(refId) {
 
 export function buildBanPlayerMessage(refId) {
     return buildShipManagementMessage(BAN_ACTION, normalizePlayerRef(refId));
+}
+
+export function buildUnbanPlayerMessage(refId) {
+    return buildShipManagementMessage(UNBAN_ACTION, normalizePlayerRef(refId));
 }
 
 export function buildDemoteSelfMessage() {
@@ -228,6 +233,7 @@ function playerCanBeManagedBy(player, currentRank) {
 
 export {
     BAN_ACTION,
+    UNBAN_ACTION,
     DEMOTE_SELF_ACTION,
     INVITE_RESET_ACTION,
     KICK_ACTION,

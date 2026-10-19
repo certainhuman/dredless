@@ -68,6 +68,8 @@ export function buildKickPlayerMessage(refId: number): ShipManagementMessage;
 
 export function buildBanPlayerMessage(refId: number): ShipManagementMessage;
 
+export function buildUnbanPlayerMessage(refId: number): ShipManagementMessage;
+
 export function buildDemoteSelfMessage(): ShipManagementMessage;
 
 export function normalizePrivacy(privacy: ShipPrivacy): 0 | 1;
@@ -81,6 +83,7 @@ export function normalizeCaptainSubrank(event: unknown): CaptainSubrank;
 export function normalizeShipPlayerList(event: unknown, previous?: ShipPlayerList | null, currentCaptainSubrank?: CaptainSubrank | null): ShipPlayerList;
 
 export const BAN_ACTION: "ban";
+export const UNBAN_ACTION: "unban";
 export const DEMOTE_SELF_ACTION: "demote_self";
 export const KICK_ACTION: "kick";
 export const PLAYER_LIST_ACTION: "player_list";
