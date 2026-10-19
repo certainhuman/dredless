@@ -1,79 +1,44 @@
 # dredless
 
-A headless pure Javascript implementation (with type annotations) of `drednot.io`'s client protocol.
+A headless JavaScript client for [drednot.io](https://drednot.io). Use it to join ships, read world state, send player input, configure machines, and manage ships and accounts.
 
 ## Install
 
-### Node
 ```sh
 npm install dredless
 ```
 
-### Browser
-Use a bundler, or load the browser bundle directly from a CDN:
+Node examples use ES modules (`.mjs`) and a runtime with built-in `fetch`. Browser code runs with the site's browser cookies; see [browser setup](docs/BROWSER_API.md) for supported contexts.
 
-```html
-<script src="https://cdn.jsdelivr.net/npm/dredless/dist/browser/dredless.global.js"></script>
-<script>
-  const session = await Dredless.createAnonSession();
-</script>
-```
+## First request
 
-## Quick Start
-
-### Node (multi-session) usage:
+Save this as `ships.mjs`, then run `node ships.mjs`:
 
 ```js
-import Dredless, {EquipmentSlot, SignDisplayMode} from "dredless/node";
+import Dredless from "dredless/node";
 
+const session = await Dredless.createAnonSession(process.env.DREDNOT_ANON_KEY);
 const servers = await Dredless.fetchServers();
-const client = await Dredless.startNewShip(servers[0], "bot", "#de9797");
+const server = servers[0];
+if (!server) throw new Error("No servers found");
 
-client.player.move({ x: 1, y: 0 });
-client.inventory.slot(0).equip(EquipmentSlot.Feet);
-client.player.placeBlueprint({ x: 28, y: 18, width: 3, height: 3, source: "DSA:..." }, { invSlot: 2 });
-
-const ship = client.currentShip();
-const loader = ship?.machines.loaders()[0];
-loader?.configure({ cycle: 5, stack: 12 });
-
-const door = ship?.machines.doors()[0];
-if (door) await door.setRank("crew");
-const spawn = ship?.machines.spawnPoints()[0];
-if (spawn) await spawn.setRank("captain");
-
-// Other context-menu actions can be selected by their displayed text.
-const cannon = ship?.machines.cannons()[0];
-if (cannon) await client.tips.choose(cannon, "Unload Cannon");
-
-if (door) {
-  console.log((await door.openTips()).options);
-  await client.tips.close();
-}
-
-const sign = ship?.machines.signs()[0];
-sign?.open();
-sign?.setText("Dock here", SignDisplayMode.WhenNear);
-
-client.on("inventory", () => console.log(client.inventory.hotbarSlots().map((slot) => slot.snapshot())));
-client.on("model", ({ world }) => console.log(world.model.transforms()));
+const ships = await session.fetchShips(server);
+console.log(ships.map(({name, hexCode, playerCount}) => ({name, hexCode, playerCount})));
 ```
 
-### Browser (ambient-session) usage:
+This reads the ship list without opening a game connection. Supplying `DREDNOT_ANON_KEY` reuses an anonymous identity; omitting it creates one. [Session setup](docs/NODE_API.md#authentication-and-reuse) explains how to reuse anonymous or registered accounts.
 
-```js
-import Dredless from "dredless/browser";
+## Documentation
 
-await Dredless.createAnonSession();
-const servers = await Dredless.fetchServers();
-const ships = await Dredless.fetchShips(servers[0]);
-const client = await Dredless.startShip(servers[0], ships[0]);
+Start with the [documentation index](docs/README.md).
 
-// . . . client object can be used the same as in Node
-```
+| Task | Guide |
+| --- | --- |
+| Connect and read a live ship | [Getting started](docs/GETTING_STARTED.md) |
+| Authenticate in Node | [Node sessions](docs/NODE_API.md) |
+| Use browser cookies or an existing socket | [Browser setup](docs/BROWSER_API.md) |
+| Find a method or type | [API reference](docs/API_REFERENCE.md) |
+| Understand callbacks and completion | [Lifecycle](docs/CLIENT.md), [events](docs/EVENTS.md) |
+| Diagnose missing state or failed actions | [Troubleshooting](docs/TROUBLESHOOTING.md) |
 
-## API Docs
-
-- [Node top-level API](docs/NODE_API.md): explicit session/token/start helpers. Use this if you are running in a Node environment.
-- [Browser top-level API](docs/BROWSER_API.md): ambient browser-session helpers. Use this if you are running in a browser environment.
-- [Shared API reference](docs/API_REFERENCE.md): client, world, entity, machine, inventory, management, and protocol APIs. Used by both runtime environments.
+Docs describe this checkout. A published npm version or CDN bundle can have fewer methods; use documentation from the corresponding release when working with an older version.
