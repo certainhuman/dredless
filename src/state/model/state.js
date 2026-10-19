@@ -864,7 +864,7 @@ export class ModelState {
         const health = summarizeHealth(entityId, healthRecord);
         const fabricator = summarizeFabricator(entityId, fabricatorRecord, itemHolderRecord, typeRecord);
         const cargoEjector = summarizeCargoEjector(entityId, typeId, cargoEjectorRecord);
-        const cannon = summarizeCannon(entityId, cannonRecord, typeId);
+        const cannon = summarizeCannon(entityId, cannonRecord, typeId, transformRecord);
         const thruster = summarizeThruster(entityId, typeId, thrusterRecord);
         const pusher = summarizePusher(entityId, pusherRecord, loaderFilterSlotsRecord);
         const pusherBeam = summarizePusherBeam(entityId, pusherBeamRecord);

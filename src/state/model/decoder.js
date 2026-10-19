@@ -679,8 +679,14 @@ export function summarizeCargoEjector(entity, typeId, record) {
     };
 }
 
-export function summarizeCannon(entity, record, typeId = null) {
+export function summarizeCannon(entity, record, typeId = null, transformRecord = null) {
     if (!record || !CANNON_TYPE_IDS.has(typeId)) return null;
+    const relativeAngleRadians = numberOrNull(record.q32, 200);
+    const mountingAngleRadians = numberOrNull(transformRecord?.q28, 127.324);
+    const tau = 2 * Math.PI;
+    const absoluteAngleRadians = relativeAngleRadians == null || mountingAngleRadians == null
+        ? null
+        : (((mountingAngleRadians + relativeAngleRadians) % tau) + tau) % tau;
     const ammoItemId = record.q24 == null ? null : CANNON_AMMO_COLOR_ITEM_IDS.get(record.q24) ?? null;
     const charge = record.q40 ?? null;
     const recoil = record.q36 ?? null;
@@ -692,7 +698,8 @@ export function summarizeCannon(entity, record, typeId = null) {
         ammoItemId,
         ammoName: entityNameFromType(ammoItemId),
         ammoCount: record.q28 ?? 0,
-        aim: record.q32 ?? null,
+        relativeAngleRadians,
+        absoluteAngleRadians,
         recoil,
         recoil2,
         recoils: [recoil, recoil2],
