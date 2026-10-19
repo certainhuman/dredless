@@ -260,6 +260,11 @@ export class WorldState {
             transforms: model.transforms,
             machines: model.machines,
             players: model.players,
+            projectiles: model.projectiles,
+            bots: model.bots,
+            rcds: model.rcds,
+            balls: model.balls,
+            recyclers: model.recyclers,
             shipControls: model.shipControls,
             commsBubbles: this.commsBubbles.slice(),
             tiles: includeTiles ? [...this.tiles.values()] : undefined

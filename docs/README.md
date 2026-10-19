@@ -19,6 +19,7 @@ In a browser, `BrowserSession` uses the ambient browser cookie jar.
 | Handle disconnects and retain useful state                       | [Client lifecycle](CLIENT.md)                                                          |
 | Subscribe to model, inventory, or management updates             | [Event catalog](EVENTS.md)                                                             |
 | Find an entity, machine, or nearby ship                          | [World and entity reads](WORLD_STATE.md)                                               |
+| Read projectiles, bots, balls/eggs, RCDs, or recyclers           | [Special entity reads](WORLD_STATE.md#projectiles-bots-and-special-entities)             |
 | Move, aim, equip, or place a blueprint                           | [Player and inventory](PLAYER_INVENTORY.md)                                            |
 | Use a context menu or set door access                            | [Machines and context menus](MACHINES.md#context-menus-and-access)                     |
 | Configure a loader, pusher, launcher, or navigation unit         | [Machine reference](MACHINES.md)                                                       |

@@ -62,7 +62,11 @@ const {
     summarizeCommsStation,
     summarizeHealth,
     summarizeBot,
-    isBoulderBotExclusion,
+    summarizeProjectile,
+    summarizeCombatBeams,
+    summarizeBall,
+    summarizeRcd,
+    summarizeRecycler,
     botClassFromState,
     isCowardBossState,
     isOrangeFoolBotState,
@@ -268,6 +272,11 @@ export class ModelState {
             blocks: includeBlocks ? this.#derivedBlocks().slice() : undefined,
             transforms: derived.transforms.slice(),
             players: derived.players.slice(),
+            projectiles: derived.specialEntities.projectiles.slice(),
+            bots: derived.specialEntities.bots.slice(),
+            rcds: derived.specialEntities.rcds.slice(),
+            balls: derived.specialEntities.balls.slice(),
+            recyclers: derived.specialEntities.recyclers.slice(),
             shipControls: derived.shipControls.slice(),
             machines: this.#machinesSnapshot(derived.machines),
             tables: includeTables ? this.tablesSnapshot() : derived.tableSummaries.slice()
@@ -296,6 +305,26 @@ export class ModelState {
 
     players() {
         return this.#derivedState().players.slice();
+    }
+
+    projectiles() {
+        return this.#derivedState().specialEntities.projectiles.slice();
+    }
+
+    bots() {
+        return this.#derivedState().specialEntities.bots.slice();
+    }
+
+    rcds() {
+        return this.#derivedState().specialEntities.rcds.slice();
+    }
+
+    balls() {
+        return this.#derivedState().specialEntities.balls.slice();
+    }
+
+    recyclers() {
+        return this.#derivedState().specialEntities.recyclers.slice();
     }
 
     shipControls() {
@@ -699,6 +728,7 @@ export class ModelState {
             doors: [],
             expandoBoxes: []
         };
+        const specialEntities = {projectiles: [], bots: [], rcds: [], balls: [], recyclers: []};
         const players = [];
         const shipControls = [];
         const transforms = [];
@@ -728,6 +758,11 @@ export class ModelState {
             if (contents.spawnPoint) machines.spawnPoints.push(contents.spawnPoint);
             if (contents.door) machines.doors.push(contents.door);
             if (contents.expandoBox) machines.expandoBoxes.push(contents.expandoBox);
+            if (contents.projectile) specialEntities.projectiles.push(contents.projectile);
+            if (contents.bot) specialEntities.bots.push(contents.bot);
+            if (contents.rcd) specialEntities.rcds.push(contents.rcd);
+            if (contents.ball) specialEntities.balls.push(contents.ball);
+            if (contents.recycler) specialEntities.recyclers.push(contents.recycler);
             if (contents.player) players.push(contents.player);
             if (contents.shipControl) shipControls.push(contents.shipControl);
         }
@@ -735,6 +770,7 @@ export class ModelState {
         derived.entities = entities;
         derived.transforms = transforms;
         derived.players = players;
+        derived.specialEntities = specialEntities;
         derived.shipControls = shipControls;
         derived.machines = machines;
         derived.summariesDirty = false;
@@ -817,6 +853,11 @@ export class ModelState {
         const itemHolder = summarizeItemHolder(entityId, itemHolderRecord);
         const isExpandoBox = typeId === EXPANDO_BOX_TYPE_ID || markerTypeId === EXPANDO_BOX_TYPE_ID;
         const health = summarizeHealth(entityId, healthRecord);
+        const projectile = summarizeProjectile(entityId, rec(24));
+        const combatBeams = summarizeCombatBeams(entityId, rec(15));
+        const ball = summarizeBall(entityId, rec(17), health, rec(2));
+        const rcd = summarizeRcd(entityId, rec(59), itemHolderRecord);
+        const recycler = this.isOverworld === false ? summarizeRecycler(entityId, rec(23), itemHolderRecord) : null;
         const fabricator = summarizeFabricator(entityId, fabricatorRecord, itemHolderRecord, typeRecord);
         const cargoEjector = summarizeCargoEjector(entityId, typeId, cargoEjectorRecord);
         const cannon = summarizeCannon(entityId, cannonRecord, typeId, transformRecord);
@@ -854,10 +895,10 @@ export class ModelState {
         const hugeThruster = this.isOverworld
             ? summarizeHugeThruster(entityId, hugeThrusterRecord, crateSizeRecord)
             : null;
-        const itemCrate = this.isOverworld && !rec(2) && !rec(18) && health && crateSizeRecord
+        const itemCrate = this.isOverworld && !rec(2) && !rec(18) && !combatBeams && !projectile && !ball && !rcd && health && crateSizeRecord
             ? summarizeItemCrate(entityId, crateSizeRecord, crateItemRecord, healthRecord)
             : null;
-        const bot = this.isOverworld
+        const bot = (this.isOverworld || rec(18) || combatBeams) && !projectile && !ball && !rcd
             ? summarizeBot(entityId, {
                 health,
                 table2Record: rec(2),
@@ -865,7 +906,7 @@ export class ModelState {
                 combatRecord: rec(18),
                 motionRecord: crateItemRecord,
                 table10Record: rec(10),
-                table51Record: rec(51),
+                beamRecord: rec(15),
                 itemCrate,
                 player,
                 shipControl
@@ -879,6 +920,7 @@ export class ModelState {
             flags: [transformRecord.q33, transformRecord.q34, transformRecord.q35].filter((value) => value != null)
         } : null;
         const contents = mergeContents({
+            projectile, combatBeams, ball, rcd, recycler,
             itemHolder, expandoBox, hoverOutline, itemCrate, mapMarker, dockingSpring,
             hugeThruster, blueprintPreview, health, bot, fabricator, cargoEjector,
             cannon, thruster, pusher, pusherBeam, launcher, loader, cargoHatch,
@@ -913,6 +955,7 @@ export class ModelState {
         });
         const typeName = entityNameFromType(typeId);
         const category = entityCategory({
+            projectile, ball, rcd, recycler,
             typeId,
             markerTypeId,
             looseItemMarker,
@@ -948,6 +991,7 @@ export class ModelState {
             markerTypeId,
             markerTypeName,
             label: entityLabel({
+                projectile, ball, rcd, recycler,
                 category,
                 typeId,
                 typeName,
@@ -981,6 +1025,11 @@ export class ModelState {
                 isOverworld: this.isOverworld
             }),
             kind: [
+                projectile ? "projectile" : null,
+                combatBeams ? "combat_beams" : null,
+                ball ? "ball" : null,
+                rcd ? "rcd" : null,
+                recycler ? "recycler" : null,
                 transform ? "transform" : null,
                 dynamicBody ? "dynamic_body" : null,
                 itemHolder ? "item_holder" : null,

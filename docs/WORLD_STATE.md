@@ -7,6 +7,7 @@
 - [Choose a world](#choose-a-world)
 - [Entities and features](#entities-and-features)
 - [Machine and other collections](#machine-and-other-collections)
+- [Projectiles, bots, and special entities](#projectiles-bots-and-special-entities)
 - [Nearby ships](#nearby-ships)
 - [Live reads and snapshots](#live-reads-and-snapshots)
 - [Coordinates and incomplete data](#coordinates-and-incomplete-data)
@@ -104,6 +105,76 @@ not freeze them.
 
 Materials summarize decoded blocks; they are not an authoritative ship inventory. A missing collection or component can
 reflect incomplete decoding, not an absent server object.
+
+## Projectiles, bots, and special entities
+
+Every world domain exposes these collections. They return current component summaries; `get()` returns `null` when
+the entity or requested component is absent. Use `world.entities.get(summary.entity)` for position, health, snapshots,
+and generic interactions.
+
+```ts
+world.projectiles.all(): ProjectileSummary[];
+world.projectiles.get(entity: EntityRef): ProjectileSummary | null;
+world.bots.all(): BotSummary[];
+world.bots.get(entity: EntityRef): BotSummary | null;
+world.rcds.all(): RcdSummary[];
+world.rcds.get(entity: EntityRef): RcdSummary | null;
+world.balls.all(): BallSummary[];
+world.balls.get(entity: EntityRef): BallSummary | null;
+world.recyclers.all(): RecyclerSummary[];
+world.recyclers.get(entity: EntityRef): RecyclerSummary | null;
+```
+
+These arrays also appear in world/model snapshots. Standalone models expose `projectiles()`, `bots()`, `rcds()`,
+`balls()`, and `recyclers()`. Entity handles recognize the `projectile`, `bot`, `rcd`, `ball`, and `recycler` features.
+An egg has public type `"egg"` and a `ball` component with `isEgg: true`; the balls collection includes both kinds.
+
+| Component | Exposed state |
+| --- | --- |
+| `projectile` | RGB `color`/`colorCss`, `botStyle`, `indicatorCount`, `spriteItemId`/`spriteItemName`, raw `state`. |
+| `bot` | Existing class/identifier fields, `classificationSource: "heuristic"`, health, nullable combat display state, and nullable `beams`. |
+| `rcd` | Sandbox/flux variant and variant code, corresponding item ID, stored item identity/count, beam vector, raw `state`. |
+| `ball` | Nullable `health`, radius in world units, `rubber`, `isEgg`, raw `state`. |
+| `recycler` | Stored item identity/count. Identified from the recycler marker in a ship interior. |
+
+Projectile `botStyle` selects the official bot-bullet sprite; it does not prove ownership or identify the shooter.
+`indicatorCount` is the number of orbiting visual markers. `spriteItemId` is the item image used by the official
+renderer when present, not a reliable identification of the ammunition or its damage. Projectile lifetimes follow
+normal entity updates/removals; no local projectile simulation or trajectory prediction is performed.
+
+`bot.combat` exposes packed RGBA `bodyColorRgba` and `weaponColorRgba`, `aimAngle` in radians, `thrusterMask`,
+`alternateSprite`, `beamEffectEnabled`, and raw combat `state`. The official disabled-angle sentinel becomes `null`.
+RGBA uses `0xRRGGBBAA`; projectile and outfit colors use RGB. Thruster mask bits select visual thrusters and do not
+provide thrust force. Beam enablement describes an effect, not whether a target is taking damage.
+
+`bot.beams` and the entity's `combatBeams` feature expose the same replicated three-beam component:
+`{entity, beams: [{angle, length, active, colorRgba}, ...], state}`. Angles are radians relative to the entity's
+orientation; lengths are in world units, and `active` means the length is positive. The renderer begins these beams
+at the object's radius, so `length` is the extension beyond that radius. Wire angles are divided by `1000`, lengths
+by `10`. The beam component is decoded separately from expando-box sizing.
+
+Bot class names remain inferred from component combinations and values, rather than an authoritative server type.
+Entities with health alone are no longer automatically treated as bots. Projectiles, balls, and RCDs are excluded
+from bot/crate inference. Server AI decisions, target identity, and weapon damage are not inferred from display fields.
+
+Ball identification uses the decoded ball component, including objects described in-game as boulders. It does not
+depend on a particular HP value or the previous boulder exclusion heuristic. Balls may have health, including rubber
+balls; `health` is `null` only when that component is absent. `radius` comes from the size component divided by `20`.
+`rubber` is `true` for rubber and `false` for rock. The official renderer tints rubber dark gray (`#222222`) and
+rock white. This flag is independent of health/destructibility.
+
+An RCD's `beam` is `{offsetX, offsetY, active}`. The vector uses world axes and world units, scaled from the wire by
+`1/5`; its endpoint is the RCD's position plus that vector. The official renderer chooses sandbox for variant code
+zero and flux otherwise. Stored items are reported without assuming that every item is valid fuel or assigning a
+fuel capacity. Generic `entity.use()`/tip interactions remain available; there is no dedicated RCD programming API.
+
+Recyclers expose the replicated held item without inventing a processing timer. Body/appearance-only entities and
+other special objects may still have generic handles and raw component tables without a dedicated summary. An
+annihilator is a block material in the official client, so it is represented through tiles rather than this collection.
+
+Footprints and the block index are coarse occupancy aids, not collision polygons or navigation meshes. Check
+`footprint.source`: `"default"` and `"heuristic"` dimensions are estimates, and hover outlines describe highlights.
+Helm/comms occupancy retains its existing inference rules; these collections do not establish player-to-machine links.
 
 ## Nearby ships
 

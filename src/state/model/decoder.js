@@ -141,6 +141,10 @@ export const MODEL_TABLE_SPECS = new Map([
     [11, {name: "numeric_sparse", fields: numericFields({1: 20, 2: 24, 4: 28, 8: 32, 16: 36})}],
     [12, {name: "numeric_sparse", fields: numericFields({1: 20, 2: 24, 4: 28, 8: 32})}],
     [14, {name: "size_state", fields: numericFields({1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40, 64: 44})}],
+    [15, {
+        name: "combat_beams",
+        fields: numericFields({1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40, 64: 44, 128: 48, 256: 52})
+    }],
     [16, {
         name: "label_numeric_state",
         read(reader, record, mask) {
@@ -158,29 +162,25 @@ export const MODEL_TABLE_SPECS = new Map([
             if (mask & 16) record.q36 = (record.q36 || 0) + reader.readFieldDelta();
         }
     }],
-    [17, {name: "numeric_sparse", fields: numericFields({1: 20, 2: 24, 4: 28, 8: 32, 16: 36})}],
+    [17, {
+        name: "ball",
+        packedBeforeValues: true,
+        packedBits: [{bit: 1, offset: 21}, {bit: 2, offset: 22}]
+    }],
     [18, {
         name: "mob_combat_state",
+        // Official reader packs flags 64/2048 before numeric deltas. Raw offsets
+        // follow that reader's layout, rather than treating flag bits as values.
+        packedBeforeValues: true,
+        packedBits: [{bit: 64, offset: 77}, {bit: 2048, offset: 78}],
+        defaults: {
+            q20: -1, q24: 0, q28: 0, q32: 0, q36: 0, q40: -9417217,
+            q44: 0, q48: -100, q52: 0, q56: 10, q60: 10, q64: 1, q68: 1, q72: 100
+        },
         fields: numericFields({
-            2: 20,
-            4: 24,
-            8: 28,
-            16: 32,
-            32: 36,
-            64: 40,
-            128: 44,
-            256: 48,
-            512: 52,
-            1024: 56,
-            2048: 60,
-            4096: 64,
-            8192: 68,
-            16384: 72,
-            32768: 76,
-            65536: 80,
-            131072: 84,
-            524288: 88,
-            4194304: 92
+            2: 20, 4: 24, 8: 28, 16: 32, 32: 36, 128: 40,
+            256: 44, 512: 48, 1024: 52, 4096: 56, 8192: 60,
+            16384: 64, 32768: 68, 65536: 72
         })
     }],
     [19, {name: "motion_state", packedBits: [{bit: 4, offset: 29}], ...TWO_FIELD_SPEC}],
@@ -214,7 +214,13 @@ export const MODEL_TABLE_SPECS = new Map([
         fields: numericFields({1: 20, 2: 24}),
         blobs: [{bit: 4, offset: 28}, {bit: 8, offset: 40}]
     }],
-    [24, {name: "projectile_state", packedBits: [{bit: 8, offset: 33}], fields: numericFields({1: 20, 2: 24, 4: 28})}],
+    [24, {
+        name: "projectile_state",
+        defaults: {q20: 16777215, q24: 1, q28: 1},
+        packedBeforeValues: true,
+        packedBits: [{bit: 2, offset: 33}],
+        fields: numericFields({1: 20, 4: 24, 8: 28})
+    }],
     [25, {
         name: "zone_label",
         orderedValues: true,
@@ -279,7 +285,7 @@ export const MODEL_TABLE_SPECS = new Map([
         defaults: {q20: 0, q24: 0, q28: 0, q32: 0, q36: 0, q40: 0, q44: 0, q48: 0, q52: 0, q56: 0, q60: 0, q64: 0},
         fields: numericFields({1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40, 64: 44, 128: 48, 256: 52, 512: 56, 1024: 60, 2048: 64})
     }],
-    [59, {name: "numeric_sparse", fields: numericFields({1: 20, 2: 24, 4: 28, 8: 32, 16: 36})}],
+    [59, {name: "rcd", fields: numericFields({1: 20, 2: 24, 4: 28, 8: 32})}],
     [60, {name: "fluid_tank", packedBits: [{bit: 4, offset: 29}], ...TWO_FIELD_SPEC}],
     [61, {name: "shield_charge", ...TWO_FIELD_SPEC}],
     [62, {name: "flag_state", packedBits: [{bit: 1, offset: 21}], fields: []}],
@@ -358,7 +364,7 @@ export const WIRE_TAG_TABLES = new Map([
     [48, 12],
     [49, 13],
     [50, 14],
-    [51, 51],
+    [51, 15],
     [52, 16],
     [74, 17],
     [80, 17],
@@ -790,45 +796,120 @@ export function summarizeBot(entity, {
     combatRecord,
     motionRecord,
     table10Record,
-    table51Record,
+    beamRecord,
     itemCrate,
     player,
     shipControl
 }) {
-    if (!health || itemCrate || player || shipControl || isBoulderBotExclusion(health, table2Record, combatRecord)) return null;
+    if (!health || itemCrate || player || shipControl) return null;
     const className = botClassFromState({
         health,
         table2Record,
         smallRecord,
         combatRecord,
         table10Record,
-        table51Record
+        beamRecord
     });
+    // Health alone is not enough to identify an arbitrary entity as a bot.
+    if (className === "bot") return null;
     return {
         entity,
         className,
+        classificationSource: "heuristic",
+        health,
+        beams: summarizeCombatBeams(entity, beamRecord),
+        combat: combatRecord ? {
+            bodyColorRgba: (combatRecord.q20 ?? -1) >>> 0,
+            weaponColorRgba: (combatRecord.q40 ?? -9417217) >>> 0,
+            aimAngle: combatRecord.q44 === -70 ? null : numberOrNull(combatRecord.q44, 10),
+            thrusterMask: combatRecord.q60 ?? 10,
+            alternateSprite: Boolean(combatRecord.q77),
+            beamEffectEnabled: Boolean(combatRecord.q78),
+            state: cloneRecord(combatRecord)
+        } : null,
         identifier: botIdentifierFromState({combatRecord, motionRecord, smallRecord}),
         typeA: health.state?.q28 ?? null,
         typeB: health.state?.q32 ?? null
     };
 }
 
-export function isBoulderBotExclusion(health, table2Record, combatRecord) {
-    return Boolean(
-        health?.maxHp === 2000 &&
-        health?.state?.q28 === 30 &&
-        health?.state?.q32 != null &&
-        table2Record?.q20 != null &&
-        table2Record?.q24 == null &&
-        !combatRecord
-    );
+export function summarizeProjectile(entity, record) {
+    if (!record) return null;
+    const color = record.q20 ?? 16777215;
+    const itemId = record.q28 ?? 1;
+    return {
+        entity,
+        color,
+        colorCss: colorToCss(color),
+        botStyle: Boolean(record.q33),
+        indicatorCount: record.q24 ?? 1,
+        spriteItemId: itemId === 0 ? null : itemId,
+        spriteItemName: itemId === 0 ? null : entityNameFromType(itemId),
+        state: cloneRecord(record)
+    };
 }
 
-export function botClassFromState({health, table2Record, smallRecord, combatRecord, table10Record, table51Record}) {
+export function summarizeCombatBeams(entity, record) {
+    if (!record) return null;
+    return {
+        entity,
+        beams: [0, 1, 2].map((index) => {
+            const length = (record[qKey(32 + index * 4)] ?? 0) / 10;
+            return {
+                angle: (record[qKey(20 + index * 4)] ?? 0) / 1000,
+                length,
+                active: length > 0,
+                colorRgba: (record[qKey(44 + index * 4)] ?? 0) >>> 0
+            };
+        }),
+        state: cloneRecord(record)
+    };
+}
+
+export function summarizeBall(entity, record, health = null, sizeRecord = null) {
+    if (!record) return null;
+    return {
+        entity,
+        health,
+        radius: numberOrNull(sizeRecord?.q20, 20),
+        rubber: Boolean(record.q21),
+        isEgg: Boolean(record.q22),
+        state: cloneRecord(record)
+    };
+}
+
+export function summarizeRcd(entity, record, itemHolderRecord) {
+    if (!record) return null;
+    const variant = (record.q20 ?? 0) === 0 ? "sandbox" : "flux";
+    const item = itemSummary(itemHolderRecord?.q20, itemHolderRecord?.q24);
+    return {
+        entity,
+        variant,
+        variantCode: record.q20 ?? 0,
+        itemId: variant === "sandbox" ? 121 : 122,
+        storedItemId: item.itemId,
+        storedItemName: item.itemName,
+        storedItemCount: item.count,
+        beam: {
+            offsetX: (record.q28 ?? 0) / 5,
+            offsetY: (record.q32 ?? 0) / 5,
+            active: Boolean(record.q28 || record.q32)
+        },
+        state: cloneRecord(record)
+    };
+}
+
+export function summarizeRecycler(entity, marker, itemHolderRecord) {
+    if (!marker) return null;
+    const item = itemSummary(itemHolderRecord?.q20, itemHolderRecord?.q24);
+    return {entity, storedItemId: item.itemId, storedItemName: item.itemName, storedItemCount: item.count};
+}
+
+export function botClassFromState({health, table2Record, smallRecord, combatRecord, table10Record, beamRecord}) {
     if (isYellowMineGuardBotState({health, smallRecord, combatRecord, table2Record})) return "yellow-mine-guard";
     if (isShieldHelperBotState({health, table2Record})) return "shield-helper";
     if (isShieldMasterBotState({health, table2Record})) return "shield-master";
-    if (isLazerEnthusiastBotState({health, table2Record, table10Record, table51Record})) return "lazer-enthusiast";
+    if (isLazerEnthusiastBotState({health, table2Record, table10Record, beamRecord})) return "lazer-enthusiast";
     if (isCowardBossState({health})) return "the-coward";
     if (isOrangeFoolBotState({combatRecord})) return "orange-fool";
     if (isZombieBossBotState({health, table2Record, combatRecord})) return "zombie-boss";
@@ -842,6 +923,7 @@ export function botClassFromState({health, table2Record, smallRecord, combatReco
     if (isAquaShielderBotState({health, table2Record, combatRecord})) return "aqua-shielder";
     if (table2Record) return "table2-bot";
     if (combatRecord) return "combat-bot";
+    if (beamRecord) return "beam-bot";
     return "bot";
 }
 
@@ -895,14 +977,14 @@ export function isAquaShielderBotState({health, table2Record, combatRecord}) {
     );
 }
 
-export function isLazerEnthusiastBotState({health, table2Record, table10Record, table51Record}) {
+export function isLazerEnthusiastBotState({health, table2Record, table10Record, beamRecord}) {
     return (
         health?.state?.q28 === 140 &&
         health?.state?.q32 === 155 &&
         table2Record?.q20 === 300 &&
         table2Record?.q24 === -900 &&
         Boolean(table10Record) &&
-        Boolean(table51Record)
+        Boolean(beamRecord)
     );
 }
 
@@ -1515,6 +1597,10 @@ export function entityFootprint(entity) {
 }
 
 export function entityLabel(entity) {
+    if (entity?.projectile) return "Projectile";
+    if (entity?.ball) return entity.ball.isEgg ? "Egg" : "Ball";
+    if (entity?.rcd) return entity.rcd.variant === "sandbox" ? "Sandbox RCD" : "Flux RCD";
+    if (entity?.recycler) return "Recycler";
     if (entity?.category === "metadata" && entity?.typeName) return `Metadata ${entity.typeName}`;
     if (entity?.blueprintPreview) return `Blueprint Preview (${entity.blueprintPreview.itemName ?? entity.blueprintPreview.itemId ?? "item"})`;
     if (entity?.category === "loose_item" && entity?.itemHolder?.itemName) return `Loose ${entity.itemHolder.itemName}`;
@@ -1546,6 +1632,10 @@ export function entityLabel(entity) {
 }
 
 export function entityCategory(entity) {
+    if (entity?.projectile) return "projectile";
+    if (entity?.ball) return "ball";
+    if (entity?.rcd) return "rcd";
+    if (entity?.recycler) return "placed_entity";
     if (entity?.player) return "player";
     if (entity?.blueprintPreview) return "blueprint_preview";
     if (entity?.shipControl) return "ship_control";
