@@ -665,7 +665,9 @@ export function summarizeCannon(entity, record, typeId = null, transformRecord =
         ? null
         : (((mountingAngleRadians + relativeAngleRadians) % tau) + tau) % tau;
     const ammoItemId = record.q24 == null ? null : CANNON_AMMO_COLOR_ITEM_IDS.get(record.q24) ?? null;
-    const charge = record.q40 ?? null;
+    const indicatorValue = (record.q40 ?? 0) / 50;
+    const indicatorVisible = indicatorValue >= 1;
+    const indicatorBlinking = indicatorValue === 4;
     const recoil = record.q36 ?? null;
     const recoil2 = record.q48 ?? null;
     return {
@@ -680,12 +682,22 @@ export function summarizeCannon(entity, record, typeId = null, transformRecord =
         recoil,
         recoil2,
         recoils: [recoil, recoil2],
-        charge,
-        charged: charge == null ? null : charge >= 50,
+        indicatorValue,
+        indicatorVisible,
+        indicatorColor: !indicatorVisible ? null : indicatorBlinking ? 0xff0000 : cannonIndicatorColor(indicatorValue),
+        indicatorBlinking,
+        indicatorBlinkColor: indicatorBlinking ? 0xffff00 : null,
         spin: record.q52 ?? null,
-        coolingCellCount: record.q56 ?? 0,
+        resourceCount: record.q56 ?? 0,
         state: cloneRecord(record)
     };
+}
+
+function cannonIndicatorColor(value) {
+    // Match the official renderer's float32 arithmetic before truncating to a byte.
+    const distance = Math.abs(Math.fround(2 - Math.fround(value)));
+    const channel = Math.max(0, Math.min(255, Math.trunc(Math.fround(Math.fround(1 - distance) * 255))));
+    return value < 2 ? (channel << 16) | 0x00ff00 : 0xff0000 | (channel << 8);
 }
 
 export function summarizeThruster(entity, typeId, record) {

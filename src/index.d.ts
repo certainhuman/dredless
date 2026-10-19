@@ -2044,10 +2044,17 @@ export interface CannonSummary {
     recoil: number | null;
     recoil2: number | null;
     recoils: [number | null, number | null];
-    charge: number | null;
-    charged: boolean | null;
+    /** Official indicator scalar (wire value / 50); defaults to 0. Not a resource count or readiness flag. */
+    indicatorValue: number;
+    indicatorVisible: boolean;
+    /** Packed RGB; null when hidden. Red is the first phase of a blinking indicator. */
+    indicatorColor: number | null;
+    indicatorBlinking: boolean;
+    /** Alternate packed RGB color for blinking; otherwise null. */
+    indicatorBlinkColor: number | null;
     spin: number | null;
-    coolingCellCount: number;
+    /** Burst charges on burst cannons, cooling cells on machine cannons; defaults to 0. */
+    resourceCount: number;
     state: ModelRecord;
 }
 
