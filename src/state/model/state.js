@@ -1,5 +1,4 @@
 import * as modelDecoder from "./decoder.js";
-import {LoaderConfigTracker} from "./loader-config.js";
 import {navigationDestinationFromEncodedValue} from "../overworld.js";
 
 const {
@@ -47,9 +46,6 @@ const {
     blobKey,
     cloneRecord,
     firstRecord,
-    TABLE_78_FIELD_BITS,
-    table78DeltaRecord,
-    isSemanticLoaderDelta,
     decodeText,
     entityNameFromType,
     markerTypeIdForTables,
@@ -126,7 +122,6 @@ const {
 } = modelDecoder;
 
 export class ModelState {
-    #loaderConfig = new LoaderConfigTracker();
     #blueprintItems = null;
     #helmOccupied = new Map();
     #commsStationOccupied = new Map();
@@ -236,8 +231,6 @@ export class ModelState {
             pushCapped(this.errors, {message: error.message, generation: update.generation}, MAX_RETAINED_ERRORS);
         }
 
-        this.#remapIndexedLoaderConfig(update);
-        this.#updateLoaderConfig(update);
         this.#updateNavigationUnitAutoWarp(update);
         this.#updateHelmOccupancy(update);
         this.#updateCommsStationOccupancy(update);
@@ -352,60 +345,6 @@ export class ModelState {
         for (const entityId of update.changedEntities) this.#refreshDerivedEntity(entityId);
         this._derived.summariesDirty = true;
         this._derived.tableSummariesDirty = true;
-    }
-
-    #updateLoaderConfig(update) {
-        const seenEntities = new Set();
-        for (const section of update.sections || []) {
-            if (section.table !== 78) continue;
-            for (const changed of section.records || []) {
-                if (changed.indexedLoaderConfig) {
-                    this.#loaderConfig.updateIndexedSnapshotRecord(null, changed.entity, changed.record, changed.mask, changed.cumulativeRecord, changed.configEntity);
-                    continue;
-                }
-                const typeId = entityTypeIdFromRecord(this.record(7, changed.entity));
-                this.#loaderConfig.updateRecord(null, changed.entity, changed.record ?? this.record(78, changed.entity), changed.mask, changed.previous, {
-                    repeatedInUpdate: seenEntities.has(changed.entity),
-                    allowSparseBaseline: typeId === LOADER_TYPE_ID,
-                    repeatedInSection: changed.repeatedInSection,
-                    semanticSnapshot: Boolean(update.full),
-                    semanticDelta: isSemanticLoaderDelta(changed, update.full),
-                    deltaRecord: table78DeltaRecord(changed)
-                });
-                seenEntities.add(changed.entity);
-            }
-        }
-    }
-
-    #remapIndexedLoaderConfig(update) {
-        if (!update.full || update.error) return;
-        const rows = [];
-        for (const section of update.sections || []) {
-            if (section.table !== 78) continue;
-            for (const changed of section.records || []) rows.push(changed);
-        }
-        if (!rows.length) return;
-
-        const loaderIds = [...this.table(7).entries()]
-            .filter(([, record]) => entityTypeIdFromRecord(record) === LOADER_TYPE_ID)
-            .map(([entity]) => entity)
-            .sort((a, b) => a - b);
-        if (loaderIds.length !== rows.length) return;
-        if (rows.every((row, index) => row.entity === loaderIds[index])) return;
-
-        const remappedTable = new Map();
-        for (const [index, changed] of rows.entries()) {
-            const rawRecord = table78DeltaRecord(changed);
-            changed.configEntity = changed.entity;
-            changed.entity = loaderIds[index];
-            changed.cumulativeRecord = cloneRecord(changed.record || {});
-            changed.record = cloneRecord(rawRecord);
-            delete changed.previous;
-            changed.indexedLoaderConfig = true;
-            remappedTable.set(changed.entity, cloneRecord(rawRecord));
-            update.changedEntities.add(changed.entity);
-        }
-        this.tables.set(78, remappedTable);
     }
 
     #updateNavigationUnitAutoWarp(update) {
@@ -829,7 +768,8 @@ export class ModelState {
         const pusherRecord = rec(72);
         const pusherBeamRecord = rec(42);
         const launcherRecord = rec(44);
-        const loaderRecord = rec(78);
+        const loaderRecord = rec(69);
+        const navigationRecord = rec(78);
         const loaderFilterRecord = rec(76);
         const loaderFilterSlotsRecord = rec(77);
         const commsStationRecord = rec(39);
@@ -870,10 +810,10 @@ export class ModelState {
         const pusherBeam = summarizePusherBeam(entityId, pusherBeamRecord);
         const launcher = summarizeItemLauncher(entityId, typeId, launcherRecord);
         const loader = (typeId === LOADER_TYPE_ID || (typeId == null && (loaderRecord || loaderFilterRecord || loaderFilterSlotsRecord)))
-            ? summarizeLoader(entityId, loaderRecord, loaderFilterRecord, loaderFilterSlotsRecord, this.#loaderConfig, typeId === LOADER_TYPE_ID, itemHolderRecord)
+            ? summarizeLoader(entityId, loaderRecord, loaderFilterRecord, loaderFilterSlotsRecord, typeId === LOADER_TYPE_ID, itemHolderRecord)
             : null;
         const cargoHatch = summarizeCargoHatch(entityId, typeId, loaderFilterRecord, loaderFilterSlotsRecord, rec(45));
-        const navigationUnit = summarizeNavigationUnit(entityId, typeId, loaderRecord, this.#navigationUnitAutoWarp.get(entityId));
+        const navigationUnit = summarizeNavigationUnit(entityId, typeId, navigationRecord, this.#navigationUnitAutoWarp.get(entityId));
         const fluidTank = fluidTankRecord ? {
             entity: entityId,
             amount: fluidTankRecord.q24 ?? null,
@@ -1111,7 +1051,6 @@ export class ModelState {
             } else {
                 for (const records of this.tables.values()) records.delete(entity);
             }
-            this.#loaderConfig.delete(null, entity);
             this.#helmOccupied.delete(entity);
             this.#commsStationOccupied.delete(entity);
             this.#navigationUnitAutoWarp.delete(entity);
@@ -1129,7 +1068,6 @@ export class ModelState {
     #readSectionRecords(reader, tag, tableId, spec) {
         const section = {tag, table: tableId, name: spec?.name || null, records: []};
         let entity = 0;
-        const seenEntities = tableId === 78 ? new Set() : null;
         while (reader.remaining > 0) {
             const recordOffset = reader.offset;
             let delta;
@@ -1147,7 +1085,6 @@ export class ModelState {
                 throw new Error(`model table ${tableId} tag ${tag} entity ${entity} mask offset ${reader.offset}: ${error.message}`);
             }
             const record = this.#getRecord(tableId, entity);
-            const previous = tableId === 78 ? cloneRecord(record) : null;
             record.lastMask = mask;
 
             try {
@@ -1158,10 +1095,6 @@ export class ModelState {
             }
 
             const changed = {entity, mask};
-            if (previous) changed.previous = previous;
-            if (seenEntities?.has(entity)) changed.repeatedInSection = true;
-            seenEntities?.add(entity);
-            if (tableId === 78) changed.record = cloneRecord(record);
             section.records.push(changed);
         }
         return section;
@@ -1170,7 +1103,7 @@ export class ModelState {
     #getRecord(tableId, entity) {
         if (!this.tables.has(tableId)) this.tables.set(tableId, new Map());
         const records = this.tables.get(tableId);
-        if (!records.has(entity)) records.set(entity, {});
+        if (!records.has(entity)) records.set(entity, {...MODEL_TABLE_SPECS.get(tableId)?.defaults});
         return records.get(entity);
     }
 
