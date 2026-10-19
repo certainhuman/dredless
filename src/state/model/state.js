@@ -122,6 +122,7 @@ const {
 } = modelDecoder;
 
 export class ModelState {
+    #localPlayerEntity = null;
     #blueprintItems = null;
     #helmOccupied = new Map();
     #commsStationOccupied = new Map();
@@ -144,6 +145,18 @@ export class ModelState {
         const next = isOverworld == null ? null : Boolean(isOverworld);
         if (this.isOverworld === next) return;
         this.isOverworld = next;
+        this.#invalidateDerived();
+    }
+
+    get localPlayerEntity() {
+        return this.#localPlayerEntity;
+    }
+
+    setLocalPlayerEntity(entity) {
+        const next = entity == null ? null : Number(entity);
+        if (next !== null && (!Number.isInteger(next) || next < 0)) throw new RangeError("local player entity must be a non-negative integer or null");
+        if (this.#localPlayerEntity === next) return;
+        this.#localPlayerEntity = next;
         this.#invalidateDerived();
     }
 
@@ -435,28 +448,30 @@ export class ModelState {
         const table7 = update.sections.find((section) => section.table === 7);
         if (!table7) return;
 
-        const changedPilotState = new Map();
+        // Zoom state is a hint for helm occupancy when paired with helm updates;
+        // the player flag itself does not identify a pilot or an operated machine.
+        const changedZoomState = new Map();
         for (const section of update.sections) {
             if (section.table !== 55) continue;
             for (const changed of section.records) {
                 if (!(changed.mask & 16)) continue;
                 const player = this.record(55, changed.entity);
-                changedPilotState.set(changed.entity, Boolean(player?.q107));
+                changedZoomState.set(changed.entity, Boolean(player?.q107));
             }
         }
 
-        const activePilotCount = [...this.table(55).values()].filter((record) => record?.q107).length;
+        const zoomedOutPlayerCount = [...this.table(55).values()].filter((record) => record?.q107).length;
         for (const changed of table7.records) {
             const record = this.record(7, changed.entity);
             const typeId = entityTypeIdFromRecord(record);
             if (!HELM_TYPE_IDS.has(typeId)) continue;
 
-            if (activePilotCount > 0 && record?.q20 === 0 && HELM_TYPE_IDS.has(Number(record?.q32))) {
+            if (zoomedOutPlayerCount > 0 && record?.q20 === 0 && HELM_TYPE_IDS.has(Number(record?.q32))) {
                 this.#helmOccupied.set(changed.entity, true);
             }
 
-            if (!(changed.mask & 8) || changedPilotState.size === 0) continue;
-            this.#helmOccupied.set(changed.entity, [...changedPilotState.values()].some(Boolean));
+            if (!(changed.mask & 8) || changedZoomState.size === 0) continue;
+            this.#helmOccupied.set(changed.entity, [...changedZoomState.values()].some(Boolean));
         }
     }
 
@@ -822,7 +837,7 @@ export class ModelState {
         const shieldGenerator = typeId === 256 ? summarizeShieldGenerator(entityId, shieldRecord, itemHolderRecord, shieldGeneratorBoostRecord) : null;
         const shieldProjector = typeId === 257 ? summarizeShieldProjector(entityId, shieldProjectorRecord) : null;
         const blueprintPreview = summarizeBlueprintPreview(entityId, blueprintPreviewRecord, transformRecord);
-        const player = summarizePlayer(entityId, playerRecord, rec(14), this.#blueprintPreviewItems());
+        const player = summarizePlayer(entityId, playerRecord, rec(14), this.#blueprintPreviewItems(), rec(56), this.#localPlayerEntity);
         const shipControl = summarizeShipControl(entityId, shipControlRecord);
         const helm = summarizeHelm(entityId, typeId, this.#helmOccupied.get(entityId));
         const commsStation = summarizeCommsStation(entityId, typeId, commsStationRecord, this.#commsStationOccupied.get(entityId));

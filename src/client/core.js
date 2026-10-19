@@ -1186,6 +1186,7 @@ export class DredlessClient extends EventBus {
 
     #markReady(packet) {
         this.sid = packet.sid >>> 0;
+        this.worlds.apply(packet);
         this.worlds.currentWorldId = packet.world ?? this.worlds.currentWorldId;
         this.ready = true;
         if (this.#ownsSocket) {

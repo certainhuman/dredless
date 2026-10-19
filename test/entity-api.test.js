@@ -43,6 +43,7 @@ function createClientWithPusher() {
     world.model.tables.set(62, new Map([[34, {q21: 1}]]));
     world.model.tables.set(50, new Map([[35, {q20: 2, q24: 63}]]));
     world.model.tables.set(55, new Map([[99, {q28: 109, q72: 3, q76: 0, q109: 1, blob92: encoder.encode("Captain Test")}]]));
+    world.model.setLocalPlayerEntity(99);
     return client;
 }
 

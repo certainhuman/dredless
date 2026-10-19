@@ -1532,7 +1532,7 @@ test("ModelState keeps helm type through sparse grab-state type updates", () => 
     assert.equal(model.entity(grabbedAndReleased).label, "Helm (Packaged)");
     assert.equal(model.entity(heldThroughCapture).contents.helm.occupied, true);
     assert.equal(model.entity(grabbedAndReleased).contents.helm.occupied, false);
-    assert.equal(model.entity(pilot).contents.player.piloting, true);
+    assert.equal(model.entity(pilot).contents.player.zoomedOut, true);
 
     model.apply(modelData(
         2,
@@ -1543,7 +1543,7 @@ test("ModelState keeps helm type through sparse grab-state type updates", () => 
     assert.equal(model.entity(grabbedAndReleased).typeId, 215);
     assert.equal(model.entity(grabbedAndReleased).label, "Helm (Packaged)");
     assert.equal(model.entity(grabbedAndReleased).contents.helm.occupied, true);
-    assert.equal(model.entity(pilot).contents.player.piloting, true);
+    assert.equal(model.entity(pilot).contents.player.zoomedOut, true);
 
     model.apply(modelData(
         3,
@@ -1552,7 +1552,7 @@ test("ModelState keeps helm type through sparse grab-state type updates", () => 
     ));
 
     assert.equal(model.entity(grabbedAndReleased).contents.helm.occupied, false);
-    assert.equal(model.entity(pilot).contents.player.piloting, false);
+    assert.equal(model.entity(pilot).contents.player.zoomedOut, false);
 });
 
 test("ModelState decodes comms station charges and occupied state", () => {

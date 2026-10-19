@@ -25,6 +25,55 @@ client.player.rank(): CurrentPlayerRank;
 `"captain"`; it can be `null` before local-player state is known. A WebSocket session ID (`sid`) is not the player's
 entity ID. Management's `refId` is another identifier again.
 
+Player summaries from `client.player.current()` and `world.players.all()` include:
+
+| Field | Meaning |
+| --- | --- |
+| `heldItemId`, `heldItemName` | Held item, or `null` when empty. |
+| `heldItemAngle` | Held tool angle in radians in the current world's coordinate frame; decoded as the server value divided by `200`. |
+| `heldItemBeamDistance` | Beam distance shared by repair tools and handheld pushers, in world units; decoded as the server value divided by `10`. |
+| `itemMode` | Server-reported numeric item mode code. |
+| `buildMultiplier` | Build reach multiplier, decoded as the server value divided by `10`. |
+| `isLocal` | Whether this entity matches the decrypted camera-focus message. False until that identity is known. |
+| `zoomedOut` | Server-requested camera zoom state. This flag alone does not identify which machine the player is operating. |
+| `invisible` | Server invisibility flag; the official client hides the sprite and excludes it from name suggestions for other players. |
+| `cheats` | `{noclip, sandboxBuild}`: noclip/flight and sandbox build mode flags. |
+| `itemEffectActive` | Shared item effect flag. The official renderer uses it for rocket/hover pack exhaust and certain held-item effects. Repair/pusher beams also depend on a positive `heldItemBeamDistance`. |
+| `animation` | `{facing, orientation, walking}`: sprite mirror sign, numeric orientation code, and speed-based limb animation flag. |
+| `appearance` | Base outfit colors, cosmetic styles, and equipped item visual overrides; `null` until the appearance component is available. |
+
+`itemMode`, `heldItemAngle`, and `heldItemBeamDistance` are `null` until available. `buildMultiplier` defaults to `1`, matching the official
+client. `heldItemAngle` replaces `repairTargetAngle`, whose previous scaling
+was incorrect, and `zoomedOut` replaces `piloting`. Helm `occupied` remains inferred from zoom state combined with
+helm updates. `heldItemBeamDistance` replaces `repairTargetDistance`, and `itemEffectActive` replaces `toolEffectActive`.
+Other summary fields include name, ranks, patron status, mute status, and action
+preview; see [PlayerSummary](../src/index.d.ts) for the complete shape.
+
+`appearance` contains packed RGB `bodyColor`, `legsColor`, `skinColor`, and `feetColor`, plus `hair`, `hat`, `face1`,
+and `face2`, each shaped as `{color, styleId}`. Style IDs index the official client's cosmetic catalogs; `0` means no
+style. Outfit fields default to zero when omitted from the initial appearance component, and sparse updates retain
+previous values. The style catalog's image paths and rendering rules are not bundled with these summaries.
+
+`appearance.itemOverrides` contains `back`, `hands`, `feet`, `head1`, and `head2`. Each is `null` or an
+`{itemId, itemName}` entry describing an equipped item visual. These are separate from the base cosmetic
+styles. `back` includes backpacks, rocket packs, and hover packs; it replaces the incorrectly named `body` override.
+The inventory still has separate body and back slots. The replicated appearance component has no confirmed body
+item visual field. The raw appearance component is retained in `appearance.state`.
+
+For handheld pushers, `itemMode & 1` selects the beam direction. Packs can be equipped using
+`client.inventory.equip(source, "back")`; generic player input controls their use.
+
+`animation.facing` is normally `-1` or `1`; `orientation` retains the server's numeric code. `animation.walking`
+selects the official renderer's speed-based limb swing rather than its hovering pose. It can be enabled while the
+player stands still, so it should not be used to detect movement. Raw fields whose meaning is not confirmed remain
+in `player.state`.
+
+Local identity comes from packet `21`, not a player animation flag or the WebSocket session ID. When replaying
+captures, pass camera-focus packets to `WorldStore.apply()` as well as world metadata and model packets. Standalone
+`ModelState` consumers can set the identity with `model.setLocalPlayerEntity(entityId)` and clear it with `null`.
+When attaching after the camera-focus packet has already been received, local identity remains unknown until another
+focus packet arrives or the entity is set explicitly on the world's model.
+
 ## Send input
 
 These methods return the client after sending or queueing input, without waiting for action success:
