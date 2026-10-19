@@ -1085,6 +1085,13 @@ interface LoaderFullConfig extends LoaderConfig {
 
 State output:
 
+Loader state uses the official component defaults when configuration fields
+are omitted: pick `3` (middle-left), place `4` (middle-right), normal priority,
+stack `16`, cycle `1` second, and both flags disabled. Cycle times are converted
+from ticks at 20 ticks per second. Flag updates set their absolute boolean
+values; repeated updates do not toggle them. Raw loader configuration is stored
+in model table `69` (wire section `162`), separately from navigation state.
+
 ```ts
 interface LoaderSummary {
   entity: number;
