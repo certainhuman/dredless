@@ -95,6 +95,16 @@ export class DisconnectError extends Error {
 
 export function normalizeDisconnect(eventOrCode?: unknown, reason?: unknown): DisconnectInfo;
 
+export interface StarterRecoveryOptions {
+    /** Milliseconds to wait for the response; default 10000. */
+    timeout?: number;
+}
+
+export interface StarterRecoveryResult {
+    readonly success: boolean;
+    readonly failReason: string | null;
+}
+
 export interface RenameShipOptions {
     /** #RRGGBB hex string; omitted preserves the color returned by the server. */
     color?: string;
@@ -551,6 +561,8 @@ export class DredlessClient {
     /** Request permission and send the rename commit; does not await confirmation of the new name. */
     renameShip(name: string, options?: RenameShipOptions): Promise<void>;
     unbanPlayer(refId: number): this;
+    /** Await recovery success; reject with the server's failure reason. */
+    recoverStarterItem(itemId: number, options?: StarterRecoveryOptions): Promise<void>;
 
     currentShip(): ShipDomain | null;
 
@@ -575,14 +587,20 @@ export class DredlessClient {
     entity(entityId: number, scope?: number | string): EntitySnapshot | null;
 
     on(type: "disconnect", callback: (info: DisconnectInfo) => void): this;
+    on(type: "starter-recovery", callback: (result: StarterRecoveryResult, packet: unknown) => void): this;
+    on(type: "demote", callback: (packet: unknown) => void): this;
     on(type: "tip-list", callback: (menu: TipList, world: WorldState) => void): this;
     on(type: string, callback: (...args: unknown[]) => void): this;
 
     off(type: "disconnect", callback: (info: DisconnectInfo) => void): this;
+    off(type: "starter-recovery", callback: (result: StarterRecoveryResult, packet: unknown) => void): this;
+    off(type: "demote", callback: (packet: unknown) => void): this;
     off(type: "tip-list", callback: (menu: TipList, world: WorldState) => void): this;
     off(type: string, callback: (...args: unknown[]) => void): this;
 
     once(type: "disconnect", callback: (info: DisconnectInfo) => void): this;
+    once(type: "starter-recovery", callback: (result: StarterRecoveryResult, packet: unknown) => void): this;
+    once(type: "demote", callback: (packet: unknown) => void): this;
     once(type: "tip-list", callback: (menu: TipList, world: WorldState) => void): this;
     once(type: string, callback: (...args: unknown[]) => void): this;
 }
@@ -716,7 +734,8 @@ export interface ShipManagementDomain {
 
     setPrivacy(privacy: ShipPrivacy): DredlessClient;
 
-    recoverStarterItem(itemId: number): DredlessClient;
+    /** Await recovery success; reject with the server's failure reason. */
+    recoverStarterItem(itemId: number, options?: StarterRecoveryOptions): Promise<void>;
 
     setPlayerRank(refId: number, rank: ShipPlayerRank): DredlessClient;
 

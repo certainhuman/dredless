@@ -86,6 +86,8 @@ export {
 
 export type {
     RenameShipOptions,
+    StarterRecoveryOptions,
+    StarterRecoveryResult,
     TipDomain,
     TipList,
     TipOptions,

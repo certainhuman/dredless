@@ -219,8 +219,8 @@ export class ShipManagementDomain {
         return this.client.setShipPrivacy(privacy);
     }
 
-    recoverStarterItem(itemId) {
-        return this.client.recoverStarterItem(itemId);
+    recoverStarterItem(itemId, options = {}) {
+        return this.client.recoverStarterItem(itemId, options);
     }
 
     setPlayerRank(refId, rank) {
