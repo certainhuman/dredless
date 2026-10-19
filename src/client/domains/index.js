@@ -235,6 +235,10 @@ export class ShipManagementDomain {
         return this.client.banPlayer(refId);
     }
 
+    unbanPlayer(refId) {
+        return this.client.unbanPlayer(refId);
+    }
+
     demoteSelf() {
         return this.client.demoteSelf();
     }

@@ -550,6 +550,7 @@ export class DredlessClient {
     saveShip(options?: SaveShipOptions): Promise<DisconnectInfo>;
     /** Request permission and send the rename commit; does not await confirmation of the new name. */
     renameShip(name: string, options?: RenameShipOptions): Promise<void>;
+    unbanPlayer(refId: number): this;
 
     currentShip(): ShipDomain | null;
 
@@ -722,6 +723,9 @@ export interface ShipManagementDomain {
     kickPlayer(refId: number): DredlessClient;
 
     banPlayer(refId: number): DredlessClient;
+
+    /** Remove a ship ban using the player list entry’s refId. */
+    unbanPlayer(refId: number): DredlessClient;
 
     demoteSelf(): DredlessClient;
 
@@ -2285,6 +2289,8 @@ export function buildSetPlayerRankMessage(refId: number, rank: ShipPlayerRank): 
 export function buildKickPlayerMessage(refId: number): ShipManagementMessage;
 
 export function buildBanPlayerMessage(refId: number): ShipManagementMessage;
+
+export function buildUnbanPlayerMessage(refId: number): ShipManagementMessage;
 
 export function buildDemoteSelfMessage(): ShipManagementMessage;
 

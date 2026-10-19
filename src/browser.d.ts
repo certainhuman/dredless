@@ -26,6 +26,7 @@ export {
     normalizeInventoryEvent,
     EquipmentSlot,
     buildBanPlayerMessage,
+    buildUnbanPlayerMessage,
     buildDemoteSelfMessage,
     buildInviteResetMessage,
     buildKickPlayerMessage,

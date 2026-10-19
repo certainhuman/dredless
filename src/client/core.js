@@ -15,6 +15,7 @@ import {buildSignedCommandPacket} from "../protocol/outbound/commands.js";
 import {buildInventoryDragCommand, normalizeEquipmentSlot, normalizeInventoryEvent} from "../protocol/outbound/inventory.js";
 import {
     buildBanPlayerMessage,
+    buildUnbanPlayerMessage,
     buildDemoteSelfMessage,
     buildInviteResetMessage,
     buildKickPlayerMessage,
@@ -388,6 +389,10 @@ export class DredlessClient extends EventBus {
 
     banPlayer(refId) {
         return this.sendMessage(buildBanPlayerMessage(refId));
+    }
+
+    unbanPlayer(refId) {
+        return this.sendMessage(buildUnbanPlayerMessage(refId));
     }
 
     demoteSelf() {

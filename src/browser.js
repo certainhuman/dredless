@@ -19,6 +19,7 @@ export {
 } from "./protocol/outbound/inventory.js";
 export {
     buildBanPlayerMessage,
+    buildUnbanPlayerMessage,
     buildDemoteSelfMessage,
     buildInviteResetMessage,
     buildKickPlayerMessage,

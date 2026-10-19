@@ -686,6 +686,7 @@ interface ShipManagementDomain {
   setPlayerRank(refId: number, rank: ShipPlayerRank): DredlessClient;
   kickPlayer(refId: number): DredlessClient;
   banPlayer(refId: number): DredlessClient;
+  unbanPlayer(refId: number): DredlessClient;
   demoteSelf(): DredlessClient;
   config(): ShipConfig | null;
   hasCheats(): boolean;
@@ -740,6 +741,12 @@ client. The timeout must be positive and no greater than `2147483647` millisecon
 A timeout stops waiting. Later permission responses are ignored unless another
 rename is pending; the protocol has no request identifier to distinguish replies.
 The client also exposes `renameShip(name, options?)` directly.
+
+`client.management.unbanPlayer(refId)` removes a player's ban from the current
+ship using the `refId` from `client.management.playerList().players`. It sends
+`{type: 4, act: "unban", arg: refId}` and returns the client without waiting for
+acknowledgment. The server checks permission; player-list updates arrive normally.
+`client.unbanPlayer(refId)` is also available directly.
 
 Input aliases:
 
@@ -2356,6 +2363,7 @@ function buildInviteResetMessage(): ShipManagementMessage;
 function buildSetPlayerRankMessage(refId: number, rank: ShipPlayerRank): ShipManagementMessage;
 function buildKickPlayerMessage(refId: number): ShipManagementMessage;
 function buildBanPlayerMessage(refId: number): ShipManagementMessage;
+function buildUnbanPlayerMessage(refId: number): ShipManagementMessage;
 function buildDemoteSelfMessage(): ShipManagementMessage;
 function normalizePrivacy(privacy: ShipPrivacy): 0 | 1;
 function normalizePlayerRank(rank: ShipPlayerRank): 0 | 1 | 3;
@@ -2536,6 +2544,7 @@ const EQUIPMENT_SLOT_INDEXES: Readonly<{
 
 ```ts
 const BAN_ACTION: "ban";
+const UNBAN_ACTION: "unban";
 const DEMOTE_SELF_ACTION: "demote_self";
 const KICK_ACTION: "kick";
 const PLAYER_LIST_ACTION: "player_list";
