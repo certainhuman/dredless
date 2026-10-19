@@ -1652,7 +1652,7 @@ export function currentPlayerSummary(client, scope = "current") {
     const players = worldStateFor(client, scope)?.model.players() || [];
     // `sid` is the websocket session id, not the ECS entity id used by the
     // player component. The local-player flag identifies the ECS entity.
-    return players.find((player) => player.state?.q109) || null;
+    return players.find((player) => player.isLocal) || null;
 }
 
 function currentPlayerRank(client) {

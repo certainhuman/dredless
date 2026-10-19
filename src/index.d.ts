@@ -1843,6 +1843,9 @@ export interface CommsBubbleSummary {
 }
 
 export class ModelState {
+    /** Local entity identified by the decrypted camera-focus message, when known. */
+    readonly localPlayerEntity: number | null;
+    setLocalPlayerEntity(entity: number | null): void;
     generation: number | null;
     tables: Map<number, Map<number, ModelRecord>>;
     /** Capped at 500 retained ids; see `totalRemovedCount` for the true total. */
@@ -2249,15 +2252,70 @@ export interface PlayerSummary {
     name: string | null;
     heldItemId: number | null;
     heldItemName: string | null;
-    repairTargetDistance: number | null;
-    repairTargetAngle: number | null;
+    /** Server-reported item mode code. */
+    itemMode: number | null;
+    /** Multiplier used by the official client for build reach. */
+    buildMultiplier: number | null;
+    /** Beam distance shared by repair tools and handheld pushers, in world units. */
+    heldItemBeamDistance: number | null;
+    /** Held tool angle in radians in the current world's coordinate frame. */
+    heldItemAngle: number | null;
     shipRank: PlayerShipRank | null;
     patronTier: "bronze" | "silver" | "gold" | "plat" | "flux" | null;
     isDeveloper: boolean;
     isPatron: boolean;
-    piloting: boolean;
+    isLocal: boolean;
+    /** Server-requested camera zoom state; does not identify the operated machine. */
+    zoomedOut: boolean;
     muted: boolean;
+    invisible: boolean;
+    cheats: { noclip: boolean; sandboxBuild: boolean };
+    /** Shared item effect flag, including active rocket/hover pack exhaust. */
+    itemEffectActive: boolean;
+    animation: PlayerAnimationSummary;
+    appearance: PlayerAppearanceSummary | null;
     actionPreview: PlayerActionPreviewSummary | null;
+    state: ModelRecord;
+}
+
+export interface PlayerAnimationSummary {
+    /** Horizontal sprite mirror sign, normally -1 or 1. */
+    facing: number;
+    /** Server orientation code used to align the sprite and limb animation. */
+    orientation: number;
+    /** Selects speed-based limb swing instead of the hovering pose; not a movement detector. */
+    walking: boolean;
+}
+
+export interface PlayerAppearanceStyleSummary {
+    color: number;
+    /** Index into the official client's style catalog; zero means no style. */
+    styleId: number;
+}
+
+export interface PlayerAppearanceItemSummary {
+    itemId: number;
+    itemName: string | null;
+}
+
+export interface PlayerAppearanceSummary {
+    /** Packed RGB colors. */
+    bodyColor: number;
+    legsColor: number;
+    skinColor: number;
+    feetColor: number;
+    hair: PlayerAppearanceStyleSummary;
+    hat: PlayerAppearanceStyleSummary;
+    face1: PlayerAppearanceStyleSummary;
+    face2: PlayerAppearanceStyleSummary;
+    /** Equipped item visuals applied over the base outfit; null means no item override. */
+    itemOverrides: {
+        back: PlayerAppearanceItemSummary | null;
+        hands: PlayerAppearanceItemSummary | null;
+        feet: PlayerAppearanceItemSummary | null;
+        head1: PlayerAppearanceItemSummary | null;
+        head2: PlayerAppearanceItemSummary | null;
+    };
     state: ModelRecord;
 }
 

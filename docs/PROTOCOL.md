@@ -211,6 +211,7 @@ worldState.tileDefinition(material: number): TileDefinition | null;
 modelState.itemHolders(): ItemHolderSummary[];
 modelState.fabricators(): FabricatorSummary[];
 modelState.players(): PlayerSummary[];
+modelState.setLocalPlayerEntity(entity: number | null): void;
 modelState.shipControls(): ShipControlSummary[];
 modelState.shipMetadata(): ShipWorldMetadataSummary | null;
 ```

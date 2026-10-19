@@ -28,6 +28,7 @@ function pushBounded(target, value, limit) {
 export class WorldStore {
     #overworldId = null;
     #shipWorldId = null;
+    #cameraFocus = null;
 
     constructor(limits = {}) {
         this.currentWorldId = null;
@@ -47,6 +48,17 @@ export class WorldStore {
 
     apply(packet) {
         if (!packet || packet.world == null) return null;
+        if (packet.type === 21) {
+            if (this.#cameraFocus && this.#cameraFocus.world !== packet.world) {
+                this.worlds.get(Number(this.#cameraFocus.world))?.model.setLocalPlayerEntity(null);
+            }
+            this.#cameraFocus = packet;
+            this.currentWorldId = Number(packet.world);
+            const world = this.get(packet.world);
+            world.model.setLocalPlayerEntity(null);
+            this.#resolveLocalPlayer(world);
+            return {type: "camera-focus", world, packet};
+        }
         if (packet.type === 22) return this.#applyMeta(packet);
         if (packet.type === 23) return this.#applyTiles(packet);
         if (packet.type === 20) return this.#applyModel(packet);
@@ -98,16 +110,27 @@ export class WorldStore {
         return this.worlds.get(Number(shipWorld.parentWorld))?.entity(shipWorld.parentEntity) || null;
     }
 
+    #resolveLocalPlayer(world) {
+        if (!this.#cameraFocus || Number(this.#cameraFocus.world) !== world.id || world.seed == null) return;
+        const focus = world.decodeEncrypted(this.#cameraFocus.data);
+        // Official camera message is [player_ent, zero], encrypted with the world seed.
+        if (Array.isArray(focus) && focus.length === 2 && Number.isInteger(focus[0]) && focus[0] >= 0 && focus[1] === 0) {
+            world.model.setLocalPlayerEntity(focus[0]);
+        }
+    }
+
     #applyMeta(packet) {
         if (packet.removed) {
             const world = this.worlds.get(Number(packet.world));
             if (world) world.readMeta(packet);
             this.worlds.delete(Number(packet.world));
+            if (Number(this.#cameraFocus?.world) === Number(packet.world)) this.#cameraFocus = null;
             if (this.currentWorldId === Number(packet.world)) this.currentWorldId = null;
             return {type: "world-removed", world: world || null, packet};
         }
         const world = this.get(packet.world);
         world.readMeta(packet);
+        this.#resolveLocalPlayer(world);
         if (this.currentWorldId == null && !world.isOverworld) this.currentWorldId = world.id;
         return {type: "world", world};
     }
@@ -157,7 +180,10 @@ export class WorldStore {
         if (packet.model_data && world.seed != null) {
             const previousModel = world.model;
             try {
-                if (packet.full) world.model = new ModelState({isOverworld: world.isOverworld});
+                if (packet.full) {
+                    world.model = new ModelState({isOverworld: world.isOverworld});
+                    world.model.setLocalPlayerEntity(previousModel.localPlayerEntity);
+                }
                 result.decoded = decodeModelPayload(packet.model_data, packet.world, world.seed);
                 result.model = world.model.apply(result.decoded, {full: Boolean(packet.full)});
                 if (result.model?.error && packet.full && previousModel) world.model = previousModel;

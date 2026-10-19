@@ -253,6 +253,7 @@ export const MODEL_TABLE_SPECS = new Map([
     }],
     [55, {
         name: "player",
+        defaults: {q20: 1, q60: 10, q64: 10, q68: 10},
         packedBeforeValues: true,
         fields: numericFields({
             256: 20, 512: 24, 1024: 28, 2048: 32, 4096: 36, 8192: 40,
@@ -273,8 +274,10 @@ export const MODEL_TABLE_SPECS = new Map([
         ]
     }],
     [56, {
-        name: "numeric_snapshot",
-        fields: numericFields({1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 64: 40, 256: 44, 1024: 48})
+        name: "player_appearance",
+        // Official StateOutfit: four body colors, then four color/style pairs.
+        defaults: {q20: 0, q24: 0, q28: 0, q32: 0, q36: 0, q40: 0, q44: 0, q48: 0, q52: 0, q56: 0, q60: 0, q64: 0},
+        fields: numericFields({1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40, 64: 44, 128: 48, 256: 52, 512: 56, 1024: 60, 2048: 64})
     }],
     [59, {name: "numeric_sparse", fields: numericFields({1: 20, 2: 24, 4: 28, 8: 32, 16: 36})}],
     [60, {name: "fluid_tank", packedBits: [{bit: 4, offset: 29}], ...TWO_FIELD_SPEC}],
@@ -1369,7 +1372,37 @@ export function summarizePlayerPreview(entity, record, blueprintItems = []) {
     };
 }
 
-export function summarizePlayer(entity, record, previewRecord = null, blueprintItems = []) {
+function summarizePlayerAppearance(record, player) {
+    if (!record) return null;
+    const style = (colorOffset, styleOffset) => ({
+        color: record[qKey(colorOffset)] ?? 0,
+        styleId: record[qKey(styleOffset)] ?? 0
+    });
+    const override = (offset) => {
+        const id = player[qKey(offset)] ?? 0;
+        return id === 0 ? null : {itemId: id, itemName: entityNameFromType(id)};
+    };
+    return {
+        bodyColor: record.q20 ?? 0,
+        legsColor: record.q24 ?? 0,
+        skinColor: record.q28 ?? 0,
+        feetColor: record.q32 ?? 0,
+        hair: style(36, 40),
+        hat: style(44, 48),
+        face1: style(52, 56),
+        face2: style(60, 64),
+        itemOverrides: {
+            back: override(36),
+            hands: override(40),
+            feet: override(44),
+            head1: override(48),
+            head2: override(52)
+        },
+        state: cloneRecord(record)
+    };
+}
+
+export function summarizePlayer(entity, record, previewRecord = null, blueprintItems = [], appearanceRecord = null, localPlayerEntity = null) {
     if (!record) return null;
     const rawHeldItemId = record.q28 == null ? null : Number(record.q28);
     const heldItemId = Number.isFinite(rawHeldItemId) && rawHeldItemId !== 0 ? rawHeldItemId : null;
@@ -1380,14 +1413,29 @@ export function summarizePlayer(entity, record, previewRecord = null, blueprintI
         name: decodeText(record.blob92),
         heldItemId,
         heldItemName: entityNameFromType(heldItemId),
-        repairTargetDistance: record.q56 == null ? null : record.q56 / 10,
-        repairTargetAngle: record.q80 == null ? null : record.q80 / 100,
+        itemMode: record.q32 ?? null,
+        buildMultiplier: numberOrNull(record.q68, 10),
+        heldItemBeamDistance: numberOrNull(record.q56, 10),
+        heldItemAngle: numberOrNull(record.q80, 200),
         shipRank: PLAYER_SHIP_RANKS.get(teamRank) || null,
         patronTier: patronTierName(gameRank),
         isDeveloper: gameRank === 1,
         isPatron: gameRank >= 2 && gameRank <= 6,
-        piloting: Boolean(record.q107),
+        isLocal: entity === localPlayerEntity,
+        zoomedOut: Boolean(record.q107),
         muted: Boolean(record.q112),
+        invisible: Boolean(record.q106),
+        cheats: {
+            noclip: Boolean(record.q105),
+            sandboxBuild: Boolean(record.q108)
+        },
+        itemEffectActive: Boolean(record.q111),
+        animation: {
+            facing: record.q20 ?? 1,
+            orientation: record.q24 ?? 0,
+            walking: Boolean(record.q109)
+        },
+        appearance: summarizePlayerAppearance(appearanceRecord, record),
         actionPreview: summarizePlayerPreview(entity, previewRecord, blueprintItems),
         state: cloneRecord(record)
     };
