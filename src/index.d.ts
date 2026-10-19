@@ -932,6 +932,11 @@ export interface WorldDomain {
     entities: EntityCollection;
     machines: MachineCollection;
     players: PlayerCollection;
+    projectiles: EntitySummaryCollection<ProjectileSummary>;
+    bots: EntitySummaryCollection<BotSummary>;
+    rcds: EntitySummaryCollection<RcdSummary>;
+    balls: EntitySummaryCollection<BallSummary>;
+    recyclers: EntitySummaryCollection<RecyclerSummary>;
     blocks: BlockCollection;
     materials: MaterialCollection;
 
@@ -974,6 +979,12 @@ export interface PlayerCollection {
     all(): PlayerSummary[];
 
     current(): PlayerSummary | null;
+}
+
+/** Current component summaries; get() returns null for a missing entity or component. */
+export interface EntitySummaryCollection<T> {
+    all(): T[];
+    get(entity: EntityRef): T | null;
 }
 
 export interface BlockCollection {
@@ -1065,6 +1076,11 @@ export interface MachineCollection {
 }
 
 export type EntityPublicType =
+    | "projectile"
+    | "rcd"
+    | "ball"
+    | "egg"
+    | "recycler"
     | "loader"
     | "pusher"
     | "launcher"
@@ -1556,6 +1572,11 @@ export interface CargoEjectorSummary {
 }
 
 export interface EntityContentsSummary {
+    combatBeams?: CombatBeamsSummary;
+    projectile?: ProjectileSummary;
+    rcd?: RcdSummary;
+    ball?: BallSummary;
+    recycler?: RecyclerSummary;
     itemHolder?: ItemHolderSummary;
     expandoBox?: ExpandoBoxSummary;
     hoverOutline?: HoverOutlineSummary;
@@ -1591,7 +1612,7 @@ export interface EntityContentsSummary {
 
 export interface EntitySummary {
     entity: number;
-    category: "placed_entity" | "loose_item" | "untyped_holder" | "metadata" | "player" | "ship_control" | "blueprint_preview" | "entity";
+    category: "placed_entity" | "loose_item" | "untyped_holder" | "metadata" | "player" | "ship_control" | "blueprint_preview" | "projectile" | "ball" | "rcd" | "entity";
     typeId: number | null;
     typeName: string | null;
     markerTypeId: number | null;
@@ -1789,6 +1810,11 @@ export interface WorldSnapshot {
     transforms: TransformSummary[];
     machines: MachineSummary;
     players: PlayerSummary[];
+    projectiles: ProjectileSummary[];
+    bots: BotSummary[];
+    rcds: RcdSummary[];
+    balls: BallSummary[];
+    recyclers: RecyclerSummary[];
     shipControls: ShipControlSummary[];
     commsBubbles: CommsBubbleSummary[];
     tiles?: Tile[];
@@ -1883,6 +1909,12 @@ export class ModelState {
 
     players(): PlayerSummary[];
 
+    projectiles(): ProjectileSummary[];
+    bots(): BotSummary[];
+    rcds(): RcdSummary[];
+    balls(): BallSummary[];
+    recyclers(): RecyclerSummary[];
+
     shipControls(): ShipControlSummary[];
 
     shipMetadata(): ShipWorldMetadataSummary | null;
@@ -1904,6 +1936,11 @@ export interface ModelSnapshot {
     blocks?: BlockSummary[];
     transforms: TransformSummary[];
     players: PlayerSummary[];
+    projectiles: ProjectileSummary[];
+    bots: BotSummary[];
+    rcds: RcdSummary[];
+    balls: BallSummary[];
+    recyclers: RecyclerSummary[];
     shipControls: ShipControlSummary[];
     machines: MachineSummary;
     tables: unknown[];
@@ -2017,6 +2054,75 @@ export interface BotSummary {
     identifier: string;
     typeA: number | null;
     typeB: number | null;
+    classificationSource: "heuristic";
+    health: HealthSummary;
+    beams: CombatBeamsSummary | null;
+    combat: BotCombatSummary | null;
+}
+
+export interface CombatBeamsSummary {
+    entity: number;
+    /** Three replicated beams; angles are radians, lengths are world units. */
+    beams: { angle: number; length: number; active: boolean; colorRgba: number }[];
+    state: ModelRecord;
+}
+
+export interface BotCombatSummary {
+    /** Packed RGBA, unlike the RGB projectile and outfit colors. */
+    bodyColorRgba: number;
+    weaponColorRgba: number;
+    /** Radians; the official -7 sentinel becomes null. */
+    aimAngle: number | null;
+    thrusterMask: number;
+    alternateSprite: boolean;
+    beamEffectEnabled: boolean;
+    state: ModelRecord;
+}
+
+export interface ProjectileSummary {
+    entity: number;
+    /** Packed RGB trail/tint color. */
+    color: number;
+    colorCss: string;
+    /** Selects the official bot-bullet sprite; not an ownership guarantee. */
+    botStyle: boolean;
+    /** Count of orbiting visual markers. No inferred damage or ammo semantics. */
+    indicatorCount: number;
+    spriteItemId: number | null;
+    spriteItemName: string | null;
+    state: ModelRecord;
+}
+
+export interface BallSummary {
+    entity: number;
+    health: HealthSummary | null;
+    /** World units, when the size component is available. */
+    radius: number | null;
+    /** True for rubber, false for rock; independent of health/destructibility. */
+    rubber: boolean;
+    isEgg: boolean;
+    state: ModelRecord;
+}
+
+export interface RcdSummary {
+    entity: number;
+    variant: "sandbox" | "flux";
+    /** Official renderer selects sandbox for zero and flux otherwise. */
+    variantCode: number;
+    itemId: 121 | 122;
+    storedItemId: number | null;
+    storedItemName: string | null;
+    storedItemCount: number | null;
+    /** Vector from the RCD in world axes, in world units. */
+    beam: { offsetX: number; offsetY: number; active: boolean };
+    state: ModelRecord;
+}
+
+export interface RecyclerSummary {
+    entity: number;
+    storedItemId: number | null;
+    storedItemName: string | null;
+    storedItemCount: number | null;
 }
 
 export interface FabricatorSummary {

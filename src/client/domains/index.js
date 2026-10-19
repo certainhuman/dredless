@@ -427,6 +427,11 @@ export class WorldDomain {
         this.entities = new EntityCollection(client, scope);
         this.machines = new MachineCollection(client, scope);
         this.players = new PlayerCollection(client, scope);
+        this.projectiles = new EntitySummaryCollection(client, scope, "projectiles");
+        this.bots = new EntitySummaryCollection(client, scope, "bots");
+        this.rcds = new EntitySummaryCollection(client, scope, "rcds");
+        this.balls = new EntitySummaryCollection(client, scope, "balls");
+        this.recyclers = new EntitySummaryCollection(client, scope, "recyclers");
         this.blocks = new BlockCollection(client, scope);
         this.materials = new MaterialCollection(client, scope);
     }
@@ -566,6 +571,24 @@ export class PlayerCollection {
 
     current() {
         return currentPlayerSummary(this.client, this.scope);
+    }
+}
+
+class EntitySummaryCollection {
+    constructor(client, scope, method) {
+        this.client = client;
+        this.scope = scope;
+        this.method = method;
+        this.component = {projectiles: "projectile", bots: "bot", rcds: "rcd", balls: "ball", recyclers: "recycler"}[method];
+    }
+
+    all() {
+        return worldStateFor(this.client, this.scope)?.model[this.method]() || [];
+    }
+
+    get(entity) {
+        const id = entityIdOf(entity);
+        return worldStateFor(this.client, this.scope)?.model.entity(id)?.contents?.[this.component] || null;
     }
 }
 
@@ -1413,6 +1436,7 @@ export class ShipHandle {
 }
 
 const ENTITY_COMPONENT_ALIASES = new Map([
+    ["combatbeams", "combatBeams"],
     ["hoveroutline", "hoverOutline"],
     ["outline", "hoverOutline"],
     ["itemholder", "itemHolder"],
@@ -1465,6 +1489,12 @@ const MACHINE_COMPONENTS = [
 ];
 
 const ENTITY_FEATURES = [
+    "combatBeams",
+    "projectile",
+    "bot",
+    "rcd",
+    "ball",
+    "recycler",
     "health",
     "position",
     "outline",
@@ -1531,6 +1561,10 @@ function sourceWithProperty(contents, names, property) {
 }
 
 function entityPublicType(summary, contents) {
+    if (contents?.projectile) return "projectile";
+    if (contents?.rcd) return "rcd";
+    if (contents?.ball) return contents.ball.isEgg ? "egg" : "ball";
+    if (contents?.recycler) return "recycler";
     const machine = entityMachineType(contents);
     if (machine) return machine;
     if (contents?.player || summary?.category === "player") return "player";
