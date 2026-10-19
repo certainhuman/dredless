@@ -169,7 +169,7 @@ createShipSpec(name?: string, color?: string): ShipSpec;
 createInviteShipSpec(code: string): ShipSpec;
 ```
 
-`InviteFetchOptions` accepts `includeColor` and `fetchImpl`. Invite metadata contains name, displayed ship ID, preview image URL, hostname, and invite code; optional color is CSS RGB sampled from the preview. The parser expects the invite page's metadata, including an invite URL, and may reject unrelated HTML.
+`InviteFetchOptions` accepts `fetchImpl` for a custom HTTP implementation. Invite metadata contains name, displayed ship ID, preview image URL, hostname, and invite code. Preview images are not fetched or decoded; consumers can process `previewImageUrl` themselves. The parser expects the invite page's metadata, including an invite URL, and may reject unrelated HTML.
 
 Ship-spec helpers are available from `dredless/ships`; they construct objects without joining. The network subpath also exports discovery/resolution helpers; consult its re-export declarations when building custom connection flows.
 

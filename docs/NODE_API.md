@@ -137,10 +137,10 @@ Prefer a `Ship` object obtained from that server's list, or an explicit `ShipSpe
 
 ```ts
 Dredless.fetchInviteMetadata(invite: string | URL,
-  options?: {includeColor?: boolean; fetchImpl?: typeof fetch}): Promise<InviteMetadata>;
+  options?: {fetchImpl?: typeof fetch}): Promise<InviteMetadata>;
 ```
 
-This reads the public invite page without joining. It returns `{shipId, name, previewImageUrl, hostname, inviteCode}`. `includeColor: true` also returns `color` sampled from the preview's top-left pixel, or `null` if unavailable; otherwise no preview image is fetched. Names preserve spacing. See [protocol tools](PROTOCOL.md#http-and-invite-tools) for the named parser export.
+This reads the public invite page without joining. It returns `{shipId, name, previewImageUrl, hostname, inviteCode}`. It does not fetch the preview image. Consumers can use `previewImageUrl` to implement their own image processing. Names preserve spacing. See [protocol tools](PROTOCOL.md#http-and-invite-tools) for the named parser export.
 
 ## Construct a client yourself
 
