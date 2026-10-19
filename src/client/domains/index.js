@@ -211,8 +211,8 @@ export class ShipManagementDomain {
         return this.client.requestPlayerList();
     }
 
-    resetInvite() {
-        return this.client.resetInvite();
+    resetInvite(options = {}) {
+        return this.client.resetInvite(options);
     }
 
     setPrivacy(privacy) {
@@ -265,8 +265,8 @@ export class ShipManagementDomain {
         return this.client.unbanPlayer(refId);
     }
 
-    demoteSelf() {
-        return this.client.demoteSelf();
+    demoteSelf(options = {}) {
+        return this.client.demoteSelf(options);
     }
 
     config() {

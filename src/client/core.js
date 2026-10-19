@@ -209,6 +209,7 @@ export class DredlessClient extends EventBus {
     #savePending = false;
     #renamePending = false;
     #starterRecoveryPending = false;
+    #managementPending = new Set();
     #inputSettings = {
         wrench_mode: 1,
         turret_mode: 0
@@ -366,8 +367,10 @@ export class DredlessClient extends EventBus {
         return this.sendMessage(buildPlayerListMessage());
     }
 
-    resetInvite() {
-        return this.sendMessage(buildInviteResetMessage());
+    resetInvite(options = {}) {
+        const previousKey = this.shipConfig?.inviteKey;
+        return this.#awaitManagementConfirmation("Invite reset", buildInviteResetMessage(), "ship-config", (config) =>
+            typeof config?.inviteKey === "string" && config.inviteKey.length > 0 && config.inviteKey !== previousKey, options);
     }
 
     setShipPrivacy(privacy) {
@@ -461,8 +464,54 @@ export class DredlessClient extends EventBus {
         return this.sendMessage(buildUnbanPlayerMessage(refId));
     }
 
-    demoteSelf() {
-        return this.sendMessage(buildDemoteSelfMessage());
+    async demoteSelf(options = {}) {
+        await this.#awaitManagementConfirmation("Self-demotion", buildDemoteSelfMessage(), "demote", () => true, options);
+    }
+
+    async #awaitManagementConfirmation(operation, message, event, accept, {timeout = 10000} = {}) {
+        this.#assertWritable();
+        if (!Number.isFinite(timeout) || timeout <= 0 || timeout > 2147483647) {
+            throw new RangeError("timeout must be positive milliseconds no greater than 2147483647");
+        }
+        if (!this.connected || !this.ready) throw new Error(`${operation} requires a connected, ready client`);
+        if (this.#managementPending.has(operation)) throw new Error(`${operation} is already in progress`);
+        const worldId = this.worlds.currentWorldId;
+        this.#managementPending.add(operation);
+        try {
+            return await new Promise((resolve, reject) => {
+                const cleanup = () => {
+                    clearTimeout(timer);
+                    this.off(event, responded);
+                    this.off("disconnect", disconnected);
+                    if (event !== "demote") this.off("demote", demoted);
+                };
+                const fail = (error) => {
+                    cleanup();
+                    reject(error);
+                };
+                const disconnected = (info) => fail(new DisconnectError(info, `${operation} interrupted`));
+                const demoted = () => fail(new Error(`${operation} interrupted by demotion`));
+                const responded = (result) => {
+                    if (this.worlds.currentWorldId !== worldId) {
+                        fail(new Error(`World changed during ${operation.toLowerCase()}`));
+                    } else if (accept(result)) {
+                        cleanup();
+                        resolve(result);
+                    }
+                };
+                const timer = setTimeout(() => fail(new Error(`Timed out waiting for ${operation.toLowerCase()} confirmation`)), timeout);
+                this.on(event, responded);
+                this.on("disconnect", disconnected);
+                if (event !== "demote") this.on("demote", demoted);
+                try {
+                    this.sendMessage(message);
+                } catch (error) {
+                    fail(error);
+                }
+            });
+        } finally {
+            this.#managementPending.delete(operation);
+        }
     }
 
     sendEntityCommand(cmd, args = [-1, -1, -1]) {

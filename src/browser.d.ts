@@ -91,6 +91,7 @@ export {
 
 export type {
     RenameShipOptions,
+    ShipManagementOptions,
     StarterRecoveryOptions,
     StarterRecoveryResult,
     CrewLog,

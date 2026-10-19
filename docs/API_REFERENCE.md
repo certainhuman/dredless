@@ -680,7 +680,7 @@ interface ShipManagementDomain {
   save(options?: SaveShipOptions): Promise<DisconnectInfo>;
   rename(name: string, options?: RenameShipOptions): Promise<void>;
   requestPlayerList(): DredlessClient;
-  resetInvite(): DredlessClient;
+  resetInvite(options?: ShipManagementOptions): Promise<ShipConfig>;
   setPrivacy(privacy: ShipPrivacy): DredlessClient;
   setGravity(direction: ShipGravityDirection): DredlessClient;
   setPatronPerks(enabled: boolean): DredlessClient;
@@ -693,11 +693,15 @@ interface ShipManagementDomain {
   kickPlayer(refId: number): DredlessClient;
   banPlayer(refId: number): DredlessClient;
   unbanPlayer(refId: number): DredlessClient;
-  demoteSelf(): DredlessClient;
+  demoteSelf(options?: ShipManagementOptions): Promise<void>;
   config(): ShipConfig | null;
   hasCheats(): boolean;
   playerList(): ShipPlayerList | null;
   crewLog(): CrewLog | null;
+}
+
+interface ShipManagementOptions {
+  timeout?: number; // Confirmation timeout in milliseconds; default 10000.
 }
 
 interface StarterRecoveryOptions {
@@ -897,6 +901,32 @@ to the official client's failure prompt (which suggests the patron may have used
 all available perks). A false value alone does not establish which patrons are
 currently applied; observe `"ship-config"` and `patronPerks()` for that state.
 Raw responses remain available through `"session"`.
+
+`resetInvite()` and `demoteSelf()` now return promises instead of the client:
+
+```js
+const config = await client.management.resetInvite({timeout: 10000});
+console.log(config.inviteKey);
+
+await client.management.demoteSelf({timeout: 10000});
+// Cached management state has been cleared.
+```
+
+`resetInvite()` waits for a server config with a nonempty invite key different
+from the cached key when the request started. Unchanged-key config updates are
+ignored. If no prior key is known, the first subsequent config with a nonempty
+key confirms the operation. It resolves with the updated `ShipConfig`.
+`demoteSelf()` resolves with no value after receiving `demote` and clearing
+management caches. Both are also available directly on the client.
+
+Both require a connected, ready, writable client. They reject concurrent calls of
+the same operation, send failures, disconnects (`DisconnectError`), timeouts, and
+a changed world when processing the confirmation. Invite reset also rejects on
+demotion. The timeout must be positive and at most `2147483647` milliseconds.
+Timing out stops waiting without cancelling the server action. The protocol has
+no request identifiers, so matching server messages confirm observed state rather
+than uniquely identifying the request that caused it. Low-level packet builders
+remain available for callers that only need to send a command.
 
 Input aliases:
 
