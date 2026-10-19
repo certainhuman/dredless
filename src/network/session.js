@@ -6,6 +6,7 @@ import {fetchGameVersion, resolveServer, serverId} from "./servers.js";
 import {createInviteShipSpec, createShipSpec, fetchShipList, fetchShips, shipRef} from "./ships.js";
 import {Connection} from "./connection.js";
 import {DredlessClient} from "../client/index.js";
+import {fetchAccountDetails, fetchClanTag, setClanTag, clearClanTag, removeShipPerks} from "./account.js";
 
 export class Session {
     constructor(gameSession = null, gameVersion = null, baseUrl = DEFAULT_BASE_URL) {
@@ -59,6 +60,26 @@ export class Session {
         const raw = await response.json();
         this.#readStatus(raw);
         return raw;
+    }
+
+    fetchAccountDetails() {
+        return fetchAccountDetails(this);
+    }
+
+    fetchClanTag() {
+        return fetchClanTag(this);
+    }
+
+    setClanTag(tag) {
+        return setClanTag(this, tag);
+    }
+
+    clearClanTag() {
+        return clearClanTag(this);
+    }
+
+    removeShipPerks(shipId) {
+        return removeShipPerks(this, shipId);
     }
 
     async fetchShips(server) {

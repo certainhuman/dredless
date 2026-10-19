@@ -246,6 +246,11 @@ class Session {
   }): Promise<Response>;
 
   fetchAccountStatus(): Promise<unknown>;
+  fetchAccountDetails(): Promise<AccountDetails>;
+  fetchClanTag(): Promise<ClanTagDetails>;
+  setClanTag(tag: string): Promise<ClanTagDetails>;
+  clearClanTag(): Promise<ClanTagDetails>;
+  removeShipPerks(shipId: string | number): Promise<AccountPerkShip[]>;
   fetchShips(server: ServerRef): Promise<Ship[]>;
   fetchShipList(server: ServerRef): Promise<ShipList>;
 
@@ -284,6 +289,94 @@ Returns the raw `Response`.
 
 Fetches and applies account status. Returns the decoded server response as
 `unknown` because the live shape is not fully stabilized.
+
+### Account details and clan tags
+
+```js
+const details = await session.fetchAccountDetails();
+// {email, identity, identityService, clan: {tag, otherUsers}, shipsWithPerks}
+
+const clan = await session.fetchClanTag();
+const updated = await session.setClanTag("Example Clan");
+const cleared = await session.clearClanTag();
+```
+
+```ts
+interface ClanTagDetails {
+  tag: string | null;
+  otherUsers: number | null;
+}
+
+interface AccountPerkShip {
+  shipId: string;
+  name: string;
+  hexCode: string | null;
+}
+
+interface AccountDetails {
+  email: string | null;
+  identity: string | null;
+  identityService: string | null;
+  clan: ClanTagDetails;
+  shipsWithPerks: AccountPerkShip[] | null;
+}
+```
+
+`fetchAccountDetails()` requests the authenticated `/account/` HTML page. Email
+and identity come from the account fields' `data-info` attributes, not their
+masked visible text. `identity` excludes the final parenthesized service name;
+`identityService` contains that service name as displayed (for example, `Discord`).
+Missing fields return `null`. `fetchClanTag()` returns only the `clan` object.
+
+`tag` is the current clan form value, or `null` when empty. `otherUsers` is the
+number of **other** users reported by the page, excluding this account, or `null`
+when the count is absent. These methods do not fetch a member roster or clan
+directory. Tags are for leaderboard attribution, as described on the official page.
+
+`setClanTag(tag)` requires a string and posts a URL-encoded form to `/account/clan`.
+`clearClanTag()` submits the official clear form with no `tag` field;
+`setClanTag("")` has the same effect. Both read `/account/` afterward and resolve
+with the confirmed `ClanTagDetails`. The submitted tag is preserved exactly;
+server rejection or normalization that changes it causes confirmation to fail.
+Server validation and limits apply. A failed confirmation does not undo a request
+already processed by the server.
+
+HTTP failures, pages without the expected clan form (including login/challenge
+pages), and unconfirmed updates reject. Each read fetches fresh data. Email,
+identity, and clan details are returned directly and are not cached on
+`session.account` or added to `session.toJSON()`. `/account/status` remains unchanged.
+These methods are also inherited by `AnonSession` and `BrowserSession`; their
+availability depends on the authenticated account page provided by the server.
+
+### Account ships with patron perks
+
+`fetchAccountDetails().shipsWithPerks` lists the ships to which this account has
+applied patron perks. Each entry contains `shipId` (the decimal string from the
+removal form), `name`, and `hexCode` (the ID displayed in braces, or `null` if it
+cannot be parsed). Ship names retain their spacing when the displayed ID can be
+parsed. The form ID is distinct from the displayed ID; do not convert between them.
+A recognized empty list returns `[]`; an absent section returns `null`.
+Malformed applied-perks lists reject instead of reporting an empty list.
+
+```js
+const {shipsWithPerks} = await session.fetchAccountDetails();
+if (shipsWithPerks?.length) {
+  const remaining = await session.removeShipPerks(shipsWithPerks[0].shipId);
+}
+```
+
+`removeShipPerks(shipId)` submits `POST /account/remove_perks` with the
+URL-encoded `ship` field. Pass the entry's `shipId` string, or a positive safe
+integer. The method fetches account details again and resolves with the remaining
+`AccountPerkShip[]` only if that ship is no longer listed. An unavailable or
+unreadable list, a still-listed ship, or an HTTP failure rejects. A failed
+confirmation does not undo an action already processed by the server.
+
+This removes this account's contribution to the specified ship. It is the account
+page action and does not require joining the ship. It does not modify any active
+client's cached management state; those clients continue to receive server updates.
+The removal endpoint and form fields come from the captured account page; the HAR
+does not contain a completed removal request.
 
 ### `session.fetchShips(server)`
 

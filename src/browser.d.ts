@@ -110,6 +110,9 @@ export type {
     ServerRef,
     SessionSnapshot,
     Account,
+    AccountDetails,
+    AccountPerkShip,
+    ClanTagDetails,
     ConnectionSnapshot,
     BlueprintPlacement,
     BlueprintPlacementMessage,
@@ -122,7 +125,7 @@ export type {
     ReadWorldScope
 } from "./index.js";
 
-import type {Connection, DredlessClient, Server, ServerRef, SessionSnapshot, Ship, ShipList, ShipRef} from "./index.js";
+import type {AccountDetails, AccountPerkShip, ClanTagDetails, Connection, DredlessClient, Server, ServerRef, SessionSnapshot, Ship, ShipList, ShipRef} from "./index.js";
 
 
 export class BrowserSession {
@@ -155,6 +158,16 @@ export class BrowserSession {
     fetchAnonKey(noticeVersion?: number | null): Promise<string>;
 
     fetchAccountStatus(): Promise<unknown>;
+
+    /** Scrape the authenticated account page; does not update account/status or session serialization. */
+    fetchAccountDetails(): Promise<AccountDetails>;
+    fetchClanTag(): Promise<ClanTagDetails>;
+    /** Submit the form and confirm the stored tag on the account page. */
+    setClanTag(tag: string): Promise<ClanTagDetails>;
+    clearClanTag(): Promise<ClanTagDetails>;
+    /** Remove this account's perks and return the confirmed remaining applied ships. */
+    removeShipPerks(shipId: string | number): Promise<AccountPerkShip[]>;
+
 
     fetchShips(server: ServerRef): Promise<Ship[]>;
 

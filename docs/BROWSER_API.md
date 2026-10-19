@@ -77,6 +77,11 @@ class BrowserSession {
   readAnonKey(): Promise<string>;
   fetchAnonKey(noticeVersion?: number | null): Promise<string>;
   fetchAccountStatus(): Promise<unknown>;
+  fetchAccountDetails(): Promise<AccountDetails>;
+  fetchClanTag(): Promise<ClanTagDetails>;
+  setClanTag(tag: string): Promise<ClanTagDetails>;
+  clearClanTag(): Promise<ClanTagDetails>;
+  removeShipPerks(shipId: string | number): Promise<AccountPerkShip[]>;
   fetchShips(server: ServerRef): Promise<Ship[]>;
   fetchShipList(server: ServerRef): Promise<ShipList>;
 
@@ -92,6 +97,18 @@ class BrowserSession {
 }
 ```
 
+
+### Account details and clan tags
+
+`BrowserSession` inherits `fetchAccountDetails()`, `fetchClanTag()`,
+`setClanTag(tag)`, `clearClanTag()`, and `removeShipPerks(shipId)` from `Session`. They use the ambient
+browser cookie jar and require browser access to the account origin. Setters
+submit the official account form and read the account page to confirm the stored
+tag. See [Account details and clan tags](./NODE_API.md#account-details-and-clan-tags)
+for return shapes, parsing behavior, and error handling.
+`fetchAccountDetails().shipsWithPerks` includes this account's applied ships;
+`removeShipPerks()` submits the account removal form and confirms the updated
+list. See [Account ships with patron perks](./NODE_API.md#account-ships-with-patron-perks).
 
 ## Browser Connections
 
