@@ -27,6 +27,7 @@ import {
     buildShipManagementMessage,
     buildShipPrivacyMessage,
     buildShipGravityMessage,
+    buildSetPatronPerksMessage,
     buildStarterRecoveryMessage,
     normalizeCaptainSubrank,
     normalizeCrewLog,
@@ -375,6 +376,10 @@ export class DredlessClient extends EventBus {
 
     setShipGravity(direction) {
         return this.sendMessage(buildShipGravityMessage(direction));
+    }
+
+    setShipPatronPerks(enabled) {
+        return this.sendMessage(buildSetPatronPerksMessage(enabled));
     }
 
     async recoverStarterItem(itemId, {timeout = 10000} = {}) {
@@ -1251,6 +1256,10 @@ export class DredlessClient extends EventBus {
         if (submessage.type === "starter_recovery_response") {
             const failReason = submessage.fail_reason == null ? null : String(submessage.fail_reason);
             this.emit("starter-recovery", Object.freeze({success: failReason === null, failReason}), packet);
+            return;
+        }
+        if (submessage.type === "perk_response") {
+            this.emit("patron-perks-response", Object.freeze({failure: Boolean(submessage.failure)}), packet);
             return;
         }
         if (submessage.type === "config") {

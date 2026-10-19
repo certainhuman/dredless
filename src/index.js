@@ -37,6 +37,7 @@ export {
     buildSetPlayerRankMessage,
     buildShipPrivacyMessage,
     buildShipGravityMessage,
+    buildSetPatronPerksMessage,
     GravityDirection,
     normalizeGravityDirection,
     buildStarterRecoveryMessage,

@@ -4,6 +4,7 @@ const SHIP_MANAGEMENT_TYPE = 4;
 const CREW_LOG_LENGTH = 500;
 const SET_PRIVACY_ACTION = "set_privacy";
 const GRAVITY_ACTION = "gravity";
+const SET_PATRON_PERKS_ACTION = "set_patron_perks";
 const STARTER_RECOVERY_ACTION = "starter_recovery";
 const PLAYER_LIST_ACTION = "player_list";
 const INVITE_RESET_ACTION = "invite_reset";
@@ -67,6 +68,11 @@ export function buildShipPrivacyMessage(privacy) {
 
 export function buildShipGravityMessage(direction) {
     return buildShipManagementMessage(GRAVITY_ACTION, normalizeGravityDirection(direction));
+}
+
+export function buildSetPatronPerksMessage(enabled) {
+    if (typeof enabled !== "boolean") throw new TypeError("enabled must be a boolean");
+    return buildShipManagementMessage(SET_PATRON_PERKS_ACTION, enabled);
 }
 
 export function buildStarterRecoveryMessage(itemId) {
@@ -280,6 +286,7 @@ export {
     BAN_ACTION,
     CREW_LOG_LENGTH,
     GRAVITY_ACTION,
+    SET_PATRON_PERKS_ACTION,
     UNBAN_ACTION,
     DEMOTE_SELF_ACTION,
     INVITE_RESET_ACTION,

@@ -683,6 +683,11 @@ interface ShipManagementDomain {
   resetInvite(): DredlessClient;
   setPrivacy(privacy: ShipPrivacy): DredlessClient;
   setGravity(direction: ShipGravityDirection): DredlessClient;
+  setPatronPerks(enabled: boolean): DredlessClient;
+  enablePatronPerks(): DredlessClient;
+  disablePatronPerks(): DredlessClient;
+  patronPerks(): ShipPatronPerk[] | null;
+  hasPatronPerks(name?: string): boolean;
   recoverStarterItem(itemId: number, options?: StarterRecoveryOptions): Promise<void>;
   setPlayerRank(refId: number, rank: ShipPlayerRank): DredlessClient;
   kickPlayer(refId: number): DredlessClient;
@@ -854,6 +859,45 @@ inputs. `buildShipGravityMessage(direction)` produces
 `{type: 4, act: "gravity", arg: normalizedDirection}`. This numbering is the
 official `OrdinalDirection` mapping and differs from fixed-angle machine controls.
 
+Ship patron helpers apply or remove the caller's patron perks for the current
+ship:
+
+```js
+client.management.enablePatronPerks(); // setPatronPerks(true)
+client.management.disablePatronPerks(); // setPatronPerks(false)
+
+const patrons = client.management.patronPerks();
+const anyPatrons = client.management.hasPatronPerks();
+const appliedByName = client.management.hasPatronPerks("PatronName");
+
+client.on("patron-perks-response", ({failure}) => {
+  if (failure) console.log("Failed to change ship patron perks");
+});
+```
+
+`setPatronPerks(enabled)` requires a boolean and sends
+`{type: 4, act: "set_patron_perks", arg: enabled}`. It returns the client without
+waiting for server confirmation. `client.setShipPatronPerks(enabled)` and
+`buildSetPatronPerksMessage(enabled)` expose the same command. The server enforces
+account eligibility, ship permissions, and perk limits. Disabling removes the
+caller's contribution, not other patrons' contributions. The official client notes
+that patron items despawn after a short time when perks are disabled.
+
+`patronPerks()` reads `config().patronPerks`: `null` when config is unavailable,
+otherwise an array (possibly empty) of `{name, color, tier}`. `color` is a packed
+RGB number; known tier strings are `bronze`, `silver`, `gold`, `plat`, and `flux`.
+`hasPatronPerks()` checks for any contributor; supplying a name checks an exact,
+case-sensitive match, as in the official UI. It returns `false` when config is
+unavailable. These methods use server config updates and do not change the cached
+list when a command is sent. Demotion and disconnect clear config as usual.
+
+Every `perk_response` emits `"patron-perks-response"` with
+`{failure: boolean}` and the original session packet. A true `failure` corresponds
+to the official client's failure prompt (which suggests the patron may have used
+all available perks). A false value alone does not establish which patrons are
+currently applied; observe `"ship-config"` and `patronPerks()` for that state.
+Raw responses remain available through `"session"`.
+
 Input aliases:
 
 ```ts
@@ -867,12 +911,22 @@ type PlayerShipRank = "guest" | "crew" | "crew-invite-pending-deprecated" | "cap
 Output shapes:
 
 ```ts
+interface ShipPatronPerk {
+  name: string;
+  color: number;
+  tier: string;
+}
+
+interface PatronPerksResponse {
+  readonly failure: boolean;
+}
+
 interface ShipConfig {
   privacy: number | null;
   privacyName: "public" | "private" | null;
   inviteKey: string | null;
   teamId: number | null;
-  patronPerks: unknown[];
+  patronPerks: ShipPatronPerk[];
 }
 
 interface CaptainSubrank {
@@ -2463,6 +2517,7 @@ Module: `dredless/protocol/ship-management` or root.
 function buildShipManagementMessage(act: string, arg?: unknown, extra?: Record<string, unknown> | null): ShipManagementMessage;
 function buildShipPrivacyMessage(privacy: ShipPrivacy): ShipManagementMessage;
 function buildShipGravityMessage(direction: ShipGravityDirection): ShipManagementMessage;
+function buildSetPatronPerksMessage(enabled: boolean): ShipManagementMessage;
 function normalizeGravityDirection(direction: ShipGravityDirection): 0 | 1 | 2 | 3;
 function buildStarterRecoveryMessage(itemId: number): ShipManagementMessage;
 function buildPlayerListMessage(): ShipManagementMessage;
@@ -2656,6 +2711,7 @@ const EQUIPMENT_SLOT_INDEXES: Readonly<{
 ```ts
 const GravityDirection: Readonly<{ Down: "down"; Up: "up"; Left: "left"; Right: "right" }>;
 const GRAVITY_ACTION: "gravity";
+const SET_PATRON_PERKS_ACTION: "set_patron_perks";
 const CREW_LOG_LENGTH: 500;
 const BAN_ACTION: "ban";
 const UNBAN_ACTION: "unban";

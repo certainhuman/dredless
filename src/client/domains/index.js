@@ -223,6 +223,28 @@ export class ShipManagementDomain {
         return this.client.setShipGravity(direction);
     }
 
+    setPatronPerks(enabled) {
+        return this.client.setShipPatronPerks(enabled);
+    }
+
+    enablePatronPerks() {
+        return this.setPatronPerks(true);
+    }
+
+    disablePatronPerks() {
+        return this.setPatronPerks(false);
+    }
+
+    patronPerks() {
+        return this.client.shipConfig?.patronPerks ?? null;
+    }
+
+    hasPatronPerks(name) {
+        if (name !== undefined && typeof name !== "string") throw new TypeError("name must be a string");
+        const perks = this.patronPerks();
+        return name === undefined ? Boolean(perks?.length) : Boolean(perks?.some((perk) => perk.name === name));
+    }
+
     recoverStarterItem(itemId, options = {}) {
         return this.client.recoverStarterItem(itemId, options);
     }
