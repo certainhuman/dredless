@@ -2,8 +2,7 @@ import {decoder} from "../../constants.js";
 import {
     LOADER_FILTER_MODE_NAMES,
     LOADER_POSITION_NAMES,
-    LOADER_PRIORITY_NAMES,
-    LoaderConfigTracker
+    LOADER_PRIORITY_NAMES
 } from "./loader-config.js";
 import {navigationDestinationFromEncodedValue, navigationZoneFromBaseId} from "../overworld.js";
 import {maybeSolveGeneratorMazeSeed} from "../generator-maze.js";
@@ -284,7 +283,11 @@ export const MODEL_TABLE_SPECS = new Map([
     [63, {name: "numeric_pair", ...TWO_FIELD_SPEC}],
     [67, {name: "numeric_single", fields: numericFields({1: 20})}],
     [69, {
-        name: "rare_snapshot",
+        name: "loader_config",
+        // The official loader component starts with these values. Wire section
+        // 162 sends a packed absolute flag word before the five numeric deltas.
+        defaults: {q20: 3, q24: 4, q28: 1, q32: 16, q36: 20, q41: 0, q42: 0},
+        packedBeforeValues: true,
         packedBits: [{bit: 32, offset: 41}, {bit: 64, offset: 42}],
         fields: numericFields({1: 20, 2: 24, 4: 28, 8: 32, 16: 36})
     }],
@@ -407,7 +410,7 @@ export const WIRE_TAG_TABLES = new Map([
     [158, 75],
     [160, 76],
     [161, 77],
-    [162, 78],
+    [162, 69], // Loader configuration; distinct from navigation state (168).
     [163, 72],
     [164, 73],
     [165, 74],
@@ -572,32 +575,6 @@ export function firstRecord(records, predicate = null) {
         if (!predicate || predicate(record)) return record;
     }
     return null;
-}
-
-export const TABLE_78_FIELD_BITS = [
-    ["q20", 1],
-    ["q24", 2],
-    ["q28", 4],
-    ["q32", 8],
-    ["q36", 16],
-    ["q40", 32],
-    ["q44", 64]
-];
-
-export function table78DeltaRecord(changed) {
-    const record = {lastMask: changed.mask};
-    for (const [field, bit] of TABLE_78_FIELD_BITS) {
-        if (!(changed.mask & bit)) continue;
-        if (field === "q44" && ((changed.mask & 32) || changed.record?.q44 == null)) continue;
-        record[field] = (changed.record?.[field] ?? 0) - (changed.previous?.[field] ?? 0);
-    }
-    return record;
-}
-
-export function isSemanticLoaderDelta(changed, full) {
-    return !full &&
-        changed.previous != null &&
-        (changed.mask & 96) === 96;
 }
 
 export function decodeText(blob) {
@@ -1149,15 +1126,14 @@ export function summarizeHugeThruster(entity, markerRecord, sizeRecord = null) {
     };
 }
 
-export function summarizeLoader(entity, loaderRecord, loaderFilterRecord = null, filterSlotsRecord = null, tracker = null, includeDefaults = false, itemHolderRecord = null) {
+export function summarizeLoader(entity, loaderRecord, loaderFilterRecord = null, filterSlotsRecord = null, includeDefaults = false, itemHolderRecord = null) {
     if (!loaderRecord && !loaderFilterRecord && !includeDefaults) return null;
-    const config = tracker?.getConfig(null, entity, loaderRecord, loaderFilterRecord, filterSlotsRecord) ?? {};
-    const hasLoaderState = Boolean(loaderRecord);
-    const hasPositionConfig = Boolean(tracker?.hasPositionConfig(null, entity));
-    const pick = hasLoaderState && hasPositionConfig ? config.pick ?? null : null;
-    const place = hasLoaderState && hasPositionConfig ? config.place ?? null : null;
-    const priority = config.priority ?? 0;
-    const filterMode = config.filterMode ?? null;
+    // Match the official component defaults, then apply the already decoded state.
+    const loader = {...MODEL_TABLE_SPECS.get(69).defaults, ...loaderRecord};
+    const pick = loader.q20;
+    const place = loader.q24;
+    const priority = loader.q28 - 1;
+    const filterMode = loaderFilterRecord?.q20 ?? 0;
     const heldItem = itemSummary(itemHolderRecord?.q20, itemHolderRecord?.q24 ?? null);
     return {
         entity,
@@ -1167,13 +1143,15 @@ export function summarizeLoader(entity, loaderRecord, loaderFilterRecord = null,
         placeName: enumValueName(LOADER_POSITION_NAMES, place),
         priority,
         priorityName: enumValueName(LOADER_PRIORITY_NAMES, priority),
-        requireOutput: config.requireOutput ?? false,
-        waitForStack: config.waitForStack ?? false,
-        stack: config.stack ?? 16,
-        cycle: Math.max(1, config.cycle ?? 1),
+        requireOutput: Boolean(loader.q41),
+        waitForStack: Boolean(loader.q42),
+        stack: loader.q32,
+        cycle: loader.q36 / 20,
         filterMode,
         filterModeName: enumValueName(LOADER_FILTER_MODE_NAMES, filterMode),
-        filterSlots: config.filterSlots ?? null,
+        filterSlots: filterSlotsRecord
+            ? [filterSlotsRecord.q20, filterSlotsRecord.q24, filterSlotsRecord.q28].map(value => value || null)
+            : null,
         heldItemId: heldItem.itemId,
         heldItemName: heldItem.itemName,
         heldCount: heldItem.count,
@@ -1213,7 +1191,7 @@ export function summarizePusher(entity, pusherRecord, filterSlotsRecord = null) 
         filteredModeName: enumValueName(PUSHER_MODE_NAMES, filteredMode),
         angle: numberOrNull(pusherRecord.q28, 10),
         speed: pusherRecord.q32 == null ? 20 : (pusherRecord.q32 / 100) + 20,
-        length: pusherRecord.q40 == null ? 1000 : ((pusherRecord.q40 + 50) / 10) + 995,
+        length: 1000 + (pusherRecord.q40 ?? 0) / 10,
         filterInventory: pusherRecord.q36 === 1,
         filterSlots: filterSlotsRecord ? [filterSlotsRecord.q20 ?? null, filterSlotsRecord.q24 ?? null, filterSlotsRecord.q28 ?? null] : null,
         state: cloneRecord(pusherRecord),

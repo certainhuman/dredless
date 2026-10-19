@@ -444,7 +444,8 @@ test("ModelState does not classify navigation unit table 78 state as loader conf
     model.apply(modelData(
         1,
         tableSection(43, nav, 1, fieldDelta(261)),
-        table78Section(162, nav, 25, [navEncoded(NAV_FALCON), 1, 0])
+        // Navigation uses wire section 168; section 162 belongs to loaders.
+        table78Section(168, nav, 25, [navEncoded(NAV_FALCON), 1, 0])
     ));
 
     const entity = model.entity(nav);
@@ -464,7 +465,7 @@ test("ModelState decodes navigation unit auto-warp baseline flags", () => {
     enabled.apply(modelData(
         1,
         tableSection(43, 261, 1, fieldDelta(261)),
-        table78Section(162, 261, 3, [navEncoded(NAV_RAVEN), 1])
+        table78Section(168, 261, 3, [navEncoded(NAV_RAVEN), 1])
     ));
     assert.equal(enabled.entity(261).contents.navigationUnit.autoWarpOnShieldFailure, true);
     assert.equal(enabled.entity(261).contents.navigationUnit.autoWarpOnNoCaptains, true);
@@ -473,7 +474,7 @@ test("ModelState decodes navigation unit auto-warp baseline flags", () => {
     disabled.apply(modelData(
         1,
         tableSection(43, 262, 1, fieldDelta(261)),
-        table78Section(162, 262, 19, [0, navEncoded(NAV_RAVEN), 1])
+        table78Section(168, 262, 19, [0, navEncoded(NAV_RAVEN), 1])
     ));
     assert.equal(disabled.entity(262).contents.navigationUnit.autoWarpOnShieldFailure, true);
     assert.equal(disabled.entity(262).contents.navigationUnit.autoWarpOnNoCaptains, false);
@@ -482,7 +483,7 @@ test("ModelState decodes navigation unit auto-warp baseline flags", () => {
     shieldDisabled.apply(modelData(
         1,
         tableSection(43, 263, 1, fieldDelta(261)),
-        table78Section(162, 263, 11, [0, navEncoded(NAV_RAVEN), 1])
+        table78Section(168, 263, 11, [0, navEncoded(NAV_RAVEN), 1])
     ));
     assert.equal(shieldDisabled.entity(263).contents.navigationUnit.destination, NAV_RAVEN);
     assert.equal(shieldDisabled.entity(263).contents.navigationUnit.destinationName, "raven");
@@ -493,40 +494,40 @@ test("ModelState decodes navigation unit auto-warp baseline flags", () => {
     bothDisabled.apply(modelData(
         1,
         tableSection(43, 264, 1, fieldDelta(261)),
-        table78Section(162, 264, 25, [0, navEncoded(NAV_SPARROW), 0])
+        table78Section(168, 264, 25, [0, navEncoded(NAV_SPARROW), 0])
     ));
     assert.equal(bothDisabled.entity(264).contents.navigationUnit.destination, NAV_SPARROW);
     assert.equal(bothDisabled.entity(264).contents.navigationUnit.destinationName, "sparrow");
     assert.equal(bothDisabled.entity(264).contents.navigationUnit.autoWarpOnShieldFailure, false);
     assert.equal(bothDisabled.entity(264).contents.navigationUnit.autoWarpOnNoCaptains, false);
 
-    bothDisabled.apply(modelData(2, table78Section(162, 264, 2, [1])));
+    bothDisabled.apply(modelData(2, table78Section(168, 264, 2, [1])));
     assert.equal(bothDisabled.entity(264).contents.navigationUnit.destination, NAV_SPARROW);
     assert.equal(bothDisabled.entity(264).contents.navigationUnit.destinationName, "sparrow");
 
-    bothDisabled.apply(modelData(3, table78Section(162, 264, 2, [-1])));
+    bothDisabled.apply(modelData(3, table78Section(168, 264, 2, [-1])));
     assert.equal(bothDisabled.entity(264).contents.navigationUnit.destination, NAV_SPARROW);
     assert.equal(bothDisabled.entity(264).contents.navigationUnit.destinationName, "sparrow");
 
-    bothDisabled.apply(modelData(4, table78Section(162, 264, 27, [0, 2, -1, 0])));
+    bothDisabled.apply(modelData(4, table78Section(168, 264, 27, [0, 2, -1, 0])));
     assert.equal(bothDisabled.entity(264).contents.navigationUnit.destination, NAV_SPARROW);
     assert.equal(bothDisabled.entity(264).contents.navigationUnit.destinationName, "sparrow");
     assert.equal(bothDisabled.entity(264).contents.navigationUnit.autoWarpOnShieldFailure, false);
     assert.equal(bothDisabled.entity(264).contents.navigationUnit.autoWarpOnNoCaptains, false);
 
-    bothDisabled.apply(modelData(5, table78Section(162, 264, 1, [-10])));
+    bothDisabled.apply(modelData(5, table78Section(168, 264, 1, [-10])));
     assert.equal(bothDisabled.entity(264).contents.navigationUnit.destination, NAV_FINCH);
     assert.equal(bothDisabled.entity(264).contents.navigationUnit.destinationName, "finch");
 
-    bothDisabled.apply(modelData(6, table78Section(162, 264, 1, [30])));
+    bothDisabled.apply(modelData(6, table78Section(168, 264, 1, [30])));
     assert.equal(bothDisabled.entity(264).contents.navigationUnit.destination, NAV_FALCON);
     assert.equal(bothDisabled.entity(264).contents.navigationUnit.destinationName, "falcon");
 
-    bothDisabled.apply(modelData(7, table78Section(162, 264, 1, [-40])));
+    bothDisabled.apply(modelData(7, table78Section(168, 264, 1, [-40])));
     assert.equal(bothDisabled.entity(264).contents.navigationUnit.destination, NAV_HUMMINGBIRD);
     assert.equal(bothDisabled.entity(264).contents.navigationUnit.destinationName, "hummingbird");
 
-    bothDisabled.apply(modelData(8, table78Section(162, 264, 1, [30])));
+    bothDisabled.apply(modelData(8, table78Section(168, 264, 1, [30])));
     assert.equal(bothDisabled.entity(264).contents.navigationUnit.destination, NAV_RAVEN);
     assert.equal(bothDisabled.entity(264).contents.navigationUnit.destinationName, "raven");
 
@@ -534,30 +535,30 @@ test("ModelState decodes navigation unit auto-warp baseline flags", () => {
     falconBase.apply(modelData(
         1,
         tableSection(43, 265, 1, fieldDelta(261)),
-        table78Section(162, 265, 17, [0, navEncoded(NAV_FALCON)])
+        table78Section(168, 265, 17, [0, navEncoded(NAV_FALCON)])
     ));
     assert.equal(falconBase.entity(265).contents.navigationUnit.destination, NAV_FALCON);
     assert.equal(falconBase.entity(265).contents.navigationUnit.destinationName, "falcon");
     assert.equal(falconBase.entity(265).contents.navigationUnit.autoWarpOnShieldFailure, true);
     assert.equal(falconBase.entity(265).contents.navigationUnit.autoWarpOnNoCaptains, false);
 
-    falconBase.apply(modelData(2, table78Section(162, 265, 1, [-10])));
+    falconBase.apply(modelData(2, table78Section(168, 265, 1, [-10])));
     assert.equal(falconBase.entity(265).contents.navigationUnit.destination, NAV_RAVEN);
     assert.equal(falconBase.entity(265).contents.navigationUnit.destinationName, "raven");
 
-    falconBase.apply(modelData(3, table78Section(162, 265, 1, [-20])));
+    falconBase.apply(modelData(3, table78Section(168, 265, 1, [-20])));
     assert.equal(falconBase.entity(265).contents.navigationUnit.destination, NAV_FINCH);
     assert.equal(falconBase.entity(265).contents.navigationUnit.destinationName, "finch");
 
-    falconBase.apply(modelData(4, table78Section(162, 265, 1, [-10])));
+    falconBase.apply(modelData(4, table78Section(168, 265, 1, [-10])));
     assert.equal(falconBase.entity(265).contents.navigationUnit.destination, NAV_HUMMINGBIRD);
     assert.equal(falconBase.entity(265).contents.navigationUnit.destinationName, "hummingbird");
 
-    falconBase.apply(modelData(5, table78Section(162, 265, 1, [20])));
+    falconBase.apply(modelData(5, table78Section(168, 265, 1, [20])));
     assert.equal(falconBase.entity(265).contents.navigationUnit.destination, NAV_SPARROW);
     assert.equal(falconBase.entity(265).contents.navigationUnit.destinationName, "sparrow");
 
-    falconBase.apply(modelData(6, table78Section(162, 265, 1, [30])));
+    falconBase.apply(modelData(6, table78Section(168, 265, 1, [30])));
     assert.equal(falconBase.entity(265).contents.navigationUnit.destination, NAV_COMBAT_ARENA);
     assert.equal(falconBase.entity(265).contents.navigationUnit.destinationName, "combat-arena");
 
@@ -565,7 +566,7 @@ test("ModelState decodes navigation unit auto-warp baseline flags", () => {
     compactSparrow.apply(modelData(
         1,
         tableSection(43, 266, 1, fieldDelta(261)),
-        table78Section(162, 266, 9, [0, navEncoded(NAV_SPARROW)])
+        table78Section(168, 266, 9, [0, navEncoded(NAV_SPARROW)])
     ));
     assert.equal(compactSparrow.entity(266).contents.navigationUnit.destination, NAV_SPARROW);
     assert.equal(compactSparrow.entity(266).contents.navigationUnit.destinationName, "sparrow");
@@ -576,7 +577,7 @@ test("ModelState decodes navigation unit auto-warp baseline flags", () => {
     destinationOnlyFalcon.apply(modelData(
         1,
         tableSection(43, 267, 1, fieldDelta(261)),
-        table78Section(162, 267, 1, [navEncoded(NAV_FALCON)])
+        table78Section(168, 267, 1, [navEncoded(NAV_FALCON)])
     ));
     assert.equal(destinationOnlyFalcon.entity(267).contents.navigationUnit.destination, NAV_FALCON);
     assert.equal(destinationOnlyFalcon.entity(267).contents.navigationUnit.destinationName, "falcon");
@@ -587,7 +588,7 @@ test("ModelState decodes navigation unit auto-warp baseline flags", () => {
     q36Finch.apply(modelData(
         1,
         tableSection(43, 268, 1, fieldDelta(261)),
-        table78Section(162, 268, 17, [0, navEncoded(NAV_FINCH)])
+        table78Section(168, 268, 17, [0, navEncoded(NAV_FINCH)])
     ));
     assert.equal(q36Finch.entity(268).contents.navigationUnit.destination, NAV_FINCH);
     assert.equal(q36Finch.entity(268).contents.navigationUnit.destinationName, "finch");
@@ -598,7 +599,7 @@ test("ModelState decodes navigation unit auto-warp baseline flags", () => {
     noCaptainsOnlyHummingbird.apply(modelData(
         1,
         tableSection(43, 269, 1, fieldDelta(261)),
-        table78Section(162, 269, 16, [0])
+        table78Section(168, 269, 16, [0])
     ));
     assert.equal(noCaptainsOnlyHummingbird.entity(269).contents.navigationUnit.destination, NAV_HUMMINGBIRD);
     assert.equal(noCaptainsOnlyHummingbird.entity(269).contents.navigationUnit.destinationName, "hummingbird");
@@ -609,22 +610,22 @@ test("ModelState decodes navigation unit auto-warp baseline flags", () => {
     q24BaseFinch.apply(modelData(
         1,
         tableSection(43, 270, 1, fieldDelta(261)),
-        table78Section(162, 270, 19, [0, navEncoded(NAV_FINCH), 1])
+        table78Section(168, 270, 19, [0, navEncoded(NAV_FINCH), 1])
     ));
     assert.equal(q24BaseFinch.entity(270).contents.navigationUnit.destination, NAV_FINCH);
     assert.equal(q24BaseFinch.entity(270).contents.navigationUnit.destinationName, "finch");
     assert.equal(q24BaseFinch.entity(270).contents.navigationUnit.autoWarpOnShieldFailure, true);
     assert.equal(q24BaseFinch.entity(270).contents.navigationUnit.autoWarpOnNoCaptains, false);
 
-    q24BaseFinch.apply(modelData(2, table78Section(162, 270, 2, [-1])));
+    q24BaseFinch.apply(modelData(2, table78Section(168, 270, 2, [-1])));
     assert.equal(q24BaseFinch.entity(270).contents.navigationUnit.destination, NAV_FINCH);
     assert.equal(q24BaseFinch.entity(270).contents.navigationUnit.destinationName, "finch");
 
-    q24BaseFinch.apply(modelData(3, table78Section(162, 270, 1, [10])));
+    q24BaseFinch.apply(modelData(3, table78Section(168, 270, 1, [10])));
     assert.equal(q24BaseFinch.entity(270).contents.navigationUnit.destination, NAV_SPARROW);
     assert.equal(q24BaseFinch.entity(270).contents.navigationUnit.destinationName, "sparrow");
 
-    q24BaseFinch.apply(modelData(4, table78Section(162, 270, 1, [-10])));
+    q24BaseFinch.apply(modelData(4, table78Section(168, 270, 1, [-10])));
     assert.equal(q24BaseFinch.entity(270).contents.navigationUnit.destination, NAV_FINCH);
     assert.equal(q24BaseFinch.entity(270).contents.navigationUnit.destinationName, "finch");
 });
@@ -634,24 +635,24 @@ test("ModelState toggles navigation unit auto-warp flags from table 78 masks", (
     bothOff.apply(modelData(
         1,
         tableSection(43, 261, 1, fieldDelta(261)),
-        table78Section(162, 261, 27, [0, navEncoded(NAV_RAVEN), 1, 0])
+        table78Section(168, 261, 27, [0, navEncoded(NAV_RAVEN), 1, 0])
     ));
     assert.equal(bothOff.entity(261).contents.navigationUnit.autoWarpOnShieldFailure, false);
     assert.equal(bothOff.entity(261).contents.navigationUnit.autoWarpOnNoCaptains, false);
 
-    bothOff.apply(modelData(2, table78Section(162, 261, 8, [0])));
+    bothOff.apply(modelData(2, table78Section(168, 261, 8, [0])));
     assert.equal(bothOff.entity(261).contents.navigationUnit.autoWarpOnShieldFailure, true);
     assert.equal(bothOff.entity(261).contents.navigationUnit.autoWarpOnNoCaptains, false);
 
-    bothOff.apply(modelData(3, table78Section(162, 261, 16, [0])));
+    bothOff.apply(modelData(3, table78Section(168, 261, 16, [0])));
     assert.equal(bothOff.entity(261).contents.navigationUnit.autoWarpOnShieldFailure, true);
     assert.equal(bothOff.entity(261).contents.navigationUnit.autoWarpOnNoCaptains, true);
 
-    bothOff.apply(modelData(4, table78Section(162, 261, 8, [0])));
+    bothOff.apply(modelData(4, table78Section(168, 261, 8, [0])));
     assert.equal(bothOff.entity(261).contents.navigationUnit.autoWarpOnShieldFailure, false);
     assert.equal(bothOff.entity(261).contents.navigationUnit.autoWarpOnNoCaptains, true);
 
-    bothOff.apply(modelData(5, table78Section(162, 261, 16, [0])));
+    bothOff.apply(modelData(5, table78Section(168, 261, 16, [0])));
     assert.equal(bothOff.entity(261).contents.navigationUnit.autoWarpOnShieldFailure, false);
     assert.equal(bothOff.entity(261).contents.navigationUnit.autoWarpOnNoCaptains, false);
 
@@ -659,24 +660,24 @@ test("ModelState toggles navigation unit auto-warp flags from table 78 masks", (
     bothOn.apply(modelData(
         1,
         tableSection(43, 262, 1, fieldDelta(261)),
-        table78Section(162, 262, 3, [navEncoded(NAV_RAVEN), 1])
+        table78Section(168, 262, 3, [navEncoded(NAV_RAVEN), 1])
     ));
     assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnShieldFailure, true);
     assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnNoCaptains, true);
 
-    bothOn.apply(modelData(2, table78Section(162, 262, 8, [0])));
+    bothOn.apply(modelData(2, table78Section(168, 262, 8, [0])));
     assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnShieldFailure, false);
     assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnNoCaptains, true);
 
-    bothOn.apply(modelData(3, table78Section(162, 262, 16, [0])));
+    bothOn.apply(modelData(3, table78Section(168, 262, 16, [0])));
     assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnShieldFailure, false);
     assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnNoCaptains, false);
 
-    bothOn.apply(modelData(4, table78Section(162, 262, 8, [0])));
+    bothOn.apply(modelData(4, table78Section(168, 262, 8, [0])));
     assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnShieldFailure, true);
     assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnNoCaptains, false);
 
-    bothOn.apply(modelData(5, table78Section(162, 262, 16, [0])));
+    bothOn.apply(modelData(5, table78Section(168, 262, 16, [0])));
     assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnShieldFailure, true);
     assert.equal(bothOn.entity(262).contents.navigationUnit.autoWarpOnNoCaptains, true);
 });
