@@ -3,6 +3,7 @@ import {flattenRichText} from "./comms.js";
 const SHIP_MANAGEMENT_TYPE = 4;
 const CREW_LOG_LENGTH = 500;
 const SET_PRIVACY_ACTION = "set_privacy";
+const GRAVITY_ACTION = "gravity";
 const STARTER_RECOVERY_ACTION = "starter_recovery";
 const PLAYER_LIST_ACTION = "player_list";
 const INVITE_RESET_ACTION = "invite_reset";
@@ -14,6 +15,21 @@ const DEMOTE_SELF_ACTION = "demote_self";
 const SAVE_SHIP_ACTION = "save_team";
 const RENAME_REQUEST_ACTION = "rename_request";
 const RENAME_COMMIT_ACTION = "rename_commit";
+
+export const GravityDirection = Object.freeze({
+    Down: "down",
+    Up: "up",
+    Left: "left",
+    Right: "right"
+});
+
+export function normalizeGravityDirection(value) {
+    if (value === GravityDirection.Down || value === 0) return 0;
+    if (value === GravityDirection.Up || value === 1) return 1;
+    if (value === GravityDirection.Left || value === 2) return 2;
+    if (value === GravityDirection.Right || value === 3) return 3;
+    throw new RangeError('direction must be "down", "up", "left", "right", or an integer from 0 to 3');
+}
 
 function requireNonNegativeInteger(value, name) {
     const number = Number(value);
@@ -47,6 +63,10 @@ export function buildShipManagementMessage(act, arg = null, extra = null) {
 
 export function buildShipPrivacyMessage(privacy) {
     return buildShipManagementMessage(SET_PRIVACY_ACTION, normalizePrivacy(privacy));
+}
+
+export function buildShipGravityMessage(direction) {
+    return buildShipManagementMessage(GRAVITY_ACTION, normalizeGravityDirection(direction));
 }
 
 export function buildStarterRecoveryMessage(itemId) {
@@ -259,6 +279,7 @@ function playerCanBeManagedBy(player, currentRank) {
 export {
     BAN_ACTION,
     CREW_LOG_LENGTH,
+    GRAVITY_ACTION,
     UNBAN_ACTION,
     DEMOTE_SELF_ACTION,
     INVITE_RESET_ACTION,
