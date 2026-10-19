@@ -432,6 +432,31 @@ export interface LoaderFullConfig extends LoaderConfig {
     filterSlots?: Array<number | null | undefined>;
 }
 
+export interface ClanTagDetails {
+    /** Current tag, or null when cleared. */
+    tag: string | null;
+    /** Number of other users with this tag; null when unavailable. */
+    otherUsers: number | null;
+}
+
+export interface AccountPerkShip {
+    /** Decimal identifier from the removal form; use this for removeShipPerks(). */
+    shipId: string;
+    name: string;
+    /** Identifier displayed in braces; distinct from the removal form's ID. */
+    hexCode: string | null;
+}
+
+export interface AccountDetails {
+    email: string | null;
+    /** Identity value without the parenthesized service suffix. */
+    identity: string | null;
+    identityService: string | null;
+    clan: ClanTagDetails;
+    /** This account's applied ships; null when the section is unavailable. */
+    shipsWithPerks: AccountPerkShip[] | null;
+}
+
 export class Session {
     constructor(gameSession?: string | null, gameVersion?: string | null);
 
@@ -456,6 +481,16 @@ export class Session {
     request(path: string, init?: RequestInit & { body?: BodyInit | Record<string, unknown> | null }): Promise<Response>;
 
     fetchAccountStatus(): Promise<unknown>;
+
+    /** Scrape the authenticated account page; does not update account/status or session serialization. */
+    fetchAccountDetails(): Promise<AccountDetails>;
+    fetchClanTag(): Promise<ClanTagDetails>;
+    /** Submit the form and confirm the stored tag on the account page. */
+    setClanTag(tag: string): Promise<ClanTagDetails>;
+    clearClanTag(): Promise<ClanTagDetails>;
+    /** Remove this account's perks and return the confirmed remaining applied ships. */
+    removeShipPerks(shipId: string | number): Promise<AccountPerkShip[]>;
+
 
     fetchShips(server: ServerRef): Promise<Ship[]>;
 
