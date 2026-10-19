@@ -682,7 +682,7 @@ interface ShipManagementDomain {
   requestPlayerList(): DredlessClient;
   resetInvite(): DredlessClient;
   setPrivacy(privacy: ShipPrivacy): DredlessClient;
-  recoverStarterItem(itemId: number): DredlessClient;
+  recoverStarterItem(itemId: number, options?: StarterRecoveryOptions): Promise<void>;
   setPlayerRank(refId: number, rank: ShipPlayerRank): DredlessClient;
   kickPlayer(refId: number): DredlessClient;
   banPlayer(refId: number): DredlessClient;
@@ -691,6 +691,15 @@ interface ShipManagementDomain {
   config(): ShipConfig | null;
   hasCheats(): boolean;
   playerList(): ShipPlayerList | null;
+}
+
+interface StarterRecoveryOptions {
+  timeout?: number; // Response timeout in milliseconds; default 10000.
+}
+
+interface StarterRecoveryResult {
+  readonly success: boolean;
+  readonly failReason: string | null;
 }
 
 interface RenameShipOptions {
@@ -736,7 +745,7 @@ The promise resolves when the commit is sent, without waiting for server
 confirmation of the resulting name or color. Ship metadata updates through the
 normal world data stream. The operation rejects on denial (with the server's
 message), timeout, disconnect, a world change before permission arrives, sending
-failure, or an overlapping rename. It requires a connected, ready, writable
+failure, demotion, or an overlapping rename. It requires a connected, ready, writable
 client. The timeout must be positive and no greater than `2147483647` milliseconds.
 A timeout stops waiting. Later permission responses are ignored unless another
 rename is pending; the protocol has no request identifier to distinguish replies.
@@ -747,6 +756,31 @@ ship using the `refId` from `client.management.playerList().players`. It sends
 `{type: 4, act: "unban", arg: refId}` and returns the client without waiting for
 acknowledgment. The server checks permission; player-list updates arrive normally.
 `client.unbanPlayer(refId)` is also available directly.
+
+`await client.management.recoverStarterItem(itemId, {timeout: 10000})` sends the
+starter recovery command and waits for `starter_recovery_response`. It resolves
+when `fail_reason` is null or absent, and rejects with the server's message
+otherwise. **This method now returns `Promise<void>` instead of the client.**
+It requires a connected, ready, writable client and rejects overlapping recovery
+requests, disconnects (`DisconnectError`), demotion, sending failures, a world
+change before the response, and timeouts. The timeout must be positive and at most
+`2147483647` milliseconds. Timing out stops waiting but does not cancel recovery
+on the server. Responses have no request identifier, so a delayed response can be
+mistaken for a subsequent request's response. The direct
+`client.recoverStarterItem(itemId, options?)` method has the same behavior.
+
+Every recovery response also emits `"starter-recovery"` with
+`{success: boolean, failReason: string | null}` and the original session packet,
+including responses to commands sent through the low-level API.
+
+On the server's `demote` message, Dredless clears `shipConfig`, `captainSubrank`,
+and `playerList` before notifying listeners. `management.config()` and
+`management.playerList()` then return `null`, and `management.hasCheats()` returns
+`false`. Pending renames and starter recoveries reject. The client emits
+`"demote"` with the original session packet, followed by `"ship-config"`,
+`"captain-subrank"`, and `"player-list"` with `null` state and the original packet.
+Fresh server messages can populate management state again. These responses
+continue to be available through the raw `"session"` event.
 
 Input aliases:
 

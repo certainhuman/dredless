@@ -204,6 +204,7 @@ export class DredlessClient extends EventBus {
     #rejectReady = null;
     #savePending = false;
     #renamePending = false;
+    #starterRecoveryPending = false;
     #inputSettings = {
         wrench_mode: 1,
         turret_mode: 0
@@ -315,6 +316,11 @@ export class DredlessClient extends EventBus {
                     clearTimeout(timer);
                     this.off("session", responded);
                     this.off("disconnect", disconnected);
+                    this.off("demote", demoted);
+                };
+                const demoted = () => {
+                    cleanup();
+                    reject(new Error("Ship rename interrupted by demotion"));
                 };
                 const disconnected = (info) => {
                     cleanup();
@@ -339,6 +345,7 @@ export class DredlessClient extends EventBus {
                 }, timeout);
                 this.on("session", responded);
                 this.on("disconnect", disconnected);
+                this.on("demote", demoted);
                 try {
                     this.sendMessage(buildShipRenameRequestMessage());
                 } catch (error) {
@@ -363,8 +370,55 @@ export class DredlessClient extends EventBus {
         return this.sendMessage(buildShipPrivacyMessage(privacy));
     }
 
-    recoverStarterItem(itemId) {
-        return this.sendMessage(buildStarterRecoveryMessage(itemId));
+    async recoverStarterItem(itemId, {timeout = 10000} = {}) {
+        this.#assertWritable();
+        const message = buildStarterRecoveryMessage(itemId);
+        if (!Number.isFinite(timeout) || timeout <= 0 || timeout > 2147483647) {
+            throw new RangeError("timeout must be positive milliseconds no greater than 2147483647");
+        }
+        if (!this.connected || !this.ready) throw new Error("Starter recovery requires a connected, ready client");
+        if (this.#starterRecoveryPending) throw new Error("A starter recovery is already in progress");
+        const worldId = this.worlds.currentWorldId;
+        this.#starterRecoveryPending = true;
+        try {
+            await new Promise((resolve, reject) => {
+                const cleanup = () => {
+                    clearTimeout(timer);
+                    this.off("starter-recovery", responded);
+                    this.off("disconnect", disconnected);
+                    this.off("demote", demoted);
+                };
+                const disconnected = (info) => {
+                    cleanup();
+                    reject(new DisconnectError(info, "Starter recovery interrupted"));
+                };
+                const demoted = () => {
+                    cleanup();
+                    reject(new Error("Starter recovery interrupted by demotion"));
+                };
+                const responded = (result) => {
+                    cleanup();
+                    if (this.worlds.currentWorldId !== worldId) reject(new Error("World changed during starter recovery"));
+                    else if (!result.success) reject(new Error(result.failReason));
+                    else resolve();
+                };
+                const timer = setTimeout(() => {
+                    cleanup();
+                    reject(new Error("Timed out waiting for starter recovery response"));
+                }, timeout);
+                this.on("starter-recovery", responded);
+                this.on("disconnect", disconnected);
+                this.on("demote", demoted);
+                try {
+                    this.sendMessage(message);
+                } catch (error) {
+                    cleanup();
+                    reject(error);
+                }
+            });
+        } finally {
+            this.#starterRecoveryPending = false;
+        }
     }
 
     setPlayerRank(refId, rank) {
@@ -1167,6 +1221,22 @@ export class DredlessClient extends EventBus {
     #handleSessionSubmessage(packet) {
         const submessage = packet?.submessage;
         if (!submessage || typeof submessage !== "object") return;
+        if (submessage.type === "demote") {
+            // Permission-scoped state must not survive losing captain access.
+            this.shipConfig = null;
+            this.captainSubrank = null;
+            this.playerList = null;
+            this.emit("demote", packet);
+            this.emit("ship-config", null, packet);
+            this.emit("captain-subrank", null, packet);
+            this.emit("player-list", null, packet);
+            return;
+        }
+        if (submessage.type === "starter_recovery_response") {
+            const failReason = submessage.fail_reason == null ? null : String(submessage.fail_reason);
+            this.emit("starter-recovery", Object.freeze({success: failReason === null, failReason}), packet);
+            return;
+        }
         if (submessage.type === "config") {
             this.shipConfig = normalizeShipConfig(submessage);
             this.emit("ship-config", this.shipConfig, packet);
