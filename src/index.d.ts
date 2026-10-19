@@ -95,6 +95,13 @@ export class DisconnectError extends Error {
 
 export function normalizeDisconnect(eventOrCode?: unknown, reason?: unknown): DisconnectInfo;
 
+export interface RenameShipOptions {
+    /** #RRGGBB hex string; omitted preserves the color returned by the server. */
+    color?: string;
+    /** Milliseconds to wait for rename permission; default 10000. */
+    timeout?: number;
+}
+
 export interface SaveShipOptions {
     /** Milliseconds to wait for the Saved disconnect code; default 10000. */
     timeout?: number;
@@ -245,6 +252,7 @@ export interface ShipManagementMessage {
     type: 4;
     act: string;
     arg: unknown;
+    arg2?: unknown;
     rank?: unknown;
 }
 
@@ -540,6 +548,8 @@ export class DredlessClient {
     canSaveShip(): boolean;
     /** Save and await the server's Saved close code; reject on ineligibility, timeout, or any other disconnect. */
     saveShip(options?: SaveShipOptions): Promise<DisconnectInfo>;
+    /** Request permission and send the rename commit; does not await confirmation of the new name. */
+    renameShip(name: string, options?: RenameShipOptions): Promise<void>;
 
     currentShip(): ShipDomain | null;
 
@@ -695,6 +705,9 @@ export interface ShipManagementDomain {
 
     /** Save and await the server's Saved close code; reject on ineligibility, timeout, or any other disconnect. */
     save(options?: SaveShipOptions): Promise<DisconnectInfo>;
+
+    /** Request permission and send the rename commit; does not await confirmation of the new name. */
+    rename(name: string, options?: RenameShipOptions): Promise<void>;
 
     requestPlayerList(): DredlessClient;
 
@@ -2260,6 +2273,10 @@ export function buildStarterRecoveryMessage(itemId: number): ShipManagementMessa
 export function buildPlayerListMessage(): ShipManagementMessage;
 
 export function buildSaveShipMessage(): ShipManagementMessage;
+
+export function buildShipRenameRequestMessage(): ShipManagementMessage;
+
+export function buildShipRenameCommitMessage(name: string, color: string): ShipManagementMessage;
 
 export function buildInviteResetMessage(): ShipManagementMessage;
 

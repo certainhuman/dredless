@@ -5,6 +5,7 @@ export interface ShipManagementMessage {
     type: 4;
     act: string;
     arg: unknown;
+    arg2?: unknown;
     rank?: unknown;
 }
 
@@ -55,6 +56,10 @@ export function buildPlayerListMessage(): ShipManagementMessage;
 
 export function buildSaveShipMessage(): ShipManagementMessage;
 
+export function buildShipRenameRequestMessage(): ShipManagementMessage;
+
+export function buildShipRenameCommitMessage(name: string, color: string): ShipManagementMessage;
+
 export function buildInviteResetMessage(): ShipManagementMessage;
 
 export function buildSetPlayerRankMessage(refId: number, rank: ShipPlayerRank): ShipManagementMessage;
@@ -85,3 +90,6 @@ export const SET_PRIVACY_ACTION: "set_privacy";
 export const SET_RANK_ACTION: "set_rank";
 export const SHIP_MANAGEMENT_TYPE: 4;
 export const STARTER_RECOVERY_ACTION: "starter_recovery";
+
+export const RENAME_REQUEST_ACTION: "rename_request";
+export const RENAME_COMMIT_ACTION: "rename_commit";

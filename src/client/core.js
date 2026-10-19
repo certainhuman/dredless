@@ -20,6 +20,8 @@ import {
     buildKickPlayerMessage,
     buildPlayerListMessage,
     buildSaveShipMessage,
+    buildShipRenameRequestMessage,
+    buildShipRenameCommitMessage,
     buildSetPlayerRankMessage,
     buildShipManagementMessage,
     buildShipPrivacyMessage,
@@ -200,6 +202,7 @@ export class DredlessClient extends EventBus {
     #resolveReady = null;
     #rejectReady = null;
     #savePending = false;
+    #renamePending = false;
     #inputSettings = {
         wrench_mode: 1,
         turret_mode: 0
@@ -291,6 +294,59 @@ export class DredlessClient extends EventBus {
             });
         } finally {
             this.#savePending = false;
+        }
+    }
+
+    async renameShip(name, {color, timeout = 10000} = {}) {
+        this.#assertWritable();
+        // Validate before requesting permission. Omitted color comes from the response.
+        buildShipRenameCommitMessage(name, color === undefined ? "#000000" : color);
+        if (!Number.isFinite(timeout) || timeout <= 0 || timeout > 2147483647) {
+            throw new RangeError("timeout must be positive milliseconds no greater than 2147483647");
+        }
+        if (!this.connected || !this.ready) throw new Error("Renaming requires a connected, ready client");
+        if (this.#renamePending) throw new Error("A ship rename is already in progress");
+        const worldId = this.worlds.currentWorldId;
+        this.#renamePending = true;
+        try {
+            await new Promise((resolve, reject) => {
+                const cleanup = () => {
+                    clearTimeout(timer);
+                    this.off("session", responded);
+                    this.off("disconnect", disconnected);
+                };
+                const disconnected = (info) => {
+                    cleanup();
+                    reject(new DisconnectError(info, "Ship rename interrupted"));
+                };
+                const responded = (packet) => {
+                    const response = packet.submessage;
+                    if (response?.type !== "rename_response") return;
+                    cleanup();
+                    try {
+                        if (!response.allow) throw new Error(response.message || "Ship rename unavailable");
+                        if (this.worlds.currentWorldId !== worldId) throw new Error("World changed while requesting ship rename");
+                        this.sendMessage(buildShipRenameCommitMessage(name, color === undefined ? response.initial_color : color));
+                        resolve();
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                const timer = setTimeout(() => {
+                    cleanup();
+                    reject(new Error("Timed out waiting for ship rename permission"));
+                }, timeout);
+                this.on("session", responded);
+                this.on("disconnect", disconnected);
+                try {
+                    this.sendMessage(buildShipRenameRequestMessage());
+                } catch (error) {
+                    cleanup();
+                    reject(error);
+                }
+            });
+        } finally {
+            this.#renamePending = false;
         }
     }
 

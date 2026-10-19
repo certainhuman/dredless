@@ -30,6 +30,8 @@ export {
     buildKickPlayerMessage,
     buildPlayerListMessage,
     buildSaveShipMessage,
+    buildShipRenameRequestMessage,
+    buildShipRenameCommitMessage,
     buildShipManagementMessage,
     buildSetPlayerRankMessage,
     buildShipPrivacyMessage,

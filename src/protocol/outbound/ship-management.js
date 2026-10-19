@@ -8,6 +8,8 @@ const KICK_ACTION = "kick";
 const BAN_ACTION = "ban";
 const DEMOTE_SELF_ACTION = "demote_self";
 const SAVE_SHIP_ACTION = "save_team";
+const RENAME_REQUEST_ACTION = "rename_request";
+const RENAME_COMMIT_ACTION = "rename_commit";
 
 function requireNonNegativeInteger(value, name) {
     const number = Number(value);
@@ -73,6 +75,19 @@ export function buildDemoteSelfMessage() {
 
 export function buildSaveShipMessage() {
     return buildShipManagementMessage(SAVE_SHIP_ACTION);
+}
+
+export function buildShipRenameRequestMessage() {
+    return buildShipManagementMessage(RENAME_REQUEST_ACTION);
+}
+
+export function buildShipRenameCommitMessage(name, color) {
+    if (typeof name !== "string") throw new TypeError("name must be a string");
+    if (name.length > 32) throw new RangeError("name must be at most 32 UTF-16 code units");
+    if (typeof color !== "string" || !/^#[0-9a-f]{6}$/i.test(color)) {
+        throw new TypeError("color must be a #RRGGBB hex string");
+    }
+    return buildShipManagementMessage(RENAME_COMMIT_ACTION, name, {arg2: color});
 }
 
 export function normalizeShipConfig(event = {}) {
@@ -217,6 +232,8 @@ export {
     INVITE_RESET_ACTION,
     KICK_ACTION,
     PLAYER_LIST_ACTION,
+    RENAME_REQUEST_ACTION,
+    RENAME_COMMIT_ACTION,
     SAVE_SHIP_ACTION,
     SET_PRIVACY_ACTION,
     SET_RANK_ACTION,

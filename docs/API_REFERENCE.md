@@ -678,6 +678,7 @@ Ship-management command and state domain.
 interface ShipManagementDomain {
   canSave(): boolean;
   save(options?: SaveShipOptions): Promise<DisconnectInfo>;
+  rename(name: string, options?: RenameShipOptions): Promise<void>;
   requestPlayerList(): DredlessClient;
   resetInvite(): DredlessClient;
   setPrivacy(privacy: ShipPrivacy): DredlessClient;
@@ -689,6 +690,11 @@ interface ShipManagementDomain {
   config(): ShipConfig | null;
   hasCheats(): boolean;
   playerList(): ShipPlayerList | null;
+}
+
+interface RenameShipOptions {
+  color?: string; // #RRGGBB; omitted preserves the current color.
+  timeout?: number; // Permission response timeout in milliseconds; default 10000.
 }
 
 interface SaveShipOptions {
@@ -717,6 +723,23 @@ if (client.management.canSave()) {
   console.log(saved.name); // "Saved"
 }
 ```
+
+`await client.management.rename("New Name", {color: "#3a8bce"})` follows the
+official client's permission flow: send `rename_request`, wait for an allowed
+`rename_response`, then send `rename_commit` with the name in `arg` and the color
+in `arg2`. Omit `color` to preserve `initial_color` from the permission response.
+Names must be strings of at most 32 UTF-16 code units (the official input limit);
+colors must be six-digit hex strings with a leading `#`.
+
+The promise resolves when the commit is sent, without waiting for server
+confirmation of the resulting name or color. Ship metadata updates through the
+normal world data stream. The operation rejects on denial (with the server's
+message), timeout, disconnect, a world change before permission arrives, sending
+failure, or an overlapping rename. It requires a connected, ready, writable
+client. The timeout must be positive and no greater than `2147483647` milliseconds.
+A timeout stops waiting. Later permission responses are ignored unless another
+rename is pending; the protocol has no request identifier to distinguish replies.
+The client also exposes `renameShip(name, options?)` directly.
 
 Input aliases:
 
@@ -2327,6 +2350,8 @@ function buildShipPrivacyMessage(privacy: ShipPrivacy): ShipManagementMessage;
 function buildStarterRecoveryMessage(itemId: number): ShipManagementMessage;
 function buildPlayerListMessage(): ShipManagementMessage;
 function buildSaveShipMessage(): ShipManagementMessage;
+function buildShipRenameRequestMessage(): ShipManagementMessage;
+function buildShipRenameCommitMessage(name: string, color: string): ShipManagementMessage;
 function buildInviteResetMessage(): ShipManagementMessage;
 function buildSetPlayerRankMessage(refId: number, rank: ShipPlayerRank): ShipManagementMessage;
 function buildKickPlayerMessage(refId: number): ShipManagementMessage;
@@ -2346,6 +2371,7 @@ interface ShipManagementMessage {
   type: 4;
   act: string;
   arg: unknown;
+  arg2?: unknown;
   rank?: unknown;
 }
 ```
