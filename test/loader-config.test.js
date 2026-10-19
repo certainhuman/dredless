@@ -1406,7 +1406,7 @@ test("ModelState decodes machine cannon high-bit state without metadata spillove
     assert.equal(cannon.relativeAngleRadians, -40 / 200);
     assert.equal(cannon.absoluteAngleRadians, null);
     assert.equal(cannon.spin, 129);
-    assert.equal(cannon.coolingCellCount, 0);
+    assert.equal(cannon.resourceCount, 0);
     assert.equal(model.snapshot().entities.length, 1);
 
     model.apply(modelData(
@@ -1473,7 +1473,7 @@ test("ModelState combines cannon mount and barrel angles in normalized ship radi
     assert.ok(Math.abs(cannon.absoluteAngleRadians - (800 / 127.324 - 0.2)) < 1e-12);
 });
 
-test("ModelState decodes machine cannon cooling cell count", () => {
+test("ModelState decodes machine cannon resource count", () => {
     const model = new ModelState();
     const none = 20;
     const one = 21;
@@ -1492,13 +1492,13 @@ test("ModelState decodes machine cannon cooling cell count", () => {
         table54Section(twoEmpty, 513, [4, 2])
     ));
 
-    assert.equal(model.entity(none).contents.cannon.coolingCellCount, 0);
+    assert.equal(model.entity(none).contents.cannon.resourceCount, 0);
     assert.equal(model.entity(none).contents.cannon.relativeAngleRadians, null);
     assert.equal(model.entity(none).contents.cannon.absoluteAngleRadians, null);
-    assert.equal(model.entity(one).contents.cannon.coolingCellCount, 1);
-    assert.equal(model.entity(twoLoaded).contents.cannon.coolingCellCount, 2);
+    assert.equal(model.entity(one).contents.cannon.resourceCount, 1);
+    assert.equal(model.entity(twoLoaded).contents.cannon.resourceCount, 2);
     assert.equal(model.entity(twoLoaded).contents.cannon.ammoCount, 16);
-    assert.equal(model.entity(twoEmpty).contents.cannon.coolingCellCount, 2);
+    assert.equal(model.entity(twoEmpty).contents.cannon.resourceCount, 2);
     assert.equal(model.entity(twoEmpty).contents.cannon.ammoCount, 0);
 });
 

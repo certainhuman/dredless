@@ -296,7 +296,7 @@ Supply the solution as a digit string (at most 255 encoded bytes). Numeric argum
 
 | Handle           | Useful reads                                                             |
 |------------------|--------------------------------------------------------------------------|
-| Cannon           | Ammo, charge/spin/recoil, `relativeAngleRadians`, `absoluteAngleRadians` |
+| Cannon           | Ammo, resources, indicator, spin/recoil, barrel angles |
 | Thruster         | `.state`                                                                 |
 | Helm             | `.state`, `.occupied`                                                    |
 | Shield projector | `.state`, `.active`                                                      |
@@ -306,5 +306,46 @@ Supply the solution as a digit string (at most 255 encoded bytes). Numeric argum
 | Ejector          | `.state`, `.active`, `.progress`                                         |
 
 Cannon relative angle is radians from the mount. Absolute angle is ship-coordinate radians normalized to `[0, 2π)`; it needs both aim and mounting rotation. Missing inputs produce `null`. These fields replace raw `aim`; they do not expose a cannon aim setter.
+
+Cannon resources and indicators are separate:
+
+```ts
+// Fields on CannonSummary (cannon.state)
+resourceCount: number;
+indicatorValue: number;
+indicatorVisible: boolean;
+indicatorColor: number | null;
+indicatorBlinking: boolean;
+indicatorBlinkColor: number | null;
+```
+
+`resourceCount` is the shared server count: burst charges on burst cannons,
+cooling cells on machine cannons. It defaults to zero and is not clamped to the
+number of markers the official client draws (three charges or two cells).
+
+`indicatorValue` is the server's indicator scalar divided by 50; it defaults to
+zero. It is not a charge count or a ready-to-fire flag. The official color mapping
+is:
+
+| Normalized value | Raw value | Appearance |
+| --- | --- | --- |
+| Below 1 | Below 50 | Hidden |
+| 1 | 50 | Green |
+| 2 | 100 | Yellow |
+| 3 | 150 | Red |
+| 4 | 200 | Alternating red/yellow |
+
+Intermediate values interpolate green → yellow → red using the official
+renderer's float32 calculations and integer channel truncation. Colors are packed
+RGB numbers, without alpha. A hidden indicator has `indicatorColor: null`.
+For value 4, `indicatorBlinking` is true, `indicatorColor` is red (`0xff0000`),
+and `indicatorBlinkColor` is yellow (`0xffff00`). Consumers choose the display
+phase; summaries do not change with local clock time. The official renderer uses
+the fractional part of its time value: red below 0.5, yellow otherwise.
+For nonblinking indicators, `indicatorBlinkColor` is null.
+
+The misleading `charge`/`charged` fields and the type-specific `coolingCellCount`
+name have been removed. Raw encoded values remain in `.state.state` (`q40` for
+the indicator, `q56` for resources).
 
 Summary progress, counts, health, occupancy, and raw model records vary by component; use the component's [declared summary](../src/index.d.ts) rather than assuming all machines share a progress scale or health convention.
