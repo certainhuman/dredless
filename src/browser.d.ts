@@ -30,6 +30,8 @@ export {
     buildInviteResetMessage,
     buildKickPlayerMessage,
     buildPlayerListMessage,
+    buildShipRenameRequestMessage,
+    buildShipRenameCommitMessage,
     buildShipManagementMessage,
     buildSetPlayerRankMessage,
     buildShipPrivacyMessage,
@@ -82,6 +84,7 @@ export {
 } from "./index.js";
 
 export type {
+    RenameShipOptions,
     TipDomain,
     TipList,
     TipOptions,

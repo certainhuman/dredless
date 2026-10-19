@@ -203,6 +203,10 @@ export class ShipManagementDomain {
         return this.client.saveShip(options);
     }
 
+    rename(name, options = {}) {
+        return this.client.renameShip(name, options);
+    }
+
     requestPlayerList() {
         return this.client.requestPlayerList();
     }
