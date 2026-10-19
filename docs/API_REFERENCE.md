@@ -682,6 +682,7 @@ interface ShipManagementDomain {
   requestPlayerList(): DredlessClient;
   resetInvite(): DredlessClient;
   setPrivacy(privacy: ShipPrivacy): DredlessClient;
+  setGravity(direction: ShipGravityDirection): DredlessClient;
   recoverStarterItem(itemId: number, options?: StarterRecoveryOptions): Promise<void>;
   setPlayerRank(refId: number, rank: ShipPlayerRank): DredlessClient;
   kickPlayer(refId: number): DredlessClient;
@@ -828,9 +829,36 @@ The event receives the updated log and original session packet. Demotion clears
 the log and emits `"crew-log"` with `null`; disconnect clears the cached log
 before emitting `"disconnect"`. Raw messages remain available through `"session"`.
 
+`client.management.setGravity(direction)` sends the official `coolsnake303`
+gravity command. It returns the client without waiting for confirmation; server
+permissions still apply. The direct method is `client.setShipGravity(direction)`.
+The official UI reveals these controls when its crew search is `coolsnake303`;
+no search or unlock command is needed to send the gravity action.
+
+```js
+import {GravityDirection} from "dredless/node";
+
+client.management.setGravity(GravityDirection.Up);
+client.management.setGravity("down");
+```
+
+| Direction | Wire value |
+| --- | --- |
+| `"down"` / `GravityDirection.Down` | `0` |
+| `"up"` / `GravityDirection.Up` | `1` |
+| `"left"` / `GravityDirection.Left` | `2` |
+| `"right"` / `GravityDirection.Right` | `3` |
+
+The helper accepts these lowercase names or numeric wire values and rejects other
+inputs. `buildShipGravityMessage(direction)` produces
+`{type: 4, act: "gravity", arg: normalizedDirection}`. This numbering is the
+official `OrdinalDirection` mapping and differs from fixed-angle machine controls.
+
 Input aliases:
 
 ```ts
+type GravityDirection = "down" | "up" | "left" | "right";
+type ShipGravityDirection = GravityDirection | 0 | 1 | 2 | 3;
 type ShipPrivacy = 0 | 1 | boolean | "public" | "private";
 type ShipPlayerRank = 0 | 1 | 3 | "guest" | "crew" | "captain";
 type PlayerShipRank = "guest" | "crew" | "crew-invite-pending-deprecated" | "captain" | "banned";
@@ -2434,6 +2462,8 @@ Module: `dredless/protocol/ship-management` or root.
 ```ts
 function buildShipManagementMessage(act: string, arg?: unknown, extra?: Record<string, unknown> | null): ShipManagementMessage;
 function buildShipPrivacyMessage(privacy: ShipPrivacy): ShipManagementMessage;
+function buildShipGravityMessage(direction: ShipGravityDirection): ShipManagementMessage;
+function normalizeGravityDirection(direction: ShipGravityDirection): 0 | 1 | 2 | 3;
 function buildStarterRecoveryMessage(itemId: number): ShipManagementMessage;
 function buildPlayerListMessage(): ShipManagementMessage;
 function buildSaveShipMessage(): ShipManagementMessage;
@@ -2624,6 +2654,8 @@ const EQUIPMENT_SLOT_INDEXES: Readonly<{
 ### `dredless/protocol/ship-management`
 
 ```ts
+const GravityDirection: Readonly<{ Down: "down"; Up: "up"; Left: "left"; Right: "right" }>;
+const GRAVITY_ACTION: "gravity";
 const CREW_LOG_LENGTH: 500;
 const BAN_ACTION: "ban";
 const UNBAN_ACTION: "unban";

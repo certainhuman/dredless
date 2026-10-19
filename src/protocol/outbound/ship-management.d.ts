@@ -1,3 +1,12 @@
+export const GravityDirection: {
+    readonly Down: "down";
+    readonly Up: "up";
+    readonly Left: "left";
+    readonly Right: "right";
+};
+export type GravityDirection = typeof GravityDirection[keyof typeof GravityDirection];
+export type ShipGravityDirection = GravityDirection | 0 | 1 | 2 | 3;
+
 export type ShipPrivacy = 0 | 1 | boolean | "public" | "private";
 export type ShipPlayerRank = 0 | 1 | 3 | "guest" | "crew" | "captain";
 
@@ -69,6 +78,10 @@ export function buildShipManagementMessage(act: string, arg?: unknown, extra?: R
 
 export function buildShipPrivacyMessage(privacy: ShipPrivacy): ShipManagementMessage;
 
+export function buildShipGravityMessage(direction: ShipGravityDirection): ShipManagementMessage;
+
+export function normalizeGravityDirection(direction: ShipGravityDirection): 0 | 1 | 2 | 3;
+
 export function buildStarterRecoveryMessage(itemId: number): ShipManagementMessage;
 
 export function buildPlayerListMessage(): ShipManagementMessage;
@@ -104,6 +117,7 @@ export function normalizeCrewLog(event: unknown, previous?: CrewLog | null): Cre
 export function normalizeShipPlayerList(event: unknown, previous?: ShipPlayerList | null, currentCaptainSubrank?: CaptainSubrank | null): ShipPlayerList;
 
 export const CREW_LOG_LENGTH: 500;
+export const GRAVITY_ACTION: "gravity";
 export const BAN_ACTION: "ban";
 export const UNBAN_ACTION: "unban";
 export const DEMOTE_SELF_ACTION: "demote_self";

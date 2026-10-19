@@ -1,3 +1,12 @@
+export const GravityDirection: {
+    readonly Down: "down";
+    readonly Up: "up";
+    readonly Left: "left";
+    readonly Right: "right";
+};
+export type GravityDirection = typeof GravityDirection[keyof typeof GravityDirection];
+export type ShipGravityDirection = GravityDirection | 0 | 1 | 2 | 3;
+
 export interface Server {
     index: number;
     domain: string;
@@ -581,6 +590,7 @@ export class DredlessClient {
     /** Request permission and send the rename commit; does not await confirmation of the new name. */
     renameShip(name: string, options?: RenameShipOptions): Promise<void>;
     unbanPlayer(refId: number): this;
+    setShipGravity(direction: ShipGravityDirection): this;
     /** Await recovery success; reject with the server's failure reason. */
     recoverStarterItem(itemId: number, options?: StarterRecoveryOptions): Promise<void>;
 
@@ -756,6 +766,9 @@ export interface ShipManagementDomain {
     resetInvite(): DredlessClient;
 
     setPrivacy(privacy: ShipPrivacy): DredlessClient;
+
+    /** Set gravity using the official coolsnake303 command. Does not await confirmation. */
+    setGravity(direction: ShipGravityDirection): DredlessClient;
 
     /** Await recovery success; reject with the server's failure reason. */
     recoverStarterItem(itemId: number, options?: StarterRecoveryOptions): Promise<void>;
@@ -2316,6 +2329,10 @@ export function normalizeInventoryEvent(event: unknown): InventoryState;
 export function buildShipManagementMessage(act: string, arg?: unknown, extra?: Record<string, unknown> | null): ShipManagementMessage;
 
 export function buildShipPrivacyMessage(privacy: ShipPrivacy): ShipManagementMessage;
+
+export function buildShipGravityMessage(direction: ShipGravityDirection): ShipManagementMessage;
+
+export function normalizeGravityDirection(direction: ShipGravityDirection): 0 | 1 | 2 | 3;
 
 export function buildStarterRecoveryMessage(itemId: number): ShipManagementMessage;
 

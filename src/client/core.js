@@ -26,6 +26,7 @@ import {
     buildSetPlayerRankMessage,
     buildShipManagementMessage,
     buildShipPrivacyMessage,
+    buildShipGravityMessage,
     buildStarterRecoveryMessage,
     normalizeCaptainSubrank,
     normalizeCrewLog,
@@ -370,6 +371,10 @@ export class DredlessClient extends EventBus {
 
     setShipPrivacy(privacy) {
         return this.sendMessage(buildShipPrivacyMessage(privacy));
+    }
+
+    setShipGravity(direction) {
+        return this.sendMessage(buildShipGravityMessage(direction));
     }
 
     async recoverStarterItem(itemId, {timeout = 10000} = {}) {

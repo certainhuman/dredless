@@ -219,6 +219,10 @@ export class ShipManagementDomain {
         return this.client.setShipPrivacy(privacy);
     }
 
+    setGravity(direction) {
+        return this.client.setShipGravity(direction);
+    }
+
     recoverStarterItem(itemId, options = {}) {
         return this.client.recoverStarterItem(itemId, options);
     }
