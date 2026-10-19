@@ -104,6 +104,11 @@ export class DisconnectError extends Error {
 
 export function normalizeDisconnect(eventOrCode?: unknown, reason?: unknown): DisconnectInfo;
 
+export interface ShipManagementOptions {
+    /** Milliseconds to wait for server confirmation; default 10000. */
+    timeout?: number;
+}
+
 export interface StarterRecoveryOptions {
     /** Milliseconds to wait for the response; default 10000. */
     timeout?: number;
@@ -604,6 +609,8 @@ export class DredlessClient {
     unbanPlayer(refId: number): this;
     setShipGravity(direction: ShipGravityDirection): this;
     setShipPatronPerks(enabled: boolean): this;
+    resetInvite(options?: ShipManagementOptions): Promise<ShipConfig>;
+    demoteSelf(options?: ShipManagementOptions): Promise<void>;
     /** Await recovery success; reject with the server's failure reason. */
     recoverStarterItem(itemId: number, options?: StarterRecoveryOptions): Promise<void>;
 
@@ -779,7 +786,8 @@ export interface ShipManagementDomain {
 
     requestPlayerList(): DredlessClient;
 
-    resetInvite(): DredlessClient;
+    /** Await a server config containing a changed, nonempty invite key. */
+    resetInvite(options?: ShipManagementOptions): Promise<ShipConfig>;
 
     setPrivacy(privacy: ShipPrivacy): DredlessClient;
 
@@ -807,7 +815,8 @@ export interface ShipManagementDomain {
     /** Remove a ship ban using the player list entry’s refId. */
     unbanPlayer(refId: number): DredlessClient;
 
-    demoteSelf(): DredlessClient;
+    /** Await server demotion; management caches have been cleared when this resolves. */
+    demoteSelf(options?: ShipManagementOptions): Promise<void>;
 
     config(): ShipConfig | null;
 
