@@ -34,7 +34,8 @@ export class ModelReader {
 
     readFieldDelta() {
         const raw = this.readUnsigned();
-        return (raw & 1) === 0 ? raw / 2 : -(raw >> 1);
+        const magnitude = Math.floor(raw / 2);
+        return raw % 2 === 0 ? magnitude : -magnitude;
     }
 
     readBlob() {
