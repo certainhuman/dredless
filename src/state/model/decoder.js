@@ -205,7 +205,8 @@ export const MODEL_TABLE_SPECS = new Map([
     [21, {
         name: "gate_portal",
         orderedValues: true,
-        fields: numericFields({1: 20, 2: 24}),
+        // Bit 16 is a numeric gate orientation/state delta, after the blobs.
+        fields: numericFields({1: 20, 2: 24, 16: 52}),
         blobs: [{bit: 4, offset: 28}, {bit: 8, offset: 40}]
     }],
     [24, {
@@ -218,7 +219,11 @@ export const MODEL_TABLE_SPECS = new Map([
     [25, {
         name: "zone_label",
         orderedValues: true,
-        fields: numericFields({1: 20, 2: 24}),
+        // Wire 88 packs large/target/restricted flags before all field values.
+        packedBeforeValues: true,
+        packedBits: [{bit: 16, offset: 57}, {bit: 32, offset: 58}, {bit: 64, offset: 59}],
+        defaults: {q28: 100},
+        fields: numericFields({1: 20, 2: 24, 128: 28}),
         blobs: [{bit: 4, offset: 28}, {bit: 8, offset: 40}]
     }],
     [26, {name: "numeric_single", fields: numericFields({1: 20})}],
