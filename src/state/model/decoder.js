@@ -45,19 +45,13 @@ export const TWO_FIELD_SPEC = {
 
 export const LABEL_STATE_SPEC = {
     name: "label_state",
-    read(reader, record, mask) {
-        if (mask & 1) record.blob20 = reader.readBlob();
-        if (mask & 2) {
-            if (mask & 1) record.blob24 = reader.readBlob();
-            else record.q20 = (record.q20 || 0) + reader.readFieldDelta();
-        }
-        if (mask & 4) record.q28 = (record.q28 || 0) + reader.readFieldDelta();
-        if (mask & 8) {
-            if (mask & 1) record.q32 = (record.q32 || 0) + reader.readFieldDelta();
-            else record.blob28 = reader.readBlob();
-        }
-        if (mask & 16) record.q36 = (record.q36 || 0) + reader.readFieldDelta();
-    }
+    // Packed flag first, two independent text blobs,
+    // then two numeric deltas. Field types never depend on another mask bit.
+    // Keep the existing summary keys for the strings and colors.
+    packedBeforeValues: true,
+    packedBits: [{bit: 16, offset: 36}],
+    blobs: [{bit: 1, offset: 20}, {bit: 2, offset: 24}],
+    fields: numericFields({4: 28, 8: 32})
 };
 
 export const SIMPLE_LABEL_STATE_SPEC = {
