@@ -1107,14 +1107,10 @@ export class ModelState {
             if (delta === 0) break;
             entity += delta;
             removals.push(entity);
-            // Delete only from tables the entity actually appears in when the derived
-            // index is available; fall back to a full scan otherwise.
-            const known = this._derived?.entityTableIds?.get(entity);
-            if (known) {
-                for (const tableId of known) this.tables.get(tableId)?.delete(entity);
-            } else {
-                for (const records of this.tables.values()) records.delete(entity);
-            }
+            // The derived membership index describes the previous apply(), so it
+            // can miss component tables added earlier in this same packet (or
+            // in a partially decoded section). A removal must clear every table.
+            for (const records of this.tables.values()) records.delete(entity);
             this.#helmOccupied.delete(entity);
             this.#commsStationOccupied.delete(entity);
             this.#navigationUnitAutoWarp.delete(entity);

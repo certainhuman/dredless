@@ -1567,8 +1567,15 @@ export interface CargoEjectorSummary {
     entity: number;
     typeId: number;
     typeName: string | null;
-    progress: number | null;
-    active: boolean | null;
+    /** Animation cycle in renderer units (q20 / 100). */
+    progress: number;
+    /** Signed lateral offset used by the ejector arm. */
+    direction: number;
+    extension: number;
+    noMount: boolean;
+    /** Whether the cycle or arm extension is nonzero; not a replicated flag. */
+    active: boolean;
+    state: ModelRecord;
 }
 
 export interface EntityContentsSummary {
