@@ -2385,6 +2385,8 @@ export interface PlayerSummary {
     cheats: { noclip: boolean; sandboxBuild: boolean };
     /** Shared item effect flag, including active rocket/hover pack exhaust. */
     itemEffectActive: boolean;
+    /** Current world velocity from motion table 4, in world units per second. */
+    velocity: { x: number; y: number } | null;
     animation: PlayerAnimationSummary;
     appearance: PlayerAppearanceSummary | null;
     actionPreview: PlayerActionPreviewSummary | null;
