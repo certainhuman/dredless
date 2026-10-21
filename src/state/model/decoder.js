@@ -655,12 +655,21 @@ export function summarizeFabricator(entity, record, itemHolderRecord = null, typ
 
 export function summarizeCargoEjector(entity, typeId, record) {
     if (typeId !== 223) return null;
+    // Official DTS -> component sync (1014): q20/100 is the cycle,
+    // q24 is the signed lateral offset, q28/100 is arm extension, and
+    // q33 suppresses the hull mount. The flag is not an active bit.
+    const progress = numberOrNull(record?.q20, 100) ?? 0;
+    const extension = numberOrNull(record?.q28, 100) ?? 0;
     return {
         entity,
         typeId,
         typeName: entityNameFromType(typeId),
-        progress: boundedProgress(record?.q24 ?? null),
-        active: record?.q33 == null ? null : Boolean(record.q33)
+        progress,
+        direction: record?.q24 ?? 0,
+        extension,
+        noMount: Boolean(record?.q33),
+        active: progress > 0 || extension > 0,
+        state: cloneRecord(record)
     };
 }
 

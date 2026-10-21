@@ -349,3 +349,8 @@ name have been removed. Raw encoded values remain in `.state.state` (`q40` for
 the indicator, `q56` for resources).
 
 Summary progress, counts, health, occupancy, and raw model records vary by component; use the component's [declared summary](../src/index.d.ts) rather than assuming all machines share a progress scale or health convention.
+
+Cargo ejector rendering state uses table 49 `q20 / 100` for `progress`,
+`q24` for the signed `direction` offset, `q28 / 100` for `extension`, and
+`q33` for `noMount`. `active` reports a nonzero cycle or extension; it is
+not the mount flag. The summary also exposes the raw `state`.
