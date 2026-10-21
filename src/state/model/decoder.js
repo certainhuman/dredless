@@ -1494,7 +1494,7 @@ function summarizePlayerAppearance(record, player) {
     };
 }
 
-export function summarizePlayer(entity, record, previewRecord = null, blueprintItems = [], appearanceRecord = null, localPlayerEntity = null) {
+export function summarizePlayer(entity, record, previewRecord = null, blueprintItems = [], appearanceRecord = null, localPlayerEntity = null, motionRecord = null) {
     if (!record) return null;
     const rawHeldItemId = record.q28 == null ? null : Number(record.q28);
     const heldItemId = Number.isFinite(rawHeldItemId) && rawHeldItemId !== 0 ? rawHeldItemId : null;
@@ -1522,6 +1522,12 @@ export function summarizePlayer(entity, record, previewRecord = null, blueprintI
             sandboxBuild: Boolean(record.q108)
         },
         itemEffectActive: Boolean(record.q111),
+        // Official motion component sync (1013): q20 is metadata;
+        // q24/q28 are world velocity, quantized in twentieths.
+        velocity: motionRecord ? {
+            x: (motionRecord.q24 ?? 0) / 20,
+            y: (motionRecord.q28 ?? 0) / 20
+        } : null,
         animation: {
             facing: record.q20 ?? 1,
             orientation: record.q24 ?? 0,

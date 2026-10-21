@@ -878,7 +878,7 @@ export class ModelState {
         const shieldGenerator = typeId === 256 ? summarizeShieldGenerator(entityId, shieldRecord, itemHolderRecord, shieldGeneratorBoostRecord) : null;
         const shieldProjector = typeId === 257 ? summarizeShieldProjector(entityId, shieldProjectorRecord) : null;
         const blueprintPreview = summarizeBlueprintPreview(entityId, blueprintPreviewRecord, transformRecord);
-        const player = summarizePlayer(entityId, playerRecord, rec(14), this.#blueprintPreviewItems(), rec(56), this.#localPlayerEntity);
+        const player = summarizePlayer(entityId, playerRecord, rec(14), this.#blueprintPreviewItems(), rec(56), this.#localPlayerEntity, rec(4));
         const shipControl = summarizeShipControl(entityId, shipControlRecord);
         const helm = summarizeHelm(entityId, typeId, this.#helmOccupied.get(entityId));
         const commsStation = summarizeCommsStation(entityId, typeId, commsStationRecord, this.#commsStationOccupied.get(entityId));
