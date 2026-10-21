@@ -1092,7 +1092,9 @@ export function summarizeShipControl(entity, record) {
             tankValues
         },
         warp: warpTicks == null ? null : {
-            active: record.q28 === 3,
+            // Native ship status uses the positive warp timer (q84 / 20).
+            // q28 is thrust Y and does not indicate a warp state.
+            active: warpTicks > 0,
             ticks: warpTicks,
             elapsedSeconds: warpElapsedSeconds,
             durationSeconds: warpDurationSeconds,
