@@ -13,7 +13,7 @@ function unsigned(value) {
 }
 
 function streamInt(value) {
-    return unsigned(value < 0 ? -2 * value - 1 : 2 * value);
+    return unsigned(value < 0 ? -2 * value + 1 : 2 * value);
 }
 
 function fieldDelta(value) {
