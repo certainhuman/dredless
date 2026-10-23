@@ -74,7 +74,7 @@ export function peekStreamInt(reader) {
         result += (byte & 0x7f) * (2 ** shift);
         if ((byte & 0x80) === 0) {
             return {
-                value: (result & 1) === 0 ? result / 2 : -((result + 1) / 2),
+                value: result % 2 === 0 ? result / 2 : -Math.floor(result / 2),
                 offset
             };
         }
