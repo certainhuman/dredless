@@ -87,7 +87,7 @@ test("cargo hatch pickup animation exposes openFraction", (t) => {
     assert.deepEqual([...new Set(samples)], [0.25, 0.5, 0.75, 1, 0]);
 });
 
-test("cargo ejector owns table 49 progress state instead of generic processor", (t) => {
+test("cargo ejector decodes table 49 direction and mount state independently of activity", (t) => {
     const store = new WorldStore();
     if (!applyOfficialCapture(store, "machine-progress-loader-samples.jsonl")) t.skip("capture not present");
 
@@ -98,5 +98,11 @@ test("cargo ejector owns table 49 progress state instead of generic processor", 
         assert.equal(world.model.entities().some((entity) => entity.contents?.processor), false);
     }
 
-    assert.ok(ejectors.some((ejector) => ejector.typeId === 223 && ejector.progress === 4 && ejector.active === true));
+    const ejector = ejectors.find((ejector) => ejector.entity === 8 && ejector.typeId === 223);
+    assert.ok(ejector, "capture contains the cargo ejector");
+    assert.equal(ejector.direction, 4, "q24 is the lateral offset, not cycle progress");
+    assert.equal(ejector.noMount, true, "q33 hides the mount, not an active flag");
+    assert.equal(ejector.progress, 0);
+    assert.equal(ejector.extension, 0);
+    assert.equal(ejector.active, false, "an offset and hidden mount do not imply activity");
 });
