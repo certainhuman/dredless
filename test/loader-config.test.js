@@ -1354,8 +1354,8 @@ test("ModelState decodes starter cannon aim-only and firing updates", () => {
     assert.equal(cannon.ammoName, "Standard Ammo");
     assert.equal(cannon.ammoCount, 16);
     assert.equal(cannon.relativeAngleRadians, 2 / 200);
-    assert.equal(cannon.recoil, null);
-    assert.deepEqual(cannon.recoils, [null, null]);
+    assert.equal(cannon.recoil, 50);
+    assert.deepEqual(cannon.recoils, [50, 50]);
 
     model.apply(modelData(
         2,
@@ -1374,8 +1374,8 @@ test("ModelState decodes starter cannon aim-only and firing updates", () => {
     cannon = model.entity(entity).contents.cannon;
     assert.equal(cannon.ammoCount, 15);
     assert.equal(cannon.relativeAngleRadians, 205 / 200);
-    assert.equal(cannon.recoil, -24);
-    assert.deepEqual(cannon.recoils, [-24, null]);
+    assert.equal(cannon.recoil, 26);
+    assert.deepEqual(cannon.recoils, [26, 50]);
 
     model.apply(modelData(
         4,
@@ -1384,7 +1384,7 @@ test("ModelState decodes starter cannon aim-only and firing updates", () => {
 
     cannon = model.entity(entity).contents.cannon;
     assert.equal(cannon.ammoCount, 15);
-    assert.equal(cannon.recoil, 0);
+    assert.equal(cannon.recoil, 50);
 });
 
 test("ModelState decodes machine cannon high-bit state without metadata spillover", () => {
@@ -1417,9 +1417,9 @@ test("ModelState decodes machine cannon high-bit state without metadata spillove
     cannon = model.entity(entity).contents.cannon;
     assert.equal(cannon.relativeAngleRadians, 217 / 200);
     assert.equal(cannon.ammoItemId, null);
-    assert.equal(cannon.state.q44, 3);
-    assert.equal(cannon.recoil, 0);
-    assert.equal(cannon.recoil2, null);
+    assert.equal(cannon.state.q44, 19);
+    assert.equal(cannon.recoil, 50);
+    assert.equal(cannon.recoil2, 50);
     assert.equal(model.snapshot().entities.length, 1);
 
     model.apply(modelData(
@@ -1428,9 +1428,9 @@ test("ModelState decodes machine cannon high-bit state without metadata spillove
     ));
 
     cannon = model.entity(entity).contents.cannon;
-    assert.equal(cannon.recoil, 0);
-    assert.equal(cannon.recoil2, -25);
-    assert.deepEqual(cannon.recoils, [0, -25]);
+    assert.equal(cannon.recoil, 50);
+    assert.equal(cannon.recoil2, 25);
+    assert.deepEqual(cannon.recoils, [50, 25]);
 
     model.apply(modelData(
         4,
