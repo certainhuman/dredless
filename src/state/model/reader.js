@@ -29,7 +29,10 @@ export class ModelReader {
 
     readStreamInt() {
         const raw = this.readUnsigned();
-        return (raw & 1) === 0 ? raw / 2 : -((raw + 1) / 2);
+        // The client uses sign/magnitude varints, including entity-ID deltas.
+        // Odd 2*n+1 decodes to -n (not the zigzag value -n-1).
+        const magnitude = Math.floor(raw / 2);
+        return raw % 2 === 0 ? magnitude : -magnitude;
     }
 
     readFieldDelta() {
