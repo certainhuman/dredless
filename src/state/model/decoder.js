@@ -234,6 +234,12 @@ export const MODEL_TABLE_SPECS = new Map([
     }],
     [26, {name: "numeric_single", fields: numericFields({1: 20})}],
     [31, {name: "numeric_single", fields: numericFields({1: 20})}],
+    [32, {
+        // Wire 95 has values; treating it as a marker swallows following removals.
+        name: "numeric_triplet",
+        defaults: {q28: 10},
+        fields: numericFields({1: 20, 2: 24, 4: 28})
+    }],
     [37, {name: "loose_item_marker", packedBits: [{bit: 2, offset: 29}], fields: numericFields({1: 20, 4: 24})}],
     [38, {name: "flag_state", packedBits: [{bit: 1, offset: 21}], fields: []}],
     [39, {name: "comms_transmit", ...TWO_FIELD_SPEC}],
@@ -260,6 +266,8 @@ export const MODEL_TABLE_SPECS = new Map([
     }],
     [54, {
         name: "starter_cannon",
+        // Wire deltas start with both barrels fully extended and capacity 16.
+        defaults: {q36: 50, q44: 16, q48: 50},
         fields: numericFields({1: 20, 2: 32, 4: 24, 8: 28, 16: 44, 32: 36, 64: 48, 128: 52, 256: 40, 512: 56, 1024: 60})
     }],
     [55, {
@@ -434,7 +442,7 @@ export const WIRE_TAG_TABLES = new Map([
     [169, 77]
 ]);
 
-export const MASK_ONLY_TABLES = new Set([13, 22, 23, 27, 28, 30, 32, 36, 40, 46, 48, 52, 58, 64, 65, 66, 68, 73, 74]);
+export const MASK_ONLY_TABLES = new Set([13, 22, 23, 27, 28, 30, 36, 40, 46, 48, 52, 58, 64, 65, 66, 68, 73, 74]);
 
 export const ENTITY_FOOTPRINTS = new Map([
     [240, {width: 2, height: 2}],
