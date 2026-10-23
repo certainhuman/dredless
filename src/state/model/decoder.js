@@ -123,7 +123,13 @@ export const MODEL_TABLE_SPECS = new Map([
     [2, {name: "numeric_pair", ...TWO_FIELD_SPEC}],
     [3, {name: "gate_width", fields: numericFields({1: 20, 2: 24, 4: 28, 8: 32, 16: 36, 32: 40})}],
     [4, {name: "motion_aux", packedBits: [{bit: 8, offset: 33}], fields: numericFields({1: 20, 2: 24, 4: 28})}],
-    [5, {name: "entity_health", fields: numericFields({1: 20, 2: 24, 4: 28, 8: 32})}],
+    [5, {
+        name: "entity_health",
+        // The official table starts both bar dimensions at 10 (one world unit).
+        // Field values on the wire are deltas relative to these defaults.
+        defaults: {q28: 10, q32: 10},
+        fields: numericFields({1: 20, 2: 24, 4: 28, 8: 32})
+    }],
     [6, {name: "item_holder", ...TWO_FIELD_SPEC}],
     [7, {
         name: "entity_type",
@@ -936,7 +942,7 @@ export function botClassFromState({health, table2Record, smallRecord, combatReco
 }
 
 export function isCowardBossState({health}) {
-    return health?.state?.q28 === 70 && health?.state?.q32 === 78;
+    return health?.state?.q28 === 80 && health?.state?.q32 === 88;
 }
 
 export function isOrangeFoolBotState({combatRecord}) {
@@ -946,8 +952,8 @@ export function isOrangeFoolBotState({combatRecord}) {
 export function isZombieBossBotState({health, table2Record, combatRecord}) {
     return (
         combatRecord?.q20 === -430233088 &&
-        health?.state?.q28 === 30 &&
-        health?.state?.q32 === 166 &&
+        health?.state?.q28 === 40 &&
+        health?.state?.q32 === 176 &&
         table2Record?.q20 === 320 &&
         table2Record?.q24 === -900
     );
@@ -956,39 +962,39 @@ export function isZombieBossBotState({health, table2Record, combatRecord}) {
 export function isRedSentryBotState({health, table2Record, combatRecord}) {
     return (
         combatRecord?.q20 === 508251904 && combatRecord?.q72 === 2 ||
-        health?.state?.q28 === 70 && health?.state?.q32 === 166 && table2Record?.q20 === 320 && table2Record?.q24 === -900
+        health?.state?.q28 === 80 && health?.state?.q32 === 176 && table2Record?.q20 === 320 && table2Record?.q24 === -900
     );
 }
 
 export function isBlueRusherBotState({health, table2Record, combatRecord}) {
     return (
         combatRecord?.q20 === 1113052928 && combatRecord?.q72 === 2 ||
-        health?.state?.q28 === 30 && health?.state?.q32 === 34 && table2Record?.q20 === 80 && table2Record?.q24 === -900
+        health?.state?.q28 === 40 && health?.state?.q32 === 44 && table2Record?.q20 === 80 && table2Record?.q24 === -900
     );
 }
 
 export function isRedSniperBotState({health, table2Record}) {
-    return health?.state?.q28 === 35 && health?.state?.q32 === 89 && table2Record?.q20 === 180 && table2Record?.q24 === -900;
+    return health?.state?.q28 === 45 && health?.state?.q32 === 99 && table2Record?.q20 === 180 && table2Record?.q24 === -900;
 }
 
 export function isYellowHunterBotState({health, table2Record, combatRecord}) {
     return (
         combatRecord?.q20 === -775665152 && combatRecord?.q72 === 4 && combatRecord?.q44 === -944515328 ||
-        health?.state?.q28 === 30 && health?.state?.q32 === 56 && table2Record?.q20 === 120 && table2Record?.q24 === -900
+        health?.state?.q28 === 40 && health?.state?.q32 === 66 && table2Record?.q20 === 120 && table2Record?.q24 === -900
     );
 }
 
 export function isAquaShielderBotState({health, table2Record, combatRecord}) {
     return (
         combatRecord?.q20 === 13697024 && combatRecord?.q24 === 1 ||
-        health?.state?.q28 === 50 && health?.state?.q32 === 122 && table2Record?.q20 === 240 && table2Record?.q24 === -900
+        health?.state?.q28 === 60 && health?.state?.q32 === 132 && table2Record?.q20 === 240 && table2Record?.q24 === -900
     );
 }
 
 export function isLazerEnthusiastBotState({health, table2Record, table10Record, beamRecord}) {
     return (
-        health?.state?.q28 === 140 &&
-        health?.state?.q32 === 155 &&
+        health?.state?.q28 === 150 &&
+        health?.state?.q32 === 165 &&
         table2Record?.q20 === 300 &&
         table2Record?.q24 === -900 &&
         Boolean(table10Record) &&
@@ -998,8 +1004,8 @@ export function isLazerEnthusiastBotState({health, table2Record, table10Record, 
 
 export function isYellowMineGuardBotState({health, smallRecord, combatRecord, table2Record}) {
     return (
-        health?.state?.q28 === 30 &&
-        health?.state?.q32 === 33 &&
+        health?.state?.q28 === 40 &&
+        health?.state?.q32 === 43 &&
         smallRecord?.q20 === 78 &&
         smallRecord?.q24 === 78 &&
         combatRecord?.q24 === -995542016 &&
@@ -1008,11 +1014,11 @@ export function isYellowMineGuardBotState({health, smallRecord, combatRecord, ta
 }
 
 export function isShieldHelperBotState({health, table2Record}) {
-    return health?.state?.q28 === 30 && health?.state?.q32 === 33 && health?.maxHp === 1000 && !table2Record;
+    return health?.state?.q28 === 40 && health?.state?.q32 === 43 && health?.maxHp === 1000 && !table2Record;
 }
 
 export function isShieldMasterBotState({health, table2Record}) {
-    return health?.state?.q28 === 190 && health?.state?.q32 === 210 && health?.maxHp === 15000 && Boolean(table2Record);
+    return health?.state?.q28 === 200 && health?.state?.q32 === 220 && health?.maxHp === 15000 && Boolean(table2Record);
 }
 
 export function botIdentifierFromState({combatRecord, motionRecord, smallRecord}) {
