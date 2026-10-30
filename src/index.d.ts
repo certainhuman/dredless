@@ -937,6 +937,7 @@ export interface WorldDomain {
     rcds: EntitySummaryCollection<RcdSummary>;
     balls: EntitySummaryCollection<BallSummary>;
     recyclers: EntitySummaryCollection<RecyclerSummary>;
+    pvpEvent: PvpEventDomain;
     blocks: BlockCollection;
     materials: MaterialCollection;
 
@@ -955,6 +956,55 @@ export interface ShipDomain extends WorldDomain {
     entity(): EntityHandle | null;
 
     overworldEntity: EntityHandle | null;
+}
+
+export interface PvpEventDomain {
+    state(): PvpEventSummary | null;
+    parties(): PvpPartiesSummary | null;
+}
+
+export interface PvpEventBounds {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+}
+
+export interface PvpEventSummary {
+    entity: number;
+    /** Whether the event timer is non-negative, matching HUD visibility. */
+    active: boolean;
+    /** Current red boundary rectangle, in world coordinates. */
+    bounds: PvpEventBounds;
+    /** Outer rectangle used to shade the area outside the event bounds. */
+    worldBounds: PvpEventBounds;
+    timeSeconds: number;
+    /** Additional damage percentage; zero means no bonus. */
+    damageBonusPercent: number;
+    /** Total damage percentage; 100 means normal damage. */
+    damagePercent: number;
+    damageMultiplier: number;
+    /** HUD count of observed ship components without the exclusion flag. */
+    shipsLeft: number;
+    state: ModelRecord;
+}
+
+export interface PvpPartyEntrySummary {
+    entity: number;
+    partyId: number;
+    hexCode: string | null;
+    /** Invitation sent by the party, or join request sent by the ship. */
+    kind: "invitation" | "join-request";
+    state: ModelRecord;
+}
+
+export interface PvpPartiesSummary {
+    configEntity: number | null;
+    /** Defaults to 35 when the configuration component is absent, matching the party UI. */
+    maxShips: number;
+    /** Relationship entries, not an authoritative list of accepted members. */
+    entries: PvpPartyEntrySummary[];
+    configState: ModelRecord | null;
 }
 
 export interface OverworldDomain extends WorldDomain {
@@ -1823,6 +1873,8 @@ export interface WorldSnapshot {
     balls: BallSummary[];
     recyclers: RecyclerSummary[];
     shipControls: ShipControlSummary[];
+    pvpEvent: PvpEventSummary | null;
+    pvpParties: PvpPartiesSummary | null;
     commsBubbles: CommsBubbleSummary[];
     tiles?: Tile[];
 }
@@ -1924,6 +1976,9 @@ export class ModelState {
 
     shipControls(): ShipControlSummary[];
 
+    pvpEvent(): PvpEventSummary | null;
+    pvpParties(): PvpPartiesSummary | null;
+
     shipMetadata(): ShipWorldMetadataSummary | null;
 
     machines(): MachineSummary;
@@ -1949,6 +2004,8 @@ export interface ModelSnapshot {
     balls: BallSummary[];
     recyclers: RecyclerSummary[];
     shipControls: ShipControlSummary[];
+    pvpEvent: PvpEventSummary | null;
+    pvpParties: PvpPartiesSummary | null;
     machines: MachineSummary;
     tables: unknown[];
 }

@@ -8,6 +8,7 @@
 - [Entities and features](#entities-and-features)
 - [Machine and other collections](#machine-and-other-collections)
 - [Projectiles, bots, and special entities](#projectiles-bots-and-special-entities)
+- [PvP events and parties](#pvp-events-and-parties)
 - [Nearby ships](#nearby-ships)
 - [Live reads and snapshots](#live-reads-and-snapshots)
 - [Coordinates and incomplete data](#coordinates-and-incomplete-data)
@@ -175,6 +176,66 @@ annihilator is a block material in the official client, so it is represented thr
 Footprints and the block index are coarse occupancy aids, not collision polygons or navigation meshes. Check
 `footprint.source`: `"default"` and `"heuristic"` dimensions are estimates, and hover outlines describe highlights.
 Helm/comms occupancy retains its existing inference rules; these collections do not establish player-to-machine links.
+
+## PvP events and parties
+
+Read the event state from the world that received it, normally the overworld:
+
+```ts
+world.pvpEvent.state(): PvpEventSummary | null;
+world.pvpEvent.parties(): PvpPartiesSummary | null;
+```
+
+`state()` returns `null` when the event component is absent. Otherwise it includes:
+
+| Field                | Meaning                                                                                                      |
+|----------------------|--------------------------------------------------------------------------------------------------------------|
+| `entity`             | Event metadata entity ID.                                                                                    |
+| `active`             | Event timer is non-negative, matching when the official HUD displays event status.                           |
+| `bounds`             | `{minX, minY, maxX, maxY}`: current red boundary in world coordinates. Wire coordinates are divided by `10`. |
+| `worldBounds`        | Outer drawing rectangle, starting at `(0, 0)`, used to shade the area outside the boundary.                  |
+| `timeSeconds`        | Server-reported event time in seconds. No local extrapolation is applied.                                    |
+| `damageBonusPercent` | Additional zone-wide PvP damage percentage.                                                                  |
+| `damagePercent`      | `100 + damageBonusPercent`; normal damage is `100`.                                                          |
+| `damageMultiplier`   | `damagePercent / 100`; normal damage is `1`.                                                                 |
+| `shipsLeft`          | Counts observed ship components without the event exclusion flag, matching the HUD calculation.              |
+| `state`              | Raw event record, including the still-unconfirmed `q48` value.                                               |
+
+**Fragment:**
+
+```js
+const event = client.overworld()?.pvpEvent.state();
+if (event?.active) {
+  console.log(event.timeSeconds, event.shipsLeft, event.damageMultiplier, event.bounds);
+}
+```
+
+`parties()` is independent of the event timer and may be available in the Event Lobby when `state()` is `null`.
+It returns `null` only when both party configuration and party entries are absent. Its shape is:
+
+```ts
+{
+  configEntity: number | null;
+  maxShips: number;
+  entries: {
+    entity: number;
+    partyId: number;
+    hexCode: string | null;
+    kind: "invitation" | "join-request";
+    state: ModelRecord;
+  }[];
+  configState: ModelRecord | null;
+}
+```
+
+`maxShips` uses the official party UI's default of `35` when the configuration component is absent. Each entry
+associates a party ID with a ship hex code. `kind: "invitation"` means the party invited the ship;
+`kind: "join-request"` means the ship requested to join the party. The recipient can accept and the sender can cancel.
+These are pending relationships, not accepted members, so no member count is inferred from them.
+Ship hex codes are not decimal ship IDs or ECS entity IDs. The raw flag remains available as `state.q37`.
+
+World and model snapshots include `pvpEvent` and `pvpParties`. Standalone `ModelState` exposes `pvpEvent()` and
+`pvpParties()` with the same summary shapes.
 
 ## Nearby ships
 
