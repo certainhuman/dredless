@@ -432,6 +432,7 @@ export class WorldDomain {
         this.rcds = new EntitySummaryCollection(client, scope, "rcds");
         this.balls = new EntitySummaryCollection(client, scope, "balls");
         this.recyclers = new EntitySummaryCollection(client, scope, "recyclers");
+        this.pvpEvent = new PvpEventDomain(client, scope);
         this.blocks = new BlockCollection(client, scope);
         this.materials = new MaterialCollection(client, scope);
     }
@@ -446,6 +447,21 @@ export class WorldDomain {
 
     snapshot(options = {}) {
         return worldStateFor(this.client, this.scope)?.snapshot(options) || null;
+    }
+}
+
+class PvpEventDomain {
+    constructor(client, scope) {
+        this.client = client;
+        this.scope = scope;
+    }
+
+    state() {
+        return worldStateFor(this.client, this.scope)?.model.pvpEvent() || null;
+    }
+
+    parties() {
+        return worldStateFor(this.client, this.scope)?.model.pvpParties() || null;
     }
 }
 

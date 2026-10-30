@@ -266,6 +266,8 @@ export class WorldState {
             balls: model.balls,
             recyclers: model.recyclers,
             shipControls: model.shipControls,
+            pvpEvent: model.pvpEvent,
+            pvpParties: model.pvpParties,
             commsBubbles: this.commsBubbles.slice(),
             tiles: includeTiles ? [...this.tiles.values()] : undefined
         };

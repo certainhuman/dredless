@@ -216,6 +216,8 @@ modelState.bots(): BotSummary[];
 modelState.rcds(): RcdSummary[];
 modelState.balls(): BallSummary[];
 modelState.recyclers(): RecyclerSummary[];
+modelState.pvpEvent(): PvpEventSummary | null;
+modelState.pvpParties(): PvpPartiesSummary | null;
 modelState.setLocalPlayerEntity(entity: number | null): void;
 modelState.shipControls(): ShipControlSummary[];
 modelState.shipMetadata(): ShipWorldMetadataSummary | null;

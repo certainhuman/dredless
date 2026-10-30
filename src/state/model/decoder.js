@@ -240,6 +240,19 @@ export const MODEL_TABLE_SPECS = new Map([
         defaults: {q28: 10},
         fields: numericFields({1: 20, 2: 24, 4: 28})
     }],
+    [33, {
+        name: "pvp_event",
+        fields: numericFields({2: 20, 4: 24, 8: 28, 16: 32, 32: 36, 64: 40, 128: 44, 256: 48, 512: 52})
+    }],
+    [34, {name: "pvp_party_config", fields: numericFields({2: 20})}],
+    [35, {
+        name: "pvp_party_entry",
+        packedBeforeValues: true,
+        orderedValues: true,
+        packedBits: [{bit: 4, offset: 37}],
+        blobs: [{bit: 1, offset: 24}],
+        fields: numericFields({2: 20})
+    }],
     [37, {name: "loose_item_marker", packedBits: [{bit: 2, offset: 29}], fields: numericFields({1: 20, 4: 24})}],
     [38, {name: "flag_state", packedBits: [{bit: 1, offset: 21}], fields: []}],
     [39, {name: "comms_transmit", ...TWO_FIELD_SPEC}],
@@ -395,6 +408,9 @@ export const WIRE_TAG_TABLES = new Map([
     [93, 30],
     [94, 31],
     [95, 32],
+    [96, 33],
+    [97, 34],
+    [98, 35],
     [99, 36],
     [120, 37],
     [121, 38],
@@ -1114,6 +1130,38 @@ export function summarizeShipControl(entity, record) {
             durationSeconds: warpDurationSeconds,
             remainingSeconds: warpRemainingSeconds
         },
+        state: cloneRecord(record)
+    };
+}
+
+export function summarizePvpEvent(entity, record, shipsLeft) {
+    if (!record) return null;
+    const damageBonusPercent = record.q52 ?? 0;
+    return {
+        entity,
+        active: (record.q44 ?? 0) >= 0,
+        bounds: {
+            minX: (record.q20 ?? 0) / 10,
+            minY: (record.q24 ?? 0) / 10,
+            maxX: (record.q28 ?? 0) / 10,
+            maxY: (record.q32 ?? 0) / 10
+        },
+        worldBounds: {minX: 0, minY: 0, maxX: record.q36 ?? 0, maxY: record.q40 ?? 0},
+        timeSeconds: record.q44 ?? 0,
+        damageBonusPercent,
+        damagePercent: damageBonusPercent + 100,
+        damageMultiplier: (damageBonusPercent + 100) / 100,
+        shipsLeft,
+        state: cloneRecord(record)
+    };
+}
+
+export function summarizePvpPartyEntry(entity, record) {
+    return {
+        entity,
+        partyId: record.q20 ?? 0,
+        hexCode: decodeText(record.blob24),
+        kind: record.q37 ? "join-request" : "invitation",
         state: cloneRecord(record)
     };
 }

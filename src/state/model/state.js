@@ -83,6 +83,8 @@ const {
     botIdentifierFromState,
     summarizeShieldGenerator,
     summarizeShipControl,
+    summarizePvpEvent,
+    summarizePvpPartyEntry,
     summarizeShipSize,
     summarizeShipWorldMetadata,
     summarizeItemCrate,
@@ -278,6 +280,8 @@ export class ModelState {
             balls: derived.specialEntities.balls.slice(),
             recyclers: derived.specialEntities.recyclers.slice(),
             shipControls: derived.shipControls.slice(),
+            pvpEvent: this.pvpEvent(),
+            pvpParties: this.pvpParties(),
             machines: this.#machinesSnapshot(derived.machines),
             tables: includeTables ? this.tablesSnapshot() : derived.tableSummaries.slice()
         };
@@ -329,6 +333,29 @@ export class ModelState {
 
     shipControls() {
         return this.#derivedState().shipControls.slice();
+    }
+
+    pvpEvent() {
+        const entry = this.table(33).entries().next().value;
+        if (!entry) return null;
+        let shipsLeft = 0;
+        // The HUD excludes ships whose replicated exclusion flag is set.
+        for (const ship of this.table(20).values()) {
+            if (!ship.q153) shipsLeft += 1;
+        }
+        return summarizePvpEvent(entry[0], entry[1], shipsLeft);
+    }
+
+    pvpParties() {
+        const config = this.table(34).entries().next().value;
+        const entries = this.table(35);
+        if (!config && entries.size === 0) return null;
+        return {
+            configEntity: config?.[0] ?? null,
+            maxShips: config ? config[1].q20 ?? 0 : 35,
+            entries: [...entries].map(([entity, record]) => summarizePvpPartyEntry(entity, record)),
+            configState: config ? cloneRecord(config[1]) : null
+        };
     }
 
     shipMetadata() {
