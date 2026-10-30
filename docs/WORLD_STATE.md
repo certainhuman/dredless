@@ -179,13 +179,15 @@ Helm/comms occupancy retains its existing inference rules; these collections do 
 
 ## PvP events and parties
 
-Read the event state from the world that received it, normally the overworld:
+Read singleton event and party state through the top-level client domain:
 
 ```ts
-world.pvpEvent.state(): PvpEventSummary | null;
-world.pvpEvent.parties(): PvpPartiesSummary | null;
+client.pvpEvent.state(): PvpEventSummary | null;
+client.pvpEvent.parties(): PvpPartiesSummary | null;
 ```
 
+The domain checks the overworld first, then other loaded worlds for the replicated components.
+Reads follow the currently loaded state without retaining a separate cache.
 `state()` returns `null` when the event component is absent. Otherwise it includes:
 
 | Field                | Meaning                                                                                                      |
@@ -204,7 +206,7 @@ world.pvpEvent.parties(): PvpPartiesSummary | null;
 **Fragment:**
 
 ```js
-const event = client.overworld()?.pvpEvent.state();
+const event = client.pvpEvent.state();
 if (event?.active) {
   console.log(event.timeSeconds, event.shipsLeft, event.damageMultiplier, event.bounds);
 }
@@ -236,6 +238,42 @@ Ship hex codes are not decimal ship IDs or ECS entity IDs. The raw flag remains 
 
 World and model snapshots include `pvpEvent` and `pvpParties`. Standalone `ModelState` exposes `pvpEvent()` and
 `pvpParties()` with the same summary shapes.
+
+Party commands are available on the same domain:
+
+```ts
+client.pvpEvent.createParty(): DredlessClient;
+client.pvpEvent.leaveParty(): DredlessClient;
+client.pvpEvent.joinParty(hexCode: string): DredlessClient;
+client.pvpEvent.inviteShip(hexCode: string): DredlessClient;
+client.pvpEvent.acceptInvitation(hexCode: string): DredlessClient;
+client.pvpEvent.acceptJoinRequest(hexCode: string): DredlessClient;
+client.pvpEvent.kickShip(hexCode: string): DredlessClient;
+client.pvpEvent.cancelJoinRequest(hexCode: string): DredlessClient;
+client.pvpEvent.cancelInvitation(hexCode: string): DredlessClient;
+```
+
+For `joinParty()`, `acceptInvitation()`, and `cancelJoinRequest()`, supply a ship hex code belonging to the
+target party. The other targeted methods take the hex code of the ship being invited, accepted, kicked, or whose
+invitation is being withdrawn. Use hexadecimal strings without braces; whitespace is trimmed. Numeric party IDs
+and entity IDs are not accepted. An invitation entry's `hexCode` identifies the invited ship, so it does not
+necessarily identify a ship in the inviting party.
+
+`acceptInvitation()` sends the same command as `joinParty()`; `acceptJoinRequest()` sends the same command as
+`inviteShip()`. All commands act on the connection's current ship.
+The server enforces captain access and party/zone restrictions. Methods return after sending or queueing,
+without waiting for confirmation; observe subsequent replicated state for the outcome.
+
+**Fragment:**
+
+```js
+const parties = client.pvpEvent;
+parties.joinParty(targetPartyShip.hexCode);
+// From the party leader's connection, accept the requesting ship:
+parties.acceptJoinRequest(requestingShip.hexCode);
+```
+
+[Protocol builders](PROTOCOL.md#party-builders) expose the same commands for payload construction.
 
 ## Nearby ships
 

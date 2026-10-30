@@ -11,6 +11,7 @@
 | Client readiness, retention, disconnects       | `DredlessClient`, `client.net`             | [Client](CLIENT.md)                         |
 | Callbacks and event payloads                   | `on`, `off`, `once`                        | [Events](EVENTS.md)                         |
 | World, entity, and nearby ship reads           | `currentShip`, `overworld`, entity handles | [World state](WORLD_STATE.md)               |
+| PvP event state and party commands            | `client.pvpEvent`                          | [PvP events and parties](WORLD_STATE.md#pvp-events-and-parties) |
 | Input, inventory, blueprints, chat             | `client.player`, `client.inventory`        | [Player and inventory](PLAYER_INVENTORY.md) |
 | Machine configuration and context menus        | `ship.machines`, `client.tips`             | [Machines](MACHINES.md)                     |
 | Crew, logs, ship settings, saving, perks       | `client.management`                        | [Management](MANAGEMENT.md)                 |

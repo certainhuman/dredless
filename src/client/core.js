@@ -69,6 +69,7 @@ import {
     PlayerDomain,
     ShipManagementDomain,
     InventoryDomain,
+    PvpEventDomain,
     WorldDomain,
     ShipDomain,
     OverworldDomain,
@@ -155,6 +156,7 @@ export class DredlessClient extends EventBus {
         this.inventory = new InventoryDomain(this);
         this.tips = new TipDomain(this);
         this.management = new ShipManagementDomain(this);
+        this.pvpEvent = new PvpEventDomain(this);
         this.cpuLoad = null;
         this.inventoryState = normalizeInventoryEvent({type: "inventory", general_slots: 5});
         this.puiPanels = new Map();

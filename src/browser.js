@@ -5,6 +5,7 @@ export {WorldStore, WorldState} from "./state/world/index.js";
 export {FabricatorType, ModelState, decodeModelData} from "./state/model/index.js";
 export {generateGeneratorMaze, solveGeneratorMazeSeed, maybeSolveGeneratorMazeSeed} from "./state/generator-maze.js";
 export {buildBlueprintPlacementMessage} from "./protocol/outbound/blueprint.js";
+export * from "./protocol/outbound/pvp.js";
 export {decodeMsgpack, encodeMsgpack} from "./protocol/codec/msgpack.js";
 export {buildCommsMessage, flattenRichText, normalizeCommsEvent} from "./protocol/outbound/comms.js";
 export {buildSignedCommandPacket} from "./protocol/outbound/commands.js";

@@ -7,6 +7,7 @@
 - [Import map](#import-map)
 - [Commands and payloads](#commands-and-payloads)
 - [Management builders](#management-builders)
+- [Party builders](#party-builders)
 - [Configuration builders](#configuration-builders)
 - [Generator maze helpers](#generator-maze-helpers)
 - [HTTP and invite tools](#http-and-invite-tools)
@@ -26,6 +27,7 @@ Prefer high-level domains when implementing game actions. These tools are for in
 | `dredless/protocol/comms`                                                       | Comms builder, rich-text flattening/normalization                | [comms.d.ts](../src/protocol/outbound/comms.d.ts)                                              |
 | `dredless/protocol/inventory`                                                   | Drag/equip builders and slot normalization                       | [inventory.d.ts](../src/protocol/outbound/inventory.d.ts)                                      |
 | `dredless/protocol/ship-management`                                             | Management builders, normalizers, action constants               | [ship-management.d.ts](../src/protocol/outbound/ship-management.d.ts)                          |
+| `dredless/protocol/pvp`                                                         | PvP party command builders                                       | [pvp.d.ts](../src/protocol/outbound/pvp.d.ts)                                                  |
 | `dredless/protocol/sign`                                                        | Sign builder/display-mode helpers                                | [sign.d.ts](../src/protocol/outbound/sign.d.ts)                                                |
 | `dredless/protocol/ui-config`                                                   | Binary config/clipboard builders and enums                       | [ui-config.d.ts](../src/protocol/outbound/ui-config.d.ts)                                      |
 | `dredless/game/generator-maze`                                                  | Maze generation/solution helpers                                 | [generator-maze.d.ts](../src/state/generator-maze.d.ts)                                        |
@@ -108,6 +110,29 @@ normalizeCrewLog(event: unknown, previous?: CrewLog | null): CrewLog;
 ```
 
 Pass the inner session submessage, not the outer `{type: 25, submessage}` packet. Player-list/log normalizers merge with the previous normalized state; omitting it begins a fresh state. [Management](MANAGEMENT.md) describes their reset/amend/remove semantics. Action-name constants, `SHIP_MANAGEMENT_TYPE`, and `CREW_LOG_LENGTH` are exported by the management subpath.
+
+## Party builders
+
+These return `PvpPartyMessage` objects, with no I/O or response waiting. Prefer the
+[party domain methods](WORLD_STATE.md#pvp-events-and-parties) for game actions.
+
+```ts
+buildPvpPartyMessage(kind: "NewTeam" | "Leave"): PvpPartyMessage;
+buildPvpPartyMessage(kind: "Join" | "Invite" | "Kick" | "JoinCancel" | "InviteCancel",
+                     hexCode: string): PvpPartyMessage;
+buildCreatePvpPartyMessage(): PvpPartyMessage;
+buildLeavePvpPartyMessage(): PvpPartyMessage;
+buildJoinPvpPartyMessage(hexCode: string): PvpPartyMessage;
+buildInvitePvpPartyMessage(hexCode: string): PvpPartyMessage;
+buildKickPvpPartyMessage(hexCode: string): PvpPartyMessage;
+buildCancelPvpPartyJoinMessage(hexCode: string): PvpPartyMessage;
+buildCancelPvpPartyInviteMessage(hexCode: string): PvpPartyMessage;
+```
+
+The wire shape is `{type: 10, info: {kind, hex}}`; `NewTeam` and `Leave` omit `hex`.
+Targeted commands require a nonempty hexadecimal ship code string without braces. For `Join` and `JoinCancel`,
+target a ship in the other party. `Join` also accepts an invitation; `Invite` also accepts a join request.
+Send a built object with `client.sendMessage(message)`.
 
 ## Configuration builders
 

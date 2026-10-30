@@ -7,6 +7,7 @@ export {FabricatorType, ModelState, decodeModelData} from "./state/model/index.j
 export {generateGeneratorMaze, solveGeneratorMazeSeed, maybeSolveGeneratorMazeSeed} from "./state/generator-maze.js";
 export {buildBlueprintPlacementMessage} from "./protocol/outbound/blueprint.js";
 export {buildChatMessage} from "./protocol/outbound/chat.js";
+export * from "./protocol/outbound/pvp.js";
 export {decodeMsgpack, encodeMsgpack} from "./protocol/codec/msgpack.js";
 export {
     buildCommsMessage,
