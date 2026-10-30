@@ -16,5 +16,6 @@ export {
     EquipmentSlot
 } from "./outbound/inventory.js";
 export * from "./outbound/ship-management.js";
+export * from "./outbound/pvp.js";
 export * from "./outbound/sign.js";
 export * from "./outbound/ui-config.js";

@@ -626,6 +626,7 @@ export class DredlessClient {
     inventory: InventoryDomain;
     tips: TipDomain;
     management: ShipManagementDomain;
+    pvpEvent: PvpEventDomain;
     readyPromise: Promise<this>;
 
     whenReady(): Promise<this>;
@@ -937,7 +938,6 @@ export interface WorldDomain {
     rcds: EntitySummaryCollection<RcdSummary>;
     balls: EntitySummaryCollection<BallSummary>;
     recyclers: EntitySummaryCollection<RecyclerSummary>;
-    pvpEvent: PvpEventDomain;
     blocks: BlockCollection;
     materials: MaterialCollection;
 
@@ -961,6 +961,20 @@ export interface ShipDomain extends WorldDomain {
 export interface PvpEventDomain {
     state(): PvpEventSummary | null;
     parties(): PvpPartiesSummary | null;
+    /** Party commands return after sending or queueing, without server confirmation. */
+    createParty(): DredlessClient;
+    leaveParty(): DredlessClient;
+    /** Request to join the party containing the target ship. */
+    joinParty(hexCode: string): DredlessClient;
+    inviteShip(hexCode: string): DredlessClient;
+    /** Accept an invitation using a ship hex code from the inviting party. */
+    acceptInvitation(hexCode: string): DredlessClient;
+    /** Accept the target ship's join request. */
+    acceptJoinRequest(hexCode: string): DredlessClient;
+    kickShip(hexCode: string): DredlessClient;
+    /** Target a ship in the party the local ship requested to join. */
+    cancelJoinRequest(hexCode: string): DredlessClient;
+    cancelInvitation(hexCode: string): DredlessClient;
 }
 
 export interface PvpEventBounds {
@@ -2611,6 +2625,27 @@ export function decodeMsgpack(bytes: Uint8Array | ArrayBuffer | number[]): unkno
 export function encodeMsgpack(value: unknown): Uint8Array;
 
 export function buildChatMessage(message?: string): ChatMessage;
+
+export type PvpPartyCommandKind = "NewTeam" | "Leave" | "Join" | "Invite" | "Kick" | "JoinCancel" | "InviteCancel";
+
+export type PvpPartyInfo =
+    | {kind: "NewTeam" | "Leave"}
+    | {kind: "Join" | "Invite" | "Kick" | "JoinCancel" | "InviteCancel"; hex: string};
+
+export interface PvpPartyMessage {
+    type: 10;
+    info: PvpPartyInfo;
+}
+
+export function buildPvpPartyMessage(kind: "NewTeam" | "Leave"): PvpPartyMessage;
+export function buildPvpPartyMessage(kind: Exclude<PvpPartyCommandKind, "NewTeam" | "Leave">, hexCode: string): PvpPartyMessage;
+export function buildCreatePvpPartyMessage(): PvpPartyMessage;
+export function buildLeavePvpPartyMessage(): PvpPartyMessage;
+export function buildJoinPvpPartyMessage(hexCode: string): PvpPartyMessage;
+export function buildInvitePvpPartyMessage(hexCode: string): PvpPartyMessage;
+export function buildKickPvpPartyMessage(hexCode: string): PvpPartyMessage;
+export function buildCancelPvpPartyJoinMessage(hexCode: string): PvpPartyMessage;
+export function buildCancelPvpPartyInviteMessage(hexCode: string): PvpPartyMessage;
 
 export function buildCommsMessage(message?: string): CommsMessage;
 

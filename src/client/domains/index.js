@@ -1,4 +1,5 @@
 import {itemEquipmentSlotFromId} from "../../state/items.js";
+import {buildPvpPartyMessage} from "../../protocol/outbound/pvp.js";
 import {buildInventoryDragCommand, normalizeEquipmentSlot, normalizeInventoryEvent} from "../../protocol/outbound/inventory.js";
 
 export function normalizeAttachMode(mode = "observe") {
@@ -432,7 +433,6 @@ export class WorldDomain {
         this.rcds = new EntitySummaryCollection(client, scope, "rcds");
         this.balls = new EntitySummaryCollection(client, scope, "balls");
         this.recyclers = new EntitySummaryCollection(client, scope, "recyclers");
-        this.pvpEvent = new PvpEventDomain(client, scope);
         this.blocks = new BlockCollection(client, scope);
         this.materials = new MaterialCollection(client, scope);
     }
@@ -450,18 +450,65 @@ export class WorldDomain {
     }
 }
 
-class PvpEventDomain {
-    constructor(client, scope) {
+export class PvpEventDomain {
+    constructor(client) {
         this.client = client;
-        this.scope = scope;
     }
 
     state() {
-        return worldStateFor(this.client, this.scope)?.model.pvpEvent() || null;
+        return this.#read("pvpEvent");
     }
 
     parties() {
-        return worldStateFor(this.client, this.scope)?.model.pvpParties() || null;
+        return this.#read("pvpParties");
+    }
+
+    #read(method) {
+        const overworld = this.client.worlds.overworld();
+        const summary = overworld?.model[method]();
+        if (summary != null) return summary;
+        for (const world of this.client.worlds.worlds.values()) {
+            if (world === overworld) continue;
+            const value = world.model[method]();
+            if (value != null) return value;
+        }
+        return null;
+    }
+
+    createParty() {
+        return this.client.sendMessage(buildPvpPartyMessage("NewTeam"));
+    }
+
+    leaveParty() {
+        return this.client.sendMessage(buildPvpPartyMessage("Leave"));
+    }
+
+    joinParty(hexCode) {
+        return this.client.sendMessage(buildPvpPartyMessage("Join", hexCode));
+    }
+
+    inviteShip(hexCode) {
+        return this.client.sendMessage(buildPvpPartyMessage("Invite", hexCode));
+    }
+
+    acceptInvitation(hexCode) {
+        return this.joinParty(hexCode);
+    }
+
+    acceptJoinRequest(hexCode) {
+        return this.inviteShip(hexCode);
+    }
+
+    kickShip(hexCode) {
+        return this.client.sendMessage(buildPvpPartyMessage("Kick", hexCode));
+    }
+
+    cancelJoinRequest(hexCode) {
+        return this.client.sendMessage(buildPvpPartyMessage("JoinCancel", hexCode));
+    }
+
+    cancelInvitation(hexCode) {
+        return this.client.sendMessage(buildPvpPartyMessage("InviteCancel", hexCode));
     }
 }
 

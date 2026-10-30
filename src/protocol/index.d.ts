@@ -8,5 +8,6 @@ export * from "./outbound/comms.js";
 export * from "./outbound/commands.js";
 export * from "./outbound/inventory.js";
 export * from "./outbound/ship-management.js";
+export * from "./outbound/pvp.js";
 export * from "./outbound/sign.js";
 export * from "./outbound/ui-config.js";

@@ -130,6 +130,11 @@
             "import": "./src/protocol/outbound/ship-management.js",
             "default": "./src/protocol/outbound/ship-management.js"
         },
+        "./protocol/pvp": {
+            "types": "./src/protocol/outbound/pvp.d.ts",
+            "import": "./src/protocol/outbound/pvp.js",
+            "default": "./src/protocol/outbound/pvp.js"
+        },
         "./protocol/sign": {
             "types": "./src/protocol/outbound/sign.d.ts",
             "import": "./src/protocol/outbound/sign.js",
