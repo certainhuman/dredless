@@ -97,6 +97,8 @@ Dredless.fetchShipList(session: Session, server: ServerRef): Promise<ShipList>;
 
 `fetchServers()` discovers servers; it does not populate status/ping fields. Discovery metadata is cached per origin for the process/module lifetime; repeated calls do not necessarily refetch the game version or directory. Discovery/status implementations also accept an optional final `baseUrl` argument, although the root declarations omit it. Ship names preserve leading and trailing spaces. Some ship metadata fields are nullable; inspect [declared shapes](../src/index.d.ts) when persisting results.
 
+Discovery reads stable named exports from the official bundle (for example `TEST_GAME_DOMAIN` and `GAME_VERSION`), then resolves their constant literals within the same module. The dependency-free scanner supports renamed bindings, reordered/combined declarations, whitespace/comments, and escaped strings and string arrays; it never evaluates downloaded JavaScript. Unsupported export expressions and invalid hostnames/array shapes produce errors naming the affected export. Failed downloads or parsing are evicted from the metadata cache so a subsequent call can retry. It deliberately does not attempt to interpret arbitrary JavaScript or fetch external script files.
+
 ## Join, start, and invites
 
 ```ts
