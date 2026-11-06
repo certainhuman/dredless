@@ -1,0 +1,7 @@
+// Public metadata excerpt captured 2026-11-06 from drednot.io/index.html.
+(function(exports){
+function expose(target,values){for(const key in values)Object.defineProperty(target,key,{get:values[key]});}
+expose(exports,{LOCAL_DOMAIN:()=>$,BASE_DOMAIN:()=>o,TEST_DOMAIN:()=>T,TEST_GAME_DOMAIN:()=>t,GAME_DOMAINS:()=>S,GAME_SERVER_NAMES:()=>c,MASTER_DOMAIN:()=>A,TEST_MASTER_DOMAIN:()=>I});
+const n=true;const $="local.drednot.io";const o="drednot.io";const T="test.drednot.io";const t="t0.drednot.io";const S=["c0.drednot.io","c1.drednot.io"];const c=["Persistent (US East)","Ephemeral (US East)"];const A="master.drednot.io";const I="test-master.drednot.io";
+})({});
+(function(exports){Object.defineProperty(exports,"GAME_VERSION",{enumerable:true,get:()=>e});const e="Tue Oct 27 05:06:48 PM MDT 2026 / fd26f09089f2af7778d73af337ed2f44e6050847";})({});

@@ -1,6 +1,7 @@
 import {DEFAULT_BASE_URL} from "../constants.js";
 import {getWebSocket, hostName, normalizeBaseUrl} from "../runtime.js";
 import {HttpClient} from "./http.js";
+import {readBundleExports} from "./bundle-metadata.js";
 
 const cache = new Map();
 
@@ -11,20 +12,26 @@ class ServerDirectory {
     }
 
     async load() {
-        if (cache.has(this.baseUrl)) {
-            this.meta = await cache.get(this.baseUrl);
-            return this;
+        if (!cache.has(this.baseUrl)) cache.set(this.baseUrl, this.#fetchMeta());
+        const pending = cache.get(this.baseUrl);
+        try {
+            this.meta = await pending;
+        } catch (error) {
+            if (cache.get(this.baseUrl) === pending) cache.delete(this.baseUrl);
+            throw error;
         }
-        const promise = this.#fetchMeta();
-        cache.set(this.baseUrl, promise);
-        this.meta = await promise;
         return this;
     }
 
     async version() {
         await this.load();
-        if (!this.meta.version) throw new Error("Unable to locate GAME_VERSION in drednot bundle");
-        return this.meta.version;
+        try {
+            this.meta.version ??= parseGameVersion(this.meta.text);
+            return this.meta.version;
+        } catch (error) {
+            cache.delete(this.baseUrl);
+            throw error;
+        }
     }
 
     async list() {
@@ -33,8 +40,13 @@ class ServerDirectory {
 
     async servers() {
         await this.load();
-        if (!this.meta.serverInfo) throw new Error("Unable to locate server list in drednot bundle");
-        return this.meta.serverInfo.servers;
+        try {
+            this.meta.serverInfo ??= parseServerInfo(this.meta.text, this.baseUrl);
+            return this.meta.serverInfo.servers;
+        } catch (error) {
+            cache.delete(this.baseUrl);
+            throw error;
+        }
     }
 
     async get(id = null) {
@@ -50,7 +62,7 @@ class ServerDirectory {
         const response = await new HttpClient({baseUrl: this.baseUrl}).request("index.html");
         if (!response.ok) throw new Error(`Failed to fetch bundle: ${response.status} ${response.statusText}`);
         const text = await response.text();
-        return {text, version: parseGameVersion(text), serverInfo: parseServerInfo(text, this.baseUrl)};
+        return {text};
     }
 }
 
@@ -132,7 +144,9 @@ export function serverId(server) {
 }
 
 function parseGameVersion(text) {
-    return text.match(/Object\.defineProperty\(exports,"GAME_VERSION",\{enumerable:true,get:\(\)=>e\}\);const e="([^"]+)"/)?.[1] || null;
+    const {GAME_VERSION} = readBundleExports(text, ["GAME_VERSION"]);
+    if (typeof GAME_VERSION !== "string" || !GAME_VERSION.trim()) throw new Error("Invalid bundle export GAME_VERSION: expected a nonempty string");
+    return GAME_VERSION;
 }
 
 function parseNoticeVersion(text) {
@@ -159,18 +173,29 @@ function parseNoticeVersion(text) {
 
 function parseServerInfo(text, baseUrl) {
     const host = hostName(baseUrl);
-    const match = text.match(/const n=(true|false);const \$="([^"]+)";const o="([^"]+)";const T="([^"]+)";const t="([^"]+)";const S=\[([^\]]+)\];const c=\[([^\]]+)\];const A="([^"]+)";const I="([^"]+)"/s);
-    if (!match) return null;
-    const [localDomain, baseDomain, testDomain, testGameDomain] = match.slice(2, 6);
-    const domains = [...match[6].matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1]);
-    const names = [...match[7].matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1]);
+    const config = readBundleExports(text, ["LOCAL_DOMAIN", "BASE_DOMAIN", "TEST_DOMAIN", "TEST_GAME_DOMAIN",
+        "GAME_DOMAINS", "GAME_SERVER_NAMES", "MASTER_DOMAIN", "TEST_MASTER_DOMAIN"]);
+    const domain = (value, name) => {
+        if (typeof value !== "string" || value.length > 253 || !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(value)) {
+            throw new Error(`Invalid bundle export ${name}: expected a hostname`);
+        }
+        return value;
+    };
+    const localDomain = domain(config.LOCAL_DOMAIN, "LOCAL_DOMAIN");
+    const baseDomain = domain(config.BASE_DOMAIN, "BASE_DOMAIN");
+    const testDomain = domain(config.TEST_DOMAIN, "TEST_DOMAIN");
+    const testGameDomain = domain(config.TEST_GAME_DOMAIN, "TEST_GAME_DOMAIN");
+    const domains = config.GAME_DOMAINS;
+    const names = config.GAME_SERVER_NAMES;
+    if (!Array.isArray(domains) || !domains.length) throw new Error("Invalid bundle export GAME_DOMAINS: expected nonempty hostname array");
+    domains.forEach((value) => domain(value, "GAME_DOMAINS"));
+    if (!Array.isArray(names) || names.length !== domains.length || names.some((name) => typeof name !== "string")) {
+        throw new Error("Invalid bundle export GAME_SERVER_NAMES: expected one string per game domain");
+    }
     const meta = {
-        localDomain,
-        baseDomain,
-        testDomain,
-        testGameDomain,
-        masterDomain: match[8],
-        testMasterDomain: match[9]
+        localDomain, baseDomain, testDomain, testGameDomain,
+        masterDomain: domain(config.MASTER_DOMAIN, "MASTER_DOMAIN"),
+        testMasterDomain: domain(config.TEST_MASTER_DOMAIN, "TEST_MASTER_DOMAIN")
     };
     if (host === localDomain) return {mode: "local", servers: [server(0, localDomain, "Local Test 1")], meta};
     if (host === testDomain) return {mode: "test", servers: [server(0, testGameDomain, "Public Test")], meta};
