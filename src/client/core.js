@@ -36,6 +36,15 @@ import {
 } from "../protocol/outbound/ship-management.js";
 import {buildSignTextMessage} from "../protocol/outbound/sign.js";
 import {
+    buildLauncherConfigData,
+    buildLauncherCopyConfigData,
+    buildLauncherPasteConfigData,
+    buildDoorConfigData,
+    buildDoorCopyConfigData,
+    buildDoorPasteConfigData,
+    buildSpawnPointConfigData,
+    buildSpawnPointCopyConfigData,
+    buildSpawnPointPasteConfigData,
     buildCargoEjectorClipboardDirectionData,
     buildCargoEjectorCopyConfigData,
     buildCargoEjectorDirectionData,
@@ -84,8 +93,6 @@ import {
     summariesFor,
     entitySnapshotFor,
     emptyMachineSummary,
-    normalizeDegrees,
-    normalizeLauncherPower,
     normalizeWrenchMode,
     normalizeTurretMode,
     normalizePositiveFinite,
@@ -564,12 +571,48 @@ export class DredlessClient extends EventBus {
         return this.sendFabricatorMessage("eject", [row, -1, -1]);
     }
 
-    setLauncherAngle(angle) {
-        return this.sendEntityCommand("angle", [normalizeDegrees(angle)]);
+    sendLauncherConfig(entity, config = {}) {
+        return this.sendUiConfig(buildLauncherConfigData(entity, this.#launcherConfigDefaults(entity, config)));
     }
 
-    setLauncherPower(power) {
-        return this.sendEntityCommand("power", [normalizeLauncherPower(power)]);
+    setLauncherAngle(entity, angle, config = {}) {
+        return this.sendLauncherConfig(entity, {...config, angle});
+    }
+
+    setLauncherPower(entity, power, config = {}) {
+        return this.sendLauncherConfig(entity, {...config, power});
+    }
+
+    copyLauncherConfig(entity, config = {}) {
+        return this.sendUiConfig(buildLauncherCopyConfigData(this.#launcherConfigDefaults(entity, config)));
+    }
+
+    pasteLauncherConfig(entity, config = {}) {
+        return this.sendUiConfig(buildLauncherPasteConfigData(entity, this.#launcherConfigDefaults(entity, config)));
+    }
+
+    sendDoorConfig(entity, config = {}) {
+        return this.sendUiConfig(buildDoorConfigData(entity, this.#rankFilterConfigDefaults(entity, "door", config)));
+    }
+
+    copyDoorConfig(entity, config = {}) {
+        return this.sendUiConfig(buildDoorCopyConfigData(this.#doorClipboardConfigDefaults(entity, config)));
+    }
+
+    pasteDoorConfig(entity, config = {}) {
+        return this.sendUiConfig(buildDoorPasteConfigData(entity, this.#doorClipboardConfigDefaults(entity, config)));
+    }
+
+    sendSpawnPointConfig(entity, config = {}) {
+        return this.sendUiConfig(buildSpawnPointConfigData(entity, this.#rankFilterConfigDefaults(entity, "spawnPoint", config)));
+    }
+
+    copySpawnPointConfig(entity, config = {}) {
+        return this.sendUiConfig(buildSpawnPointCopyConfigData(this.#rankFilterConfigDefaults(entity, "spawnPoint", config)));
+    }
+
+    pasteSpawnPointConfig(entity, config = {}) {
+        return this.sendUiConfig(buildSpawnPointPasteConfigData(entity, this.#rankFilterConfigDefaults(entity, "spawnPoint", config)));
     }
 
     setSignText(text = "", mode = 0) {
@@ -1428,6 +1471,28 @@ export class DredlessClient extends EventBus {
             warp: config.warp ?? "idle",
             autoWarpOnShieldFailure: config.autoWarpOnShieldFailure ?? summary?.autoWarpOnShieldFailure ?? false,
             autoWarpOnNoCaptains: config.autoWarpOnNoCaptains ?? summary?.autoWarpOnNoCaptains ?? false
+        };
+    }
+
+    #launcherConfigDefaults(entity, config = {}) {
+        const summary = this.worlds.shipWorld()?.entity(entity)?.contents?.launcher;
+        return {
+            angle: config.angle !== undefined ? config.angle : summary?.angleDegrees ?? 0,
+            power: config.power !== undefined ? config.power : summary?.power ?? 30
+        };
+    }
+
+    #rankFilterConfigDefaults(entity, kind, config = {}) {
+        if (config.allowedRanks !== undefined || config.rankMask !== undefined) return {...config};
+        const summary = this.worlds.shipWorld()?.entity(entity)?.contents?.[kind];
+        return {...config, rankMask: summary?.rankMask ?? 4};
+    }
+
+    #doorClipboardConfigDefaults(entity, config = {}) {
+        const angle = this.entity(entity)?.transform?.rot ?? 0;
+        return {
+            ...this.#rankFilterConfigDefaults(entity, "door", config),
+            orientation: config.orientation ?? (Math.abs(Math.round(angle / (Math.PI / 2))) % 2 ? "horizontal" : "vertical")
         };
     }
 

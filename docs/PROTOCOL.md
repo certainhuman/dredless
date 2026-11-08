@@ -173,6 +173,28 @@ client.net.sendUiConfig(payload);
 
 Named-enum validation and the numeric/default mismatch also affect low-level optional-config calls. Supply all required enum fields explicitly as described in [loaders](MACHINES.md#loaders), [pushers](MACHINES.md#pushers), and [hatches](MACHINES.md#hatches-ejectors-and-clipboard-settings).
 
+The new launcher/door/spawn builders are also exported from runtime entrypoints:
+
+```ts
+normalizeRankMask(config?: RankFilterConfig): number;
+buildLauncherConfigData(entity: number, config?: LauncherConfig): Uint8Array;
+buildLauncherCopyConfigData(config?: LauncherConfig): Uint8Array;
+buildLauncherPasteConfigData(entity: number, config?: LauncherConfig): Uint8Array;
+buildDoorConfigData(entity: number, config?: DoorConfig): Uint8Array;
+buildDoorCopyConfigData(config?: DoorClipboardConfig): Uint8Array;
+buildDoorPasteConfigData(entity: number, config?: DoorClipboardConfig): Uint8Array;
+buildSpawnPointConfigData(entity: number, config?: SpawnPointConfig): Uint8Array;
+buildSpawnPointCopyConfigData(config?: SpawnPointConfig): Uint8Array;
+buildSpawnPointPasteConfigData(entity: number, config?: SpawnPointConfig): Uint8Array;
+```
+
+These builders use defaults of angle `0`, power `30`, rank mask `4`, and vertical door orientation. They encode
+unsigned 32-bit entity IDs, including IDs above `255` for paste. Copy targets use configuration class IDs: launcher
+`8`, spawn `9`, door `10`. Target aliases `"launcher"`, `"spawn"`/`"spawn-point"`/`"spawnPoint"`, and `"door"` are
+also accepted by generic clipboard builders. Launcher values use `config_item_launcher`; ranks use `filter_ranks`;
+door clipboard orientation uses `angle_symmetric`. See [doors/spawns](MACHINES.md#doors-and-spawn-points) and
+[launchers](MACHINES.md#launchers) for field ranges, merge behavior, and server-version requirements.
+
 ## Generator maze helpers
 
 ```ts
@@ -253,6 +275,11 @@ Tile/chunk setters update the local decoder state only; they are not server bloc
 Binary tools include `decryptPayload(wireBytes, worldId, seed)`, `decompressLz4Frame(bytes)`, and `decodeModelData(bytes)`. The protocol aggregate also exposes inner world/model/chunk decoders. These expect the appropriate layer, seed, and world context; a captured WebSocket frame is not automatically a valid argument to a model decoder.
 
 ## Decoding limitations
+
+The November 6 test model additions are supported alongside legacy production data: wire `170` is launcher
+configuration, `171` is the rank filter, and `172` is the spawn marker. Dredless stores them under stable internal
+table IDs `79`, `80`, and `81`; these IDs do not mirror the updated official client's native memory-table ordering.
+Legacy spawn/rank section `44` remains supported. Public door/spawn reads normalize both formats to rank filters.
 
 A decoder can retain partial results while recording unsupported tags or malformed sections. Read `decode-error`, model errors, and the retained raw packet before concluding an entity/component is absent. Website parsers and protocol internals can change independently of this package.
 

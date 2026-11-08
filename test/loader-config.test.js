@@ -1236,7 +1236,7 @@ test("ModelState exposes normalized sign text and display mode", () => {
     assert.equal(sign.displayModeName, "on-hover");
 });
 
-test("ModelState exposes normalized spawn point rank", () => {
+test("ModelState exposes normalized spawn point rank filters", () => {
     const model = new ModelState();
     const captain = ENTITY;
     const crew = ENTITY + 1;
@@ -1253,19 +1253,19 @@ test("ModelState exposes normalized spawn point rank", () => {
     ));
 
     let spawnPoint = model.entity(captain).contents.spawnPoint;
-    assert.equal(spawnPoint.rank, 3);
-    assert.equal(spawnPoint.rankName, "Captain");
+    assert.equal(spawnPoint.rankMask, 4);
+    assert.deepEqual(spawnPoint.allowedRanks, ["captain"]);
 
     spawnPoint = model.entity(crew).contents.spawnPoint;
-    assert.equal(spawnPoint.rank, 1);
-    assert.equal(spawnPoint.rankName, "Crew");
+    assert.equal(spawnPoint.rankMask, 6);
+    assert.deepEqual(spawnPoint.allowedRanks, ["crew", "captain"]);
 
     spawnPoint = model.entity(guest).contents.spawnPoint;
-    assert.equal(spawnPoint.rank, 0);
-    assert.equal(spawnPoint.rankName, "Guest");
+    assert.equal(spawnPoint.rankMask, 7);
+    assert.deepEqual(spawnPoint.allowedRanks, ["guest", "crew", "captain"]);
 });
 
-test("ModelState exposes normalized door rank and open state", () => {
+test("ModelState exposes normalized door rank filters and open state", () => {
     const model = new ModelState();
     const captain = ENTITY;
     const crew = ENTITY + 1;
@@ -1285,17 +1285,17 @@ test("ModelState exposes normalized door rank and open state", () => {
     ));
 
     let door = model.entity(captain).contents.door;
-    assert.equal(door.rank, 3);
-    assert.equal(door.rankName, "Captain");
+    assert.equal(door.rankMask, 4);
+    assert.deepEqual(door.allowedRanks, ["captain"]);
     assert.equal(door.open, false);
 
     door = model.entity(crew).contents.door;
-    assert.equal(door.rank, 1);
-    assert.equal(door.rankName, "Crew");
+    assert.equal(door.rankMask, 6);
+    assert.deepEqual(door.allowedRanks, ["crew", "captain"]);
 
     door = model.entity(guest).contents.door;
-    assert.equal(door.rank, 0);
-    assert.equal(door.rankName, "Guest");
+    assert.equal(door.rankMask, 7);
+    assert.deepEqual(door.allowedRanks, ["guest", "crew", "captain"]);
 
     model.apply(modelData(
         2,

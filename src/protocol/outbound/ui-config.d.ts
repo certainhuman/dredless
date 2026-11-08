@@ -1,3 +1,23 @@
+export {
+    buildLauncherConfigData,
+    buildLauncherCopyConfigData,
+    buildLauncherPasteConfigData,
+    buildDoorConfigData,
+    buildDoorCopyConfigData,
+    buildDoorPasteConfigData,
+    buildSpawnPointConfigData,
+    buildSpawnPointCopyConfigData,
+    buildSpawnPointPasteConfigData,
+    normalizeRankMask,
+    type AllowedRank,
+    type AllowedRanks,
+    type RankFilterConfig,
+    type LauncherConfig,
+    type DoorConfig,
+    type DoorClipboardConfig,
+    type SpawnPointConfig,
+} from "../../index.js";
+
 export interface NavigationUnitConfig {
     destination: number;
     page?: number;
@@ -38,6 +58,11 @@ export const LoaderPriority: {
 export type LoaderPriority = typeof LoaderPriority[keyof typeof LoaderPriority];
 export type ClipboardTarget =
     number
+    | "launcher"
+    | "door"
+    | "spawn"
+    | "spawn-point"
+    | "spawnPoint"
     | "loader"
     | "loader-config"
     | "loaderConfig"

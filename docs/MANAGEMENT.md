@@ -160,7 +160,7 @@ if (!player || player.refId === null) throw new Error("No matching management en
 client.management.unbanPlayer(player.refId);
 ```
 
-Player-rank changes are different from [door/spawn access restrictions](MACHINES.md#context-menus-and-access).
+Player-rank changes are different from [door/spawn access restrictions](MACHINES.md#doors-and-spawn-points).
 
 ## Demote yourself
 

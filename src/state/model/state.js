@@ -891,7 +891,7 @@ export class ModelState {
         const thruster = summarizeThruster(entityId, typeId, thrusterRecord);
         const pusher = summarizePusher(entityId, pusherRecord, loaderFilterSlotsRecord);
         const pusherBeam = summarizePusherBeam(entityId, pusherBeamRecord);
-        const launcher = summarizeItemLauncher(entityId, typeId, launcherRecord);
+        const launcher = summarizeItemLauncher(entityId, typeId, launcherRecord, rec(79));
         const loader = (typeId === LOADER_TYPE_ID || (typeId == null && (loaderRecord || loaderFilterRecord || loaderFilterSlotsRecord)))
             ? summarizeLoader(entityId, loaderRecord, loaderFilterRecord, loaderFilterSlotsRecord, typeId === LOADER_TYPE_ID, itemHolderRecord)
             : null;
@@ -910,8 +910,9 @@ export class ModelState {
         const helm = summarizeHelm(entityId, typeId, this.#helmOccupied.get(entityId));
         const commsStation = summarizeCommsStation(entityId, typeId, commsStationRecord, this.#commsStationOccupied.get(entityId));
         const sign = typeId === 218 ? summarizeSign(entityId, signRecord) : null;
-        const spawnPoint = typeId === 219 ? summarizeSpawnPoint(entityId, spawnPointRecord) : null;
-        const door = typeId === 220 ? summarizeDoor(entityId, spawnPointRecord, doorRecord) : null;
+        const spawnPoint = typeId === 219 || rec(81)
+            ? summarizeSpawnPoint(entityId, spawnPointRecord, rec(80), rec(81)) : null;
+        const door = typeId === 220 ? summarizeDoor(entityId, spawnPointRecord, doorRecord, rec(80)) : null;
         const shipSize = shipControl && this.isOverworld ? summarizeShipSize(entityId, rec(3)) : null;
         const hoverOutline = summarizeHoverOutline(entityId, crateSizeRecord);
         const expandoBox = isExpandoBox ? summarizeExpandoBox(entityId, itemHolderRecord, expandoSizeRecord) : null;

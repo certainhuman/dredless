@@ -59,7 +59,7 @@ management/menu methods have their own readiness checks, timeout, and overlap ru
 |-----------------------------|----------------------------------------|
 | `loader.configure(config)`  | Configuration sent/queued              |
 | `tips.choose(entity, text)` | Menu received and selection sent       |
-| `door.setRank("crew")`      | Requested rank observed in model state |
+| `door.configure(config)`    | Configuration sent/queued              |
 | `management.rename(name)`   | Rename allowed and commit sent         |
 | `management.resetInvite()`  | A changed nonempty invite key observed |
 | `management.save()`         | Server closed with `DropReason.Saved`  |

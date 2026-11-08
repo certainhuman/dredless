@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {DredlessClient} from "../src/client/index.js";
-import {ModelState} from "../src/state/model/index.js";
 import {decodeMsgpack, encodeMsgpack} from "../src/protocol/codec/msgpack.js";
 
 const options = ["Restrict to Captains", "Restrict to Crew", "Restrict to Guests"];
@@ -24,15 +23,7 @@ function setup() {
   const menu = (list = options, id = 1) => packet({type: 20, world: id,
     events: [{type: "tip_list", filter: 123, x: 7, y: 2, options: list}]});
   ws.send = (bytes) => commands.push(decodeMsgpack(bytes));
-  const changeRank = (id, rank) => {
-    const next = new ModelState({isOverworld: false});
-    next.tables = new Map(world.model.tables);
-    next.tables.set(8, new Map(world.model.tables.get(8)));
-    next.tables.get(8).set(id, {q20: rank});
-    world.model = next;
-    client.emit("model", {world});
-  };
-  return {client, ws, menu, commands, changeRank, door: client.ship().machines.door(22),
+  return {client, ws, menu, commands, door: client.ship().machines.door(22),
     spawn: client.ship().machines.spawnPoint(23)};
 }
 
@@ -79,39 +70,6 @@ test("empty menus, timeout and disconnect clear state and release pending operat
   client.emit("close", {});
   await assert.rejects(next, /Disconnected/);
   assert.equal(client.tips.current, null);
-});
-
-test("door and spawn rank setters map names to menu indices and wait for confirmation", async () => {
-  const {client, door, spawn, menu, commands, changeRank} = setup();
-  const doorPending = door.setRank("crew");
-  menu();
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(commands[1].tip_select, 1);
-  changeRank(22, 1);
-  assert.equal(await doorPending, client);
-  const spawnPending = spawn.setRank(0);
-  menu();
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(commands[3].focus_ent, 23);
-  assert.equal(commands[3].tip_select, 2);
-  changeRank(23, 0);
-  assert.equal(await spawnPending, client);
-  const captainPending = spawn.setRank("captain");
-  menu();
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(commands[5].tip_select, 0);
-  changeRank(23, 3);
-  await captainPending;
-  await spawn.setRank(3);
-  assert.equal(commands.length, 6, "same rank sends no commands");
-  await assert.rejects(door.setRank(2), RangeError);
-});
-
-test("rank setter rejects when the server does not confirm the change", async () => {
-  const {door, menu} = setup();
-  const pending = door.setRank("guest", {timeout: 20});
-  menu();
-  await assert.rejects(pending, /access rank update/);
 });
 
 test("readonly send failure cleans up and targets outside the current world reject", async () => {

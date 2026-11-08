@@ -125,7 +125,7 @@ export const MODEL_TABLE_SPECS = new Map([
     [4, {name: "motion_aux", packedBits: [{bit: 8, offset: 33}], fields: numericFields({1: 20, 2: 24, 4: 28})}],
     [5, {
         name: "entity_health",
-        // The official table starts both bar dimensions at 10 (one world unit).
+        // Bar half-width and vertical offset start at 10 (one world unit).
         // Field values on the wire are deltas relative to these defaults.
         defaults: {q28: 10, q32: 10},
         fields: numericFields({1: 20, 2: 24, 4: 28, 8: 32})
@@ -352,7 +352,11 @@ export const MODEL_TABLE_SPECS = new Map([
                 record.q44 = (record.q44 || 0) + reader.readFieldDelta();
             }
         }
-    }]
+    }],
+    // Append new wire components without shifting stable Dredless table IDs.
+    [79, {name: "launcher_config", defaults: {q20: 0, q24: 300}, fields: numericFields({1: 20, 2: 24})}],
+    [80, {name: "rank_filter", defaults: {q20: 4}, fields: numericFields({1: 20})}],
+    [81, {name: "spawn_point", fields: []}]
 ]);
 
 // Precompute everything about a spec that is fixed at module load. Decoding a
@@ -455,7 +459,10 @@ export const WIRE_TAG_TABLES = new Map([
     [166, 75],
     [167, 76],
     [168, 78],
-    [169, 77]
+    [169, 77],
+    [170, 79],
+    [171, 80],
+    [172, 81]
 ]);
 
 export const MASK_ONLY_TABLES = new Set([13, 22, 23, 27, 28, 30, 36, 40, 46, 48, 52, 58, 64, 65, 66, 68, 73, 74]);
@@ -823,6 +830,8 @@ export function summarizeHealth(entity, record) {
         hp,
         maxHp,
         ratio: typeof hp === "number" && typeof maxHp === "number" && maxHp !== 0 ? hp / maxHp : null,
+        barWidth: (record.q28 ?? 10) / 5,
+        barOffsetY: (record.q32 ?? 10) / 10,
         state: cloneRecord(record)
     };
 }
@@ -1208,6 +1217,7 @@ export function summarizeItemCrate(entity, sizeRecord, itemRecord = null, health
     return {
         entity,
         ...itemSummary(itemId, count),
+        boxSprite: Boolean(itemRecord?.q29),
         width: sizeRecord.q20 ?? null,
         height: sizeRecord.q24 ?? null,
         itemState: cloneRecord(itemRecord || healthRecord || {}),
@@ -1388,15 +1398,19 @@ export function normalizeDegrees(value) {
     return ((Number(value) % 360) + 360) % 360;
 }
 
-export function summarizeItemLauncher(entity, typeId, launcherRecord) {
-    if (typeId !== ITEM_LAUNCHER_TYPE_ID || !launcherRecord) return null;
-    const angleRadians = numberOrNull(launcherRecord.q32 ?? 0, 200);
+export function summarizeItemLauncher(entity, typeId, launcherRecord, configRecord = null) {
+    if (typeId !== ITEM_LAUNCHER_TYPE_ID || (!launcherRecord && !configRecord)) return null;
+    const angleRadians = configRecord
+        ? (configRecord.q20 ?? 0) / 10 * Math.PI / 180
+        : numberOrNull(launcherRecord.q32 ?? 0, 200);
     return {
         entity,
-        angleRaw: launcherRecord.q32 ?? null,
+        angleRaw: configRecord ? configRecord.q20 ?? 0 : launcherRecord.q32 ?? null,
         angleRadians,
         angleDegrees: angleRadians == null ? null : normalizeDegrees((angleRadians * 180) / Math.PI),
-        state: cloneRecord(launcherRecord)
+        power: configRecord ? (configRecord.q24 ?? 300) / 10 : null,
+        configState: configRecord ? cloneRecord(configRecord) : null,
+        state: cloneRecord(launcherRecord || {})
     };
 }
 
@@ -1420,24 +1434,31 @@ export function summarizeShieldProjector(entity, projectorRecord) {
     };
 }
 
-export function summarizeSpawnPoint(entity, spawnRecord) {
-    const rank = Number.isFinite(Number(spawnRecord?.q20)) ? Number(spawnRecord.q20) : 0;
+function summarizeRankFilter(legacyRecord, filterRecord, modern = false) {
+    const legacyRank = Number.isFinite(Number(legacyRecord?.q20)) ? Number(legacyRecord.q20) : 0;
+    const rankMask = filterRecord ? (filterRecord.q20 ?? 4) >>> 0
+        : modern ? null : ({0: 7, 1: 6, 3: 4}[legacyRank] ?? 0);
     return {
-        entity,
-        rank,
-        rankName: enumValueName(TEAM_RANK_NAMES, rank),
-        state: cloneRecord(spawnRecord || {})
+        rankMask,
+        allowedRanks: rankMask == null ? null : ["guest", "crew", "captain"].filter((_, i) => rankMask & (1 << i)),
+        allRanks: rankMask === 0xffffffff,
+        rankState: cloneRecord(filterRecord || legacyRecord || {})
     };
 }
 
-export function summarizeDoor(entity, rankRecord, doorRecord) {
-    const rank = Number.isFinite(Number(rankRecord?.q20)) ? Number(rankRecord.q20) : 0;
+export function summarizeSpawnPoint(entity, spawnRecord, filterRecord = null, markerRecord = null) {
     return {
         entity,
-        rank,
-        rankName: enumValueName(TEAM_RANK_NAMES, rank),
+        ...summarizeRankFilter(spawnRecord, filterRecord, markerRecord != null),
+        state: cloneRecord(markerRecord || spawnRecord || {})
+    };
+}
+
+export function summarizeDoor(entity, rankRecord, doorRecord, filterRecord = null) {
+    return {
+        entity,
+        ...summarizeRankFilter(rankRecord, filterRecord),
         open: doorRecord?.q21 === 1,
-        rankState: cloneRecord(rankRecord || {}),
         state: cloneRecord(doorRecord || {})
     };
 }

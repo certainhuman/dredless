@@ -47,6 +47,19 @@ function createClientWithPusher() {
     return client;
 }
 
+test("entity snapshots expose decoded door rotation in radians", () => {
+    for (const rawAngle of [0, 200, -200]) {
+        const client = createClientWithPusher();
+        client.worlds.get(1).model.tables.get(0).set(33, {q20: 40, q24: 80, q28: rawAngle});
+        const door = client.currentShip().machines.door(33);
+        const snapshot = door.snapshot();
+        assert.equal(snapshot.rotation, rawAngle / 127.324);
+        assert.equal(snapshot.rotation, door.position.rot);
+    }
+    const client = createClientWithPusher();
+    assert.equal(client.currentShip().machines.door(33).snapshot().rotation, null);
+});
+
 test("entity API exposes frozen snapshots, features, and typed domain handles", () => {
     const client = createClientWithPusher();
     const ship = client.currentShip();

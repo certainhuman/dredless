@@ -1,3 +1,15 @@
+export {
+    buildLauncherConfigData,
+    buildLauncherCopyConfigData,
+    buildLauncherPasteConfigData,
+    buildDoorConfigData,
+    buildDoorCopyConfigData,
+    buildDoorPasteConfigData,
+    buildSpawnPointConfigData,
+    buildSpawnPointCopyConfigData,
+    buildSpawnPointPasteConfigData,
+    normalizeRankMask,
+} from "./protocol/outbound/machine-config.js";
 export {Session, AnonSession} from "./network/session.js";
 export {Connection} from "./network/connection.js";
 export {DropReason, DisconnectError, normalizeDisconnect} from "./network/disconnect.js";

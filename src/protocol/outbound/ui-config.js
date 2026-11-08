@@ -1,4 +1,5 @@
 import {encoder} from "../../constants.js";
+export * from "./machine-config.js";
 
 const NAV_UNIT_COMMAND = "config_nav_unit";
 const GENERATOR_MAZE_PUZZLE_COMMAND = "maze_puzzle";
@@ -117,6 +118,11 @@ function requireLoaderFilterMode(value, name) {
 }
 
 const CLIPBOARD_TARGET_VALUES = new Map([
+    ["launcher", 8],
+    ["spawn", 9],
+    ["spawn-point", 9],
+    ["spawnPoint", 9],
+    ["door", 10],
     ["loader", 1],
     ["loader-config", 1],
     ["loaderConfig", 1],

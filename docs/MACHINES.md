@@ -7,6 +7,7 @@
 - [Find a machine](#find-a-machine)
 - [Targeting and completion](#targeting-and-completion)
 - [Context menus and access](#context-menus-and-access)
+- [Doors and spawn points](#doors-and-spawn-points)
 - [Loaders](#loaders)
 - [Pushers](#pushers)
 - [Launchers](#launchers)
@@ -51,13 +52,12 @@ The server enforces range, permissions, and game state. Helpers neither move the
 
 | Action family                                               | Target                            | Completion                                            |
 |-------------------------------------------------------------|-----------------------------------|-------------------------------------------------------|
-| Loader/pusher/nav/hatch/ejector config, generator puzzle    | Entity embedded in config payload | Sent/queued                                           |
-| Launcher angle/power, fabricator controls, sign text, comms | Active server interaction         | Sent/queued; the handle's ID is not in these messages |
+| Machine configuration, generator puzzle                  | Entity embedded in config payload | Sent/queued                                           |
+| Fabricator controls, sign text, comms                     | Active server interaction         | Sent/queued; the handle's ID is not in these messages |
 | `open()`                                                    | Entity focus in player input      | Sent/queued, not panel-ready                          |
 | Tip menu operations                                         | Requested current-world entity    | See menu contracts below                              |
-| Door/spawn `setRank()`                                      | Menu target                       | Requested rank observed in model                      |
 
-For active-interaction actions, first open/use the intended machine and wait for the relevant panel or interaction state. The library does not offer a general `waitForPanel()` helper. Calling `someLauncher.setAngle()` alone does not select `someLauncher`.
+For active-interaction actions, first open/use the intended machine and wait for the relevant panel or interaction state. The library does not offer a general `waitForPanel()` helper. Launcher settings and door/spawn filters use entity-targeted configuration messages and do not require opening a panel.
 
 ## Context menus and access
 
@@ -69,8 +69,6 @@ client.tips.choose(entity: number | EntityHandle, option: number | string,
                    options?: TipOptions): Promise<DredlessClient>;
 client.tips.close(options?: TipOptions): Promise<DredlessClient>;
 entity.openTips(options?: TipOptions): Promise<TipList>;
-door.setRank(rank: ShipPlayerRank, options?: TipOptions): Promise<DredlessClient>;
-spawnPoint.setRank(rank: ShipPlayerRank, options?: TipOptions): Promise<DredlessClient>;
 
 interface TipOptions { timeout?: number; command?: Command; }
 interface TipList {
@@ -97,11 +95,74 @@ await client.tips.close();
 - `select()` accepts an exact displayed string or zero-based index. It sends the selection and clears the local menu without waiting for its effect.
 - `choose()` opens a fresh menu and sends a selection. Its promise does not confirm the selected action finished.
 - `close()` uses the normal dismissal click and waits for an empty tip list. With no menu, it resolves without sending.
-- Door/spawn `setRank()` accepts `"guest"`, `"crew"`, `"captain"`, or `0`, `1`, `3`. It opens the appropriate menu, selects the restriction, and waits for model confirmation. It sends nothing if the rank already matches. This controls entity access, not a player's crew rank.
 
-Timeout defaults to **5000 ms per response**; a rank change can involve a menu wait and a model wait. Only one asynchronous tip operation can run per client; overlaps reject. Disconnect, timeout, invalid menu choices, and invalid targets reject. Raw context-menu commands or another actor using the same socket can interfere with these operations.
+Timeout defaults to **5000 ms per response**. Only one asynchronous tip operation can run per client; overlaps reject.
+Disconnect, timeout, invalid menu choices, and invalid targets reject. Raw context-menu commands or another actor using
+the same socket can interfere with these operations.
 
-The server does not include the target ID in a tip list. Dredless infers it from the pending request; unsolicited menus have `entity: null`. Empty menus still emit `tip-list` and set `current` to `null`. Repeated menus are not repeated action acknowledgments.
+## Doors and spawn points
+
+```ts
+door.configure(config?: DoorConfig): DredlessClient;
+door.copy(config?: DoorClipboardConfig): DredlessClient;
+door.paste(config?: DoorClipboardConfig): DredlessClient;
+door.setAllowedRanks(allowedRanks: AllowedRanks): DredlessClient;
+door.setRankMask(rankMask: number): DredlessClient;
+spawnPoint.configure(config?: SpawnPointConfig): DredlessClient;
+spawnPoint.copy(config?: SpawnPointConfig): DredlessClient;
+spawnPoint.paste(config?: SpawnPointConfig): DredlessClient;
+spawnPoint.setAllowedRanks(allowedRanks: AllowedRanks): DredlessClient;
+spawnPoint.setRankMask(rankMask: number): DredlessClient;
+
+type AllowedRanks = readonly ("guest" | "crew" | "captain")[] | "all";
+interface RankFilterConfig { allowedRanks?: AllowedRanks; rankMask?: number; }
+interface DoorConfig extends RankFilterConfig {}
+interface SpawnPointConfig extends RankFilterConfig {}
+interface DoorClipboardConfig extends DoorConfig { orientation?: "vertical" | "horizontal"; }
+```
+
+Supply either `allowedRanks` or `rankMask`. Sets are exact: `["crew"]` permits crew only, while `["crew", "captain"]`
+permits both. `[]` disables all ranks; `"all"` includes current and future ranks. Numeric masks must be `0–7` or
+`0xffffffff`. Omitting both uses the observed filter, or captain-only (`4`) if unavailable.
+
+These methods send the new configuration protocol introduced in the November 6 test build. They replace `setRank()`
+and its right-click menu flow. They target the handle's entity ID and return after sending or queueing, without
+server confirmation. The server still checks range and permissions; spawn configuration requires captain access.
+Older servers can still be read, but these writes require the new configuration protocol.
+
+`copy()` updates the placement clipboard for the relevant machine type. `paste()` sends an explicit configuration
+to the target entity, using supplied values merged with that entity's observed state; it does not fetch a clipboard.
+For doors, both include placement orientation, defaulting to the observed transform or vertical if unavailable.
+The orientation field is enabled only for placement/clipboard use in the official UI. `configure()` rejects it;
+use it with `copy()` to choose the orientation for future placement, rather than to rotate an existing door.
+
+**Fragment:**
+
+```js
+door.configure({allowedRanks: ["guest", "captain"]});
+spawnPoint.setAllowedRanks(["crew", "captain"]);
+door.copy({orientation: "horizontal", allowedRanks: "all"});
+```
+
+Door and spawn reads use rank filters for both server formats:
+
+```ts
+door.rankMask: number | null | undefined;
+door.allowedRanks: ("guest" | "crew" | "captain")[] | null | undefined;
+spawnPoint.rankMask: number | null | undefined;
+spawnPoint.allowedRanks: ("guest" | "crew" | "captain")[] | null | undefined;
+```
+
+Their summaries replace `rank`/`rankName` with `rankMask`, `allowedRanks`, `allRanks`, and raw `rankState`.
+Bits are guest `1`, crew `2`, and captain `4`. An empty array means no known ranks are allowed; `null` means the
+filter has not been observed. Unknown bits remain in the unsigned `rankMask`; `allRanks` identifies `0xffffffff`,
+which includes future ranks. Legacy restrictions normalize as follows:
+
+| Legacy restriction | `rankMask` | `allowedRanks` |
+| --- | --- | --- |
+| Guest | `7` | `["guest", "crew", "captain"]` |
+| Crew | `6` | `["crew", "captain"]` |
+| Captain | `4` | `["captain"]` |
 
 ## Loaders
 
@@ -205,15 +266,37 @@ pusher.configure({mode: "push", filteredMode: "pull", angle: 90, speed: 20, leng
 ## Launchers
 
 ```ts
-launcher.setAngle(degrees: number): DredlessClient;
-launcher.setPower(power: number): DredlessClient;
+launcher.configure(config?: LauncherConfig): DredlessClient;
+launcher.copy(config?: LauncherConfig): DredlessClient;
+launcher.paste(config?: LauncherConfig): DredlessClient;
+launcher.setAngle(degrees: number, config?: LauncherConfig): DredlessClient;
+launcher.setPower(power: number, config?: LauncherConfig): DredlessClient;
+interface LauncherConfig { angle?: number; power?: number; }
 ```
 
-Both act on the **active launcher interaction**, not an entity ID embedded in the command. Open/use the intended launcher first and establish that interaction before setting it. There is no promise that `open()` has completed that step. A handle by itself cannot configure an arbitrary launcher remotely.
+These methods use the entity-targeted configuration protocol introduced in the November 6 test build. No active
+launcher interaction is required. Angle is in degrees in `0–360`; power is `0–30`. Both accept fractional values.
+Omitted fields use observed state, then defaults of angle `0` and power `30`. `setAngle()` preserves observed power,
+and `setPower()` preserves observed angle. Calls return after sending or queueing, without server confirmation.
 
-Angle inputs are finite numbers, rounded to an integer and normalized into `0–359` degrees. Power must be an integer in `0–30`. These are sent immediately, without success confirmation.
+`copy()` updates the launcher placement clipboard. `paste()` sends an explicit merged configuration to the target,
+rather than reading the clipboard. For direct client calls, the entity ID is now required:
+`client.setLauncherAngle(entity, angle, config?)` and `client.setLauncherPower(entity, power, config?)`.
 
-Read `.state.angleDegrees`, `.state.angleRadians`, or `.state.angleRaw`. The angle is the launcher's decoded angle; the API does not add an inferred mounting rotation. Power is not exposed in `LauncherSummary`.
+**Fragment:**
+
+```js
+launcher.configure({angle: 45, power: 17.5});
+launcher.setPower(20);
+launcher.copy({angle: 90});
+```
+
+Read `.state.angleDegrees`, `.state.angleRadians`, or `.state.angleRaw`. The angle is the launcher's decoded angle;
+the API does not add an inferred mounting rotation. New launcher configuration takes precedence over the legacy
+angle component. `.state.power` is the replicated power on the November 6 test format, or `null` on legacy servers.
+`.state.configState` contains the new raw configuration record or `null`; `.state.state` retains the legacy record.
+`angleRaw` is in tenths of a degree when `configState` is present, or the legacy `1/200` radian units otherwise.
+Prefer the converted angle fields for code that supports both formats. New-format defaults are angle `0` and power `30`.
 
 ## Navigation units
 

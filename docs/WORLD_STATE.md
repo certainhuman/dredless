@@ -137,6 +137,17 @@ An egg has public type `"egg"` and a `ball` component with `isEgg: true`; the ba
 | `rcd` | Sandbox/flux variant and variant code, corresponding item ID, stored item identity/count, beam vector, raw `state`. |
 | `ball` | Nullable `health`, radius in world units, `rubber`, `isEgg`, raw `state`. |
 | `recycler` | Stored item identity/count. Identified from the recycler marker in a ship interior. |
+| `itemCrate` | Item identity/count, `boxSprite`, raw size values `width`/`height`, and raw `itemState`/`sizeState`. |
+
+Read crates through `entity.feature("itemCrate")` or an entity summary's `contents.itemCrate` from the debug/model API.
+`boxSprite` means the official renderer uses its box sprite instead of the item's normal sprite; it does not indicate
+ownership or a source ship. Elimination loot boxes retain their item IDs and names from the item schema. Crate
+`width`/`height` retain their existing raw wire units.
+
+The `health` component includes `barWidth` (full width) and `barOffsetY` in world units. `barWidth` is the wire
+half-width divided by `5`, defaulting to `2`; `barOffsetY` is the wire offset divided by `10`, defaulting to `1`.
+`barOffsetY` is the vertical displacement from the entity position. These are display values, not collision dimensions.
+HP and maximum HP remain `hp` and `maxHp`.
 
 Projectile `botStyle` selects the official bot-bullet sprite; it does not prove ownership or identify the shooter.
 `indicatorCount` is the number of orbiting visual markers. `spriteItemId` is the item image used by the official

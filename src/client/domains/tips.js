@@ -1,5 +1,3 @@
-import {normalizePlayerRank} from "../../protocol/outbound/ship-management.js";
-
 function timeoutValue(options) {
   const timeout = options.timeout ?? 5000;
   if (!Number.isFinite(timeout) || timeout <= 0) throw new RangeError("timeout must be positive milliseconds");
@@ -137,17 +135,4 @@ export class TipDomain {
     });
   }
 
-  setRank(handle, rank, options = {}) {
-    return this.#exclusive(async () => {
-      const value = normalizePlayerRank(rank);
-      const timeout = timeoutValue(options);
-      if (!handle.exists()) throw new Error("Rank target no longer exists");
-      if (handle.rank === value) return this.client;
-      const text = {0: "Restrict to Guests", 1: "Restrict to Crew", 3: "Restrict to Captains"}[value];
-      await this.#open(handle, options);
-      await waitFor(this.client, "model", () => handle.rank === value, timeout, "access rank update",
-        () => this.#select(text));
-      return this.client;
-    });
-  }
 }

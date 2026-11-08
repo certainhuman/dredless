@@ -1,6 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+test("new machine configuration builders are shared by runtime and protocol entrypoints", async () => {
+    const modules = await Promise.all([
+        import("dredless/node"),
+        import("dredless/browser"),
+        import("dredless/protocol"),
+        import("dredless/protocol/ui-config")
+    ]);
+    for (const name of [
+        "buildLauncherConfigData", "buildLauncherCopyConfigData", "buildLauncherPasteConfigData",
+        "buildDoorConfigData", "buildDoorCopyConfigData", "buildDoorPasteConfigData",
+        "buildSpawnPointConfigData", "buildSpawnPointCopyConfigData", "buildSpawnPointPasteConfigData", "normalizeRankMask"
+    ]) {
+        assert.equal(typeof modules[0][name], "function", name);
+        for (const module of modules) assert.equal(module[name], modules[0][name], name);
+    }
+});
+
 test("layer entrypoints expose the reorganized modules", async () => {
     const [client, network, protocol, state] = await Promise.all([
         import("../src/client/index.js"),

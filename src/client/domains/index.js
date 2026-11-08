@@ -566,7 +566,7 @@ export class EntitySnapshot {
         this.id = Number(data.entity ?? data.id);
         this.entity = this.id;
         this.position = data.transform || null;
-        this.rotation = data.transform?.rotation ?? null;
+        this.rotation = data.transform?.rot ?? null;
         this.type = entityPublicType(data, this.#contents);
         this.features = Object.freeze(entityFeatures(data, this.#contents));
         deepFreeze(this.#contents);
@@ -1150,12 +1150,28 @@ export class LauncherHandle extends MachineHandle {
         return summaryForEntity(this.client, this.scope, this.id)?.contents?.launcher || null;
     }
 
-    setAngle(angle) {
-        return this.client.setLauncherAngle(angle);
+    configure(config = {}) {
+        return this.client.sendLauncherConfig(this.id, config);
     }
 
-    setPower(power) {
-        return this.client.setLauncherPower(power);
+    copy(config = {}) {
+        return this.client.copyLauncherConfig(this.id, config);
+    }
+
+    paste(config = {}) {
+        return this.client.pasteLauncherConfig(this.id, config);
+    }
+
+    setAngle(angle, config = {}) {
+        return this.client.setLauncherAngle(this.id, angle, config);
+    }
+
+    setPower(power, config = {}) {
+        return this.client.setLauncherPower(this.id, power, config);
+    }
+
+    get power() {
+        return this.state?.power;
     }
 
     get angleDegrees() {
@@ -1368,16 +1384,36 @@ export class HelmHandle extends MachineHandle {
 }
 
 export class DoorHandle extends MachineHandle {
-    setRank(rank, options = {}) {
-        return this.client.tips.setRank(this, rank, options);
+    configure(config = {}) {
+        return this.client.sendDoorConfig(this.id, config);
+    }
+
+    copy(config = {}) {
+        return this.client.copyDoorConfig(this.id, config);
+    }
+
+    paste(config = {}) {
+        return this.client.pasteDoorConfig(this.id, config);
+    }
+
+    setAllowedRanks(allowedRanks) {
+        return this.configure({allowedRanks});
+    }
+
+    setRankMask(rankMask) {
+        return this.configure({rankMask});
     }
 
     get state() {
         return summaryForEntity(this.client, this.scope, this.id)?.contents?.door || null;
     }
 
-    get rank() {
-        return this.state?.rank;
+    get rankMask() {
+        return this.state?.rankMask;
+    }
+
+    get allowedRanks() {
+        return this.state?.allowedRanks;
     }
 
     get open() {
@@ -1386,16 +1422,36 @@ export class DoorHandle extends MachineHandle {
 }
 
 export class SpawnPointHandle extends MachineHandle {
-    setRank(rank, options = {}) {
-        return this.client.tips.setRank(this, rank, options);
+    configure(config = {}) {
+        return this.client.sendSpawnPointConfig(this.id, config);
+    }
+
+    copy(config = {}) {
+        return this.client.copySpawnPointConfig(this.id, config);
+    }
+
+    paste(config = {}) {
+        return this.client.pasteSpawnPointConfig(this.id, config);
+    }
+
+    setAllowedRanks(allowedRanks) {
+        return this.configure({allowedRanks});
+    }
+
+    setRankMask(rankMask) {
+        return this.configure({rankMask});
     }
 
     get state() {
         return summaryForEntity(this.client, this.scope, this.id)?.contents?.spawnPoint || null;
     }
 
-    get rank() {
-        return this.state?.rank;
+    get rankMask() {
+        return this.state?.rankMask;
+    }
+
+    get allowedRanks() {
+        return this.state?.allowedRanks;
     }
 }
 

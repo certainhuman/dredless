@@ -376,6 +376,11 @@ export const LoaderPriority: {
 export type LoaderPriority = typeof LoaderPriority[keyof typeof LoaderPriority];
 export type ClipboardTarget =
     number
+    | "launcher"
+    | "door"
+    | "spawn"
+    | "spawn-point"
+    | "spawnPoint"
     | "loader"
     | "loader-config"
     | "loaderConfig"
@@ -423,6 +428,28 @@ export interface LoaderConfig {
     requireOutput?: boolean;
     waitForStack?: boolean;
 }
+
+export type AllowedRank = "guest" | "crew" | "captain";
+export type AllowedRanks = readonly AllowedRank[] | "all";
+
+export interface RankFilterConfig {
+    /** Specify allowedRanks or rankMask, not both. Empty disables all ranks. */
+    allowedRanks?: AllowedRanks;
+    /** 0–7, or 0xffffffff for all current and future ranks. */
+    rankMask?: number;
+}
+export interface LauncherConfig {
+    /** Degrees, 0–360. */
+    angle?: number;
+    /** 0–30; fractional values are supported. */
+    power?: number;
+}
+export interface DoorConfig extends RankFilterConfig {}
+export interface DoorClipboardConfig extends DoorConfig {
+    /** Placement orientation; does not rotate an existing door. */
+    orientation?: "vertical" | "horizontal";
+}
+export interface SpawnPointConfig extends RankFilterConfig {}
 
 export interface LoaderFullConfig extends LoaderConfig {
     filterMode?: LoaderFilterMode;
@@ -630,6 +657,18 @@ export class DredlessClient {
     readyPromise: Promise<this>;
 
     whenReady(): Promise<this>;
+
+    sendLauncherConfig(entity: number, config?: LauncherConfig): DredlessClient;
+    setLauncherAngle(entity: number, angle: number, config?: LauncherConfig): DredlessClient;
+    setLauncherPower(entity: number, power: number, config?: LauncherConfig): DredlessClient;
+    copyLauncherConfig(entity: number, config?: LauncherConfig): DredlessClient;
+    pasteLauncherConfig(entity: number, config?: LauncherConfig): DredlessClient;
+    sendDoorConfig(entity: number, config?: DoorConfig): DredlessClient;
+    copyDoorConfig(entity: number, config?: DoorClipboardConfig): DredlessClient;
+    pasteDoorConfig(entity: number, config?: DoorClipboardConfig): DredlessClient;
+    sendSpawnPointConfig(entity: number, config?: SpawnPointConfig): DredlessClient;
+    copySpawnPointConfig(entity: number, config?: SpawnPointConfig): DredlessClient;
+    pasteSpawnPointConfig(entity: number, config?: SpawnPointConfig): DredlessClient;
 
     close(code?: number, reason?: string): this;
 
@@ -1340,9 +1379,13 @@ export interface PusherHandle extends MachineHandle {
 export interface LauncherHandle extends MachineHandle {
     state: LauncherSummary | null;
 
-    setAngle(angle: number): DredlessClient;
+    configure(config?: LauncherConfig): DredlessClient;
+    copy(config?: LauncherConfig): DredlessClient;
+    paste(config?: LauncherConfig): DredlessClient;
+    setAngle(angle: number, config?: LauncherConfig): DredlessClient;
 
-    setPower(power: number): DredlessClient;
+    setPower(power: number, config?: LauncherConfig): DredlessClient;
+    power: number | null | undefined;
 
     angleDegrees: number | undefined;
     angleRadians: number | undefined;
@@ -1448,15 +1491,25 @@ export interface HelmHandle extends MachineHandle {
 
 export interface DoorHandle extends EntityHandle {
     state: DoorSummary | null;
-    rank: number | undefined;
+    rankMask: number | null | undefined;
+    allowedRanks: ("guest" | "crew" | "captain")[] | null | undefined;
     open: boolean | undefined;
-    setRank(rank: ShipPlayerRank, options?: TipOptions): Promise<DredlessClient>;
+    configure(config?: DoorConfig): DredlessClient;
+    copy(config?: DoorClipboardConfig): DredlessClient;
+    paste(config?: DoorClipboardConfig): DredlessClient;
+    setAllowedRanks(allowedRanks: AllowedRanks): DredlessClient;
+    setRankMask(rankMask: number): DredlessClient;
 }
 
 export interface SpawnPointHandle extends MachineHandle {
     state: SpawnPointSummary | null;
-    rank: number | undefined;
-    setRank(rank: ShipPlayerRank, options?: TipOptions): Promise<DredlessClient>;
+    rankMask: number | null | undefined;
+    allowedRanks: ("guest" | "crew" | "captain")[] | null | undefined;
+    configure(config?: SpawnPointConfig): DredlessClient;
+    copy(config?: SpawnPointConfig): DredlessClient;
+    paste(config?: SpawnPointConfig): DredlessClient;
+    setAllowedRanks(allowedRanks: AllowedRanks): DredlessClient;
+    setRankMask(rankMask: number): DredlessClient;
 }
 
 export interface ShieldProjectorHandle extends MachineHandle {
@@ -2044,6 +2097,8 @@ export interface ItemCrateSummary {
     itemId: number | null;
     itemName: string | null;
     count: number | null;
+    /** Use the box sprite instead of the item's normal sprite. */
+    boxSprite: boolean;
     width: number | null;
     height: number | null;
     itemState: ModelRecord;
@@ -2123,6 +2178,10 @@ export interface HealthSummary {
     hp: number | null;
     maxHp: number | null;
     ratio: number | null;
+    /** Full width of the rendered health bar, in world units. */
+    barWidth: number;
+    /** Vertical displacement from the entity position, in world units. */
+    barOffsetY: number;
     state: ModelRecord;
 }
 
@@ -2297,6 +2356,9 @@ export interface LauncherSummary {
     angleRaw: number | null;
     angleRadians: number | null;
     angleDegrees: number | null;
+    /** Replicated launcher power; null on legacy servers. */
+    power: number | null;
+    configState: ModelRecord | null;
     state: ModelRecord;
 }
 
@@ -2353,19 +2415,23 @@ export interface SignSummary {
     state: ModelRecord;
 }
 
-export interface SpawnPointSummary {
+export interface RankFilterSummary {
+    /** Unsigned rank bits: guest=1, crew=2, captain=4; null if unavailable. */
+    rankMask: number | null;
+    allowedRanks: ("guest" | "crew" | "captain")[] | null;
+    /** True for the all-ranks mask, including future ranks. */
+    allRanks: boolean;
+    rankState: ModelRecord;
+}
+
+export interface SpawnPointSummary extends RankFilterSummary {
     entity: number;
-    rank: number;
-    rankName: string | null;
     state: ModelRecord;
 }
 
-export interface DoorSummary {
+export interface DoorSummary extends RankFilterSummary {
     entity: number;
-    rank: number;
-    rankName: string | null;
     open: boolean;
-    rankState: ModelRecord;
     state: ModelRecord;
 }
 
@@ -2768,6 +2834,17 @@ export function buildLoaderFilterItemsData(entity: number, filterSlots?: Array<n
 export function buildLoaderFullConfigData(entity: number, config?: LoaderFullConfig): Uint8Array;
 
 export function buildPusherConfigData(entity: number, config?: PusherConfig): Uint8Array;
+
+export function normalizeRankMask(config?: RankFilterConfig): number;
+export function buildLauncherConfigData(entity: number, config?: LauncherConfig): Uint8Array;
+export function buildLauncherCopyConfigData(config?: LauncherConfig): Uint8Array;
+export function buildLauncherPasteConfigData(entity: number, config?: LauncherConfig): Uint8Array;
+export function buildDoorConfigData(entity: number, config?: DoorConfig): Uint8Array;
+export function buildDoorCopyConfigData(config?: DoorClipboardConfig): Uint8Array;
+export function buildDoorPasteConfigData(entity: number, config?: DoorClipboardConfig): Uint8Array;
+export function buildSpawnPointConfigData(entity: number, config?: SpawnPointConfig): Uint8Array;
+export function buildSpawnPointCopyConfigData(config?: SpawnPointConfig): Uint8Array;
+export function buildSpawnPointPasteConfigData(entity: number, config?: SpawnPointConfig): Uint8Array;
 
 export function buildPusherFilterItemsData(entity: number, filterSlots?: Array<number | null | undefined>): Uint8Array;
 
