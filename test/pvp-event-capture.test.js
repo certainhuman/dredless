@@ -8,7 +8,7 @@ import {decodeMsgpack} from "../src/protocol/codec/msgpack.js";
 const capture = new URL("./fixtures/pvp-event.jsonl", import.meta.url);
 
 test("pvp event capture replays without frame or model decode errors", (t) => {
-    if (!fs.existsSync(capture)) t.skip("test/fixtures/pvp-event.jsonl is not present");
+    if (!fs.existsSync(capture)) return t.skip("test/fixtures/pvp-event.jsonl is not present");
 
     const store = new WorldStore();
     const errors = [];

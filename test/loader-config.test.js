@@ -349,7 +349,7 @@ test("loader gap fixtures cover suspected semantic delta masks", () => {
     );
 });
 
-test("loader blueprint captures replay and match fixture configs", () => {
+test("loader blueprint captures replay and match fixture configs", (t) => {
     const captures = [
         ["loader-config-matrix.jsonl", loaderBlueprintFixtures.matrix, 11.5, 11.5],
         ["loader-delta.jsonl", loaderBlueprintFixtures.deltaReconfigured, 12.5, 11.5],
@@ -365,6 +365,9 @@ test("loader blueprint captures replay and match fixture configs", () => {
         ["loader-delta-gap-no-cycle.jsonl", loaderBlueprintFixtures.deltaGapNoCycleReconfigured, 9.5, 15.5],
         ["loader-delta-multi.jsonl", loaderBlueprintFixtures.deltaMultiStep3, 9.5, 12.5]
     ];
+
+    const missing = captures.filter(([name]) => !fs.existsSync(captureUrl(name)));
+    if (missing.length) return t.skip("local loader captures are not present");
 
     for (const [name, fixture, offsetX, offsetY] of captures) {
         const store = replayCapture(name);
@@ -1069,7 +1072,8 @@ test("generateGeneratorMaze exposes normalized cell rows", () => {
     assert.equal(maze.rows[9][9].digit, 2);
 });
 
-test("navigation capture decodes layered overworld ids and nav base ids", () => {
+test("navigation capture decodes layered overworld ids and nav base ids", (t) => {
+    if (!fs.existsSync(captureUrl("nav-sample.jsonl"))) return t.skip("local capture is not present");
     const store = replayCapture("nav-sample.jsonl");
     const overworld = store.overworld();
     assert.ok(overworld, "overworld loaded");
@@ -1771,7 +1775,8 @@ test("ModelState decodes thruster facing and fuel", () => {
     assert.ok(model.entity(10).kind.includes("thruster"));
 });
 
-test("blueprint scanner preview exposes grouped blueprint items", () => {
+test("blueprint scanner preview exposes grouped blueprint items", (t) => {
+    if (!fs.existsSync(captureUrl("blueprints-sample.jsonl"))) return t.skip("local capture is not present");
     const store = replayCaptureUntil("blueprints-sample.jsonl", (update) =>
         update?.type === "model" &&
         update.world?.id === 2872 &&
@@ -1820,7 +1825,8 @@ test("blueprint scanner preview exposes grouped blueprint items", () => {
     ]);
 });
 
-test("blueprint scanner preview expands repeated placement bits", () => {
+test("blueprint scanner preview expands repeated placement bits", (t) => {
+    if (!fs.existsSync(captureUrl("more-blueprints-sample.jsonl"))) return t.skip("local capture is not present");
     const store = replayCaptureUntil("more-blueprints-sample.jsonl", (update) =>
         update?.type === "model" &&
         update.world?.id === 2881 &&

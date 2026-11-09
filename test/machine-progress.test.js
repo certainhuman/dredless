@@ -50,7 +50,7 @@ test("loader transfer state exposes held item while an item is moving", (t) => {
     if (!applyOfficialCapture(store, "machine-progress-loader-transfer.jsonl", ({store: currentStore}) => {
         const loader = componentInAnyWorld(currentStore, 25, "loader");
         if (loader) samples.push(loader);
-    })) t.skip("capture not present");
+    })) return t.skip("capture not present");
 
     assert.ok(samples.some((loader) => loader.active && loader.heldItemId === 232), "loader reports the iron block while it is held for transfer");
     assert.equal(samples.at(-1).active, false, "loader is inactive after the held item leaves");
@@ -58,13 +58,13 @@ test("loader transfer state exposes held item while an item is moving", (t) => {
 
 test("fabricator progress exposes clamped progress, raw progress, and crafting item", (t) => {
     const store = new WorldStore();
-    if (!applyOfficialCapture(store, "machine-progress-loader-transfer.jsonl")) t.skip("baseline capture not present");
+    if (!applyOfficialCapture(store, "machine-progress-loader-transfer.jsonl")) return t.skip("baseline capture not present");
 
     const samples = [];
     if (!applyOfficialCapture(store, "machine-progress-fabricator.jsonl", ({store: currentStore}) => {
         const fabricator = componentInAnyWorld(currentStore, 44, "fabricator");
         if (fabricator) samples.push(fabricator);
-    })) t.skip("capture not present");
+    })) return t.skip("capture not present");
 
     assert.equal(Math.max(...samples.map((fab) => fab.progressRaw ?? -Infinity)), 102);
     assert.equal(Math.max(...samples.map((fab) => fab.progress ?? -Infinity)), 100);
@@ -82,14 +82,14 @@ test("cargo hatch pickup animation exposes openFraction", (t) => {
     if (!applyOfficialCapture(store, "machine-progress-cargo-hatch.jsonl", ({store: currentStore}) => {
         const hatch = componentInWorld(currentStore, 13282, 52, "cargoHatch");
         if (hatch?.openFraction != null) samples.push(hatch.openFraction);
-    })) t.skip("capture not present");
+    })) return t.skip("capture not present");
 
     assert.deepEqual([...new Set(samples)], [0.25, 0.5, 0.75, 1, 0]);
 });
 
 test("cargo ejector decodes table 49 direction and mount state independently of activity", (t) => {
     const store = new WorldStore();
-    if (!applyOfficialCapture(store, "machine-progress-loader-samples.jsonl")) t.skip("capture not present");
+    if (!applyOfficialCapture(store, "machine-progress-loader-samples.jsonl")) return t.skip("capture not present");
 
     const ejectors = [];
     for (const world of store.worlds.values()) {

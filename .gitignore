@@ -13,3 +13,6 @@ watch.log
 /benchmark.js
 /capture.js
 /dist/
+
+# Recorded WebSocket captures are local artifacts.
+*.jsonl
