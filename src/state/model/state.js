@@ -1155,6 +1155,8 @@ export class ModelState {
 
     #readSectionRecords(reader, tag, tableId, spec) {
         const section = {tag, table: tableId, name: spec?.name || null, records: []};
+        // Resolve the table once per section rather than twice per record.
+        let records = this.tables.get(tableId);
         let entity = 0;
         while (reader.remaining > 0) {
             const recordOffset = reader.offset;
@@ -1172,7 +1174,9 @@ export class ModelState {
             } catch (error) {
                 throw new Error(`model table ${tableId} tag ${tag} entity ${entity} mask offset ${reader.offset}: ${error.message}`);
             }
-            const record = this.#getRecord(tableId, entity);
+            if (!records) this.tables.set(tableId, records = new Map());
+            let record = records.get(entity);
+            if (!record) records.set(entity, record = {...spec?.defaults});
             record.lastMask = mask;
 
             try {
@@ -1186,13 +1190,6 @@ export class ModelState {
             section.records.push(changed);
         }
         return section;
-    }
-
-    #getRecord(tableId, entity) {
-        if (!this.tables.has(tableId)) this.tables.set(tableId, new Map());
-        const records = this.tables.get(tableId);
-        if (!records.has(entity)) records.set(entity, {...MODEL_TABLE_SPECS.get(tableId)?.defaults});
-        return records.get(entity);
     }
 
     #applyRecordSpec(reader, record, mask, spec) {

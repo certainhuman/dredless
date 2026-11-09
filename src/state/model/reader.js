@@ -16,14 +16,18 @@ export class ModelReader {
     }
 
     readUnsigned() {
-        let result = 0;
-        let shift = 0;
+        const first = this.readByte();
+        if (first < 0x80) return first;
+        let result = first & 0x7f;
+        let multiplier = 128;
+        let shift = 7;
         while (true) {
             const byte = this.readByte();
-            result += (byte & 0x7f) * (2 ** shift);
+            result += (byte & 0x7f) * multiplier;
             if ((byte & 0x80) === 0) return result;
             shift += 7;
             if (shift > 70) throw new Error("model_data varint too large");
+            multiplier *= 128;
         }
     }
 
