@@ -1,8 +1,9 @@
-import {WorldState} from "./state.js";
+import {TileFlags, WorldState} from "./state.js";
 import {ModelState} from "../model/index.js";
+import {defineLazyProperty} from "../model/decoder.js";
 import {decodeModelPayload} from "../../protocol/inbound/world-payload.js";
 
-export {WorldState};
+export {WorldState, TileFlags};
 
 // Retention limits for per-world history. These arrays previously grew without
 // bound for the lifetime of a connection. Pass Infinity to restore that.
@@ -143,7 +144,12 @@ export class WorldStore {
         if (decoded && typeof decoded === "object") {
             for (const [kind, value] of Object.entries(decoded)) {
                 try {
-                    if (kind === "0") updates.push({kind, tiles: world.applyChunk(value)});
+                    if (kind === "0") {
+                        // `tiles` is built on first read: most consumers never
+                        // look at it, and a full chunk is 4096 objects.
+                        const patch = world.applyChunkPatch(value);
+                        updates.push(defineLazyProperty({kind}, "tiles", () => (patch ? patch.tiles : null)));
+                    }
                     else if (kind === "1") updates.push({kind, tile: world.applyTile(value)});
                     else updates.push({kind, value});
                 } catch (error) {

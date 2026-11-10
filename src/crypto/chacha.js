@@ -246,19 +246,38 @@ function chacha20Xor(key, nonce, data) {
     return chacha20Into(out, key, nonce, data.length, data);
 }
 
+// A world's key bytes are fixed for its lifetime, so encode them once rather
+// than on every packet.
+const WORLD_KEY_CACHE = new Map();
+const WORLD_KEY_CACHE_LIMIT = 64;
+// Reused per packet: the key and nonce are consumed synchronously.
+const MATERIAL_SCRATCH = new Uint8Array(44);
+
+function worldKeyBytes(worldId, seed) {
+    const text = `${worldId}${seed}`;
+    let bytes = WORLD_KEY_CACHE.get(text);
+    if (!bytes) {
+        if (WORLD_KEY_CACHE.size >= WORLD_KEY_CACHE_LIMIT) WORLD_KEY_CACHE.clear();
+        bytes = encoder.encode(text);
+        WORLD_KEY_CACHE.set(text, bytes);
+    }
+    return bytes;
+}
+
 function decryptPayload(wireBytes, worldId, seed) {
     const wire = toUint8Array(wireBytes);
-    if (wire.length < 8) throw new Error("payload too short");
-    const view = new DataView(wire.buffer, wire.byteOffset, wire.byteLength);
-    const packetWordA = view.getUint32(0, true);
-    const packetWordB = view.getUint32(wire.length - 4, true);
-    const material = Uint8Array.from(SHARED_CHACHA_MATERIAL);
-    const worldKey = encoder.encode(`${worldId}${seed}`);
+    const length = wire.length;
+    if (length < 8) throw new Error("payload too short");
+    const packetWordA = readLe32(wire, 0);
+    const packetWordB = readLe32(wire, length - 4);
+    const material = MATERIAL_SCRATCH;
+    const worldKey = worldKeyBytes(worldId, seed);
+    const keyLength = worldKey.length;
     for (let i = 0, l = 0, r = 0; i < 44; i++, l += 7, r += 11) {
-        material[i] ^= worldKey[i % worldKey.length] ^ (rotl32(packetWordA, l) & 0xff) ^ (rotr32(packetWordB, r) & 0xff);
+        material[i] = SHARED_CHACHA_MATERIAL[i] ^ worldKey[i % keyLength] ^ (rotl32(packetWordA, l) & 0xff) ^ (rotr32(packetWordB, r) & 0xff);
     }
     // subarray, not slice: the key and nonce are only read.
-    const ciphertext = wire.subarray(4, wire.length - 4);
+    const ciphertext = wire.subarray(4, length - 4);
     return chacha20Xor(material.subarray(0, 32), material.subarray(32, 44), ciphertext);
 }
 

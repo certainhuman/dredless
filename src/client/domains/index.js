@@ -435,6 +435,7 @@ export class WorldDomain {
         this.recyclers = new EntitySummaryCollection(client, scope, "recyclers");
         this.blocks = new BlockCollection(client, scope);
         this.materials = new MaterialCollection(client, scope);
+        this.tiles = new TileDomain(client, scope);
     }
 
     get id() {
@@ -678,6 +679,36 @@ export class MaterialCollection {
 
     all() {
         return worldStateFor(this.client, this.scope)?.materials() || [];
+    }
+}
+
+// Tile reads for a world. `chunks()` reads the columnar store directly and
+// allocates nothing, so it is safe to scan every tick; `all()` and `at()` build
+// tile objects.
+export class TileDomain {
+    constructor(client, scope) {
+        this.client = client;
+        this.scope = scope;
+    }
+
+    get count() {
+        return worldStateFor(this.client, this.scope)?.tiles.size ?? 0;
+    }
+
+    get version() {
+        return worldStateFor(this.client, this.scope)?.tileVersion ?? 0;
+    }
+
+    chunks() {
+        return worldStateFor(this.client, this.scope)?.tileChunks() || [];
+    }
+
+    at(x, y) {
+        return worldStateFor(this.client, this.scope)?.tileAt(x, y) ?? null;
+    }
+
+    all() {
+        return worldStateFor(this.client, this.scope)?.tiles.toArray() || [];
     }
 }
 

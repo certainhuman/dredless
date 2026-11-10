@@ -11,6 +11,9 @@ function isArrayBufferLike(value) {
 
 function toUint8Array(value) {
     if (value instanceof Uint8Array) return value;
+    // Fast path for the websocket's own buffers; the tag check below covers
+    // cross-realm ArrayBuffers and SharedArrayBuffer.
+    if (value instanceof ArrayBuffer) return new Uint8Array(value);
     if (isArrayBufferLike(value)) return new Uint8Array(value);
     if (ArrayBuffer.isView(value)) {
         return new Uint8Array(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));

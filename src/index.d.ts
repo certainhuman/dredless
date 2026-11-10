@@ -979,6 +979,7 @@ export interface WorldDomain {
     recyclers: EntitySummaryCollection<RecyclerSummary>;
     blocks: BlockCollection;
     materials: MaterialCollection;
+    tiles: TileDomain;
 
     exists(): boolean;
 
@@ -1098,6 +1099,22 @@ export interface BlockCollection {
 
 export interface MaterialCollection {
     all(): MaterialSummary[];
+}
+
+/** Tile reads for one world. `chunks()` allocates nothing and is safe to scan every tick. */
+export interface TileDomain {
+    /** Number of tiles currently stored. */
+    readonly count: number;
+    /** Bumped on every tile write; 0 when the world is unknown. */
+    readonly version: number;
+
+    /** Live, zero-copy views of each 64x64 chunk. Treat as read-only. */
+    chunks(): TileChunkView[];
+
+    at(x: number, y: number): Tile | null;
+
+    /** Every tile as an object. Prefer `chunks()` for per-tick scans. */
+    all(): Tile[];
 }
 
 export interface MachineCollection {
@@ -1812,7 +1829,10 @@ export class WorldState {
     blockHeight: number | null;
     parentWorld: number | null;
     parentEntity: number | null;
-    tiles: Map<string, Tile>;
+    /** This world's tiles as objects: `size` and `toArray()`. */
+    tiles: TileCollection;
+    /** Bumped on every tile write. */
+    readonly tileVersion: number;
     chunks: unknown[];
     events: unknown[];
     modelPackets: unknown[];
@@ -1831,6 +1851,18 @@ export class WorldState {
     applyTile(value: unknown): Tile | null;
 
     applyChunk(value: unknown): Tile[] | null;
+
+    /** Applies a chunk patch; the returned entry builds its `tiles` array on first read. */
+    applyChunkPatch(value: unknown): TileChunkPatch | null;
+
+    /** Live, zero-copy views of each 64x64 chunk. Stable for the life of the chunk; treat as read-only. */
+    tileChunks(): TileChunkView[];
+
+    /** O(1) lookup of the tile at a coordinate. */
+    tileAt(x: number, y: number): Tile | null;
+
+    /** Drops tile objects retained for repeated `tiles.toArray()` reads. */
+    releaseTileObjects(): void;
 
     setTile(tile: Tile): Tile;
 
@@ -1871,6 +1903,58 @@ export interface Tile {
     maxHp?: number | null;
     hpRatio?: number | null;
     hpValue?: number | null;
+}
+
+/**
+ * Tile objects for a world. Objects are built on demand from columnar storage:
+ * they are not identity-stable across writes and mutating one does not change
+ * stored state. There is intentionally no iterator; iterate the array.
+ */
+export interface TileCollection {
+    readonly size: number;
+
+    /** A fresh array of every tile, ordered by chunk. */
+    toArray(): Tile[];
+}
+
+/** Values of `TileChunkView.flags`. Zero means the cell holds no tile. */
+export const TileFlags: {
+    /** The cell holds a tile. */
+    readonly Present: 1;
+    /** The tile was sent without a color; its `color` is null. */
+    readonly NoColor: 2;
+};
+
+/**
+ * One 64x64 chunk of tiles as byte columns. Cell `i` is the tile at
+ * `(originX + (i & 63), originY + (i >> 6))`. The arrays are live views of
+ * client state: they change as packets arrive and must not be written to.
+ */
+export interface TileChunkView {
+    readonly chunkX: number;
+    readonly chunkY: number;
+    readonly originX: number;
+    readonly originY: number;
+    /** `WorldState.tileVersion` at this chunk's last write. */
+    readonly version: number;
+    readonly material: Uint8Array;
+    readonly shape: Uint8Array;
+    /** Raw 0-255 HP fraction byte. */
+    readonly hp: Uint8Array;
+    /** Meaningful only where `flags` lacks `TileFlags.NoColor`. */
+    readonly color: Uint8Array;
+    readonly flags: Uint8Array;
+}
+
+export interface TileChunkPatch {
+    chunkX: number;
+    chunkY: number;
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+    /** Built on first read. */
+    readonly tiles: Tile[];
 }
 
 export interface MaterialSummary {

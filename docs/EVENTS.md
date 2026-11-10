@@ -66,7 +66,7 @@ These events receive an update object with `.world` referencing the already-upda
 | Event           | Callback arguments | Important fields                                                              |
 |-----------------|--------------------|-------------------------------------------------------------------------------|
 | `world`         | `(update)`         | `update.world` with metadata applied                                          |
-| `tiles`         | `(update)`         | `world`, `decoded`, `updates`, `errors`                                       |
+| `tiles`         | `(update)`         | `world`, `decoded`, `updates`, `errors`; chunk `tiles` are built when read    |
 | `model`         | `(update)`         | `world`, `result` with model changes, side events, command number, timing     |
 | `comms-bubble`  | `(update)`         | `world`, `packet`, `bubble`                                                   |
 | `world-removed` | See below          | World removed from store                                                      |

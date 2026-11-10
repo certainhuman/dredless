@@ -430,10 +430,41 @@ function readArrayFast(bytes, count) {
     return items;
 }
 
+// Packet maps repeat the same few dozen short keys. Resolve those through a
+// small byte-keyed cache instead of a TextDecoder call per key.
+const KEY_CACHE = new Map();
+const KEY_CACHE_LIMIT = 512;
+
+function readKeyFast(bytes) {
+    const head = bytes[cursor];
+    if ((head & 0xe0) !== 0xa0) return readFast(bytes);
+    const len = head & 0x1f;
+    const start = cursor + 1;
+    const end = start + len;
+    if (end > bytes.length) return readFast(bytes);
+    let hash = len;
+    for (let i = start; i < end; i++) hash = (Math.imul(hash, 31) + bytes[i]) | 0;
+    const entry = KEY_CACHE.get(hash);
+    if (entry !== undefined) {
+        const cached = entry.bytes;
+        let same = cached.length === len;
+        for (let i = 0; same && i < len; i++) same = cached[i] === bytes[start + i];
+        if (same) {
+            cursor = end;
+            return entry.text;
+        }
+    }
+    cursor = start;
+    const text = readStrFast(bytes, len);
+    // A colliding key is simply decoded each time; the first one keeps the slot.
+    if (entry === undefined && KEY_CACHE.size < KEY_CACHE_LIMIT) KEY_CACHE.set(hash, {bytes: bytes.slice(start, end), text});
+    return text;
+}
+
 function readMapFast(bytes, count) {
     const obj = {};
     for (let i = 0; i < count; i++) {
-        const key = readFast(bytes);
+        const key = readKeyFast(bytes);
         obj[typeof key === "string" ? key : String(key)] = readFast(bytes);
     }
     return obj;

@@ -21,12 +21,15 @@ export function defineLazyProperty(target, key, compute) {
             if (!resolved) {
                 cached = compute();
                 resolved = true;
+                // Release whatever the closure captured once it has run.
+                compute = null;
             }
             return cached;
         },
         set(value) {
             cached = value;
             resolved = true;
+            compute = null;
         }
     });
     return target;
@@ -367,6 +370,7 @@ for (const spec of MODEL_TABLE_SPECS.values()) {
     for (const blob of spec.blobs || []) blob.key = blobKey(blob.offset);
     for (const item of spec.packedBits || []) item.key = qKey(item.offset);
     if (spec.packedOffsets) spec.packedOffsetKeys = spec.packedOffsets.map(qKey);
+    spec.packedAnyMask = (spec.packedBits || []).reduce((mask, item) => mask | item.bit, spec.packedMask || 0);
     if (spec.orderedValues) {
         spec.orderedItems = [
             ...(spec.blobs || []).map((item) => ({bit: item.bit, offset: item.offset, key: item.key, kind: "blob"})),

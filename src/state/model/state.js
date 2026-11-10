@@ -179,7 +179,7 @@ export class ModelState {
     entity(entityId) {
         const id = Number(entityId);
         if (!Number.isFinite(id)) return null;
-        return this.#derivedState().entitiesById.get(id) || null;
+        return this.#derivedEntityIndex().entitiesById.get(id) || null;
     }
 
     entities() {
@@ -194,7 +194,7 @@ export class ModelState {
     // O(1) point lookup. Callers previously had to materialise and scan the whole
     // block list to answer this.
     blockAt(x, y) {
-        this.#derivedState();
+        this.#derivedEntityIndex();
         return this.#blocksIndex().get(blockKey(x, y)) || null;
     }
 
@@ -400,20 +400,48 @@ export class ModelState {
     }
 
     #updateDerived(update) {
-        if (!this._derived) return;
+        const derived = this._derived;
+        if (!derived) return;
         if (!update.removals.length && !update.changedEntities.size) return;
 
         for (const section of update.sections) {
             for (const record of section.records || []) this.#addDerivedEntityTable(record.entity, section.table);
         }
 
+        // Only record what changed. Re-summarising happens on the next read, so
+        // an entity that moves every tick is summarised once per read rather
+        // than once per packet, and ingestion costs the same whether or not
+        // anything has read derived state.
+        const dirty = derived.dirtyEntities ??= new Set();
         if (update.sections.some((section) => section.table === 12)) {
+            // Player summaries embed blueprint previews, so they change too.
             for (const entityId of this.table(55).keys()) update.changedEntities.add(entityId);
         }
-        for (const entityId of update.removals) this.#removeDerivedEntity(entityId);
-        for (const entityId of update.changedEntities) this.#refreshDerivedEntity(entityId);
-        this._derived.summariesDirty = true;
-        this._derived.tableSummariesDirty = true;
+        for (const entityId of update.removals) {
+            derived.entityTableIds.delete(entityId);
+            dirty.add(entityId);
+        }
+        for (const entityId of update.changedEntities) dirty.add(entityId);
+    }
+
+    #flushDerivedEntities() {
+        const derived = this._derived;
+        const dirty = derived.dirtyEntities;
+        if (!dirty || dirty.size === 0) return;
+        derived.dirtyEntities = null;
+        // An entity with no remaining rows is dropped by the refresh.
+        for (const entityId of dirty) this.#refreshDerivedEntity(entityId);
+        derived.summariesDirty = true;
+        derived.tableSummariesDirty = true;
+    }
+
+    // Current entity summaries without the per-category lists. Point lookups go
+    // through here: rebuilding those lists is O(total entities) and was the whole
+    // cost of entity(id) on a large world.
+    #derivedEntityIndex() {
+        if (!this._derived) return this.#derivedState();
+        this.#flushDerivedEntities();
+        return this._derived;
     }
 
     #updateNavigationUnitAutoWarp(update) {
@@ -558,6 +586,7 @@ export class ModelState {
 
     #derivedState() {
         if (this._derived) {
+            this.#flushDerivedEntities();
             this.#ensureDerivedSummaries();
             return this._derived;
         }
@@ -645,7 +674,7 @@ export class ModelState {
 
         const next = this.#summarizeEntity(entityId, rows);
         derived.entitiesById.set(entityId, next);
-        if (!derived.entityIds.includes(entityId)) insertSorted(derived.entityIds, entityId);
+        if (!old) insertSorted(derived.entityIds, entityId);
         this.#addEntityToDerivedBlocks(derived, next);
         derived.entityCount = derived.entityIds.length;
     }
@@ -1199,10 +1228,7 @@ export class ModelState {
             return;
         }
 
-        const hasPacked = Boolean(
-            (spec.packedMask && (mask & spec.packedMask)) ||
-            spec.packedBits?.some((item) => mask & item.bit)
-        );
+        const hasPacked = (mask & spec.packedAnyMask) !== 0;
         let packed = null;
         if (hasPacked && spec.packedBeforeValues) packed = reader.readUnsigned();
 

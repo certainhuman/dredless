@@ -39,6 +39,7 @@ export {
     TurretMode,
     WorldStore,
     WorldState,
+    TileFlags,
     ModelState,
     FabricatorType,
     decodeModelData,

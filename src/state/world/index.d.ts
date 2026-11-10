@@ -1,8 +1,12 @@
 export {
     WorldStore,
     WorldState,
+    TileFlags,
     ModelState,
     type Tile,
+    type TileCollection,
+    type TileChunkView,
+    type TileChunkPatch,
     type TileDefinition,
     type Tileset,
     type OverworldZoneSummary,

@@ -27,7 +27,7 @@ The ship world describes its interior. The overworld contains ship entities and 
 represented in the overworld without their interiors being decoded. An entity ID is meaningful only together with its
 world.
 
-A `WorldDomain` exposes `id`, `exists()`, `entities`, `machines`, `players`, `blocks`, and `materials`, plus
+A `WorldDomain` exposes `id`, `exists()`, `entities`, `machines`, `players`, `blocks`, `materials`, and `tiles`, plus
 `snapshot(options?)`. A `ShipDomain` adds `metadata`, `entity()`, and `overworldEntity`. These refer to the ship's
 associated overworld entity when available, not its local player.
 
@@ -106,6 +106,50 @@ not freeze them.
 
 Materials summarize decoded blocks; they are not an authoritative ship inventory. A missing collection or component can
 reflect incomplete decoding, not an absent server object.
+
+### Tiles
+
+```ts
+world.tiles.count: number;
+world.tiles.version: number;                 // Bumped on every tile write.
+world.tiles.chunks(): TileChunkView[];       // Live typed-array views; no allocation.
+world.tiles.at(x: number, y: number): Tile | null;
+world.tiles.all(): Tile[];                   // Builds tile objects.
+```
+
+Tiles are stored as byte columns per 64x64 chunk, not as objects. `chunks()` reads that storage directly, so it is the
+read to use when scanning every tile each tick: it allocates nothing and does not add garbage-collection work to packet
+handling. `all()` builds `Tile` objects; use it for occasional reads. Each kind of read has one entry point. On a
+`WorldState` the same reads are `tileChunks()`, `tileAt()`, `tileVersion`, `tiles.size`, and `tiles.toArray()`;
+`WorldState.tiles` is not a `Map` and is not iterable.
+
+A `TileChunkView` has `chunkX`, `chunkY`, `originX`, `originY`, `version`, and the `material`, `shape`, `hp`, `color`,
+and `flags` byte arrays. Cell `i` is the tile at `(originX + (i & 63), originY + (i >> 6))`. A `flags` value of `0`
+means the cell is empty; `TileFlags.NoColor` means the tile has no color. Views stay valid for the life of the chunk and
+always show current state, so treat them as read-only and compare `version` to skip chunks that have not changed.
+
+**Fragment:** rescan only the chunks that changed since the last tick:
+
+```js
+import {TileFlags} from "dredless";
+
+const seen = new Map();
+function scanChangedTiles(world) {
+    for (const chunk of world.tiles.chunks()) {
+        if (seen.get(chunk) === chunk.version) continue;
+        seen.set(chunk, chunk.version);
+        const {material, hp, flags, originX, originY} = chunk;
+        for (let i = 0; i < flags.length; i++) {
+            if (!(flags[i] & TileFlags.Present)) continue;
+            onTile(originX + (i & 63), originY + (i >> 6), material[i], hp[i]);
+        }
+    }
+}
+```
+
+Tile objects are built on demand, so two reads may return different objects for the same tile and changing a returned
+object does not change client state. A tile set through `WorldState.setTile()` with non-byte values or extra fields is
+kept as given and appears in `at()` and `all()`, but not in chunk views.
 
 ## Projectiles, bots, and special entities
 
