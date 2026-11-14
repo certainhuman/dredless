@@ -2079,6 +2079,16 @@ export interface CommsBubbleSummary {
 }
 
 export class ModelState {
+    /** Local monotonic apply revision; independent of wire generation values. */
+    readonly revision: number;
+    /** Sorted live component IDs without materializing debug summaries. */
+    componentEntityIds(): IterableIterator<number>;
+    /** Latest mutation revision of a live entity, zero after removal. */
+    entityRevision(entityId: number): number;
+    /** Last local apply revision that touched this decoded record. */
+    recordRevision(record: ModelRecord | null | undefined): number;
+    /** Stateful navigation destination without materializing entity summaries. */
+    navigationDestination(entityId: number): number;
     /** Local entity identified by the decrypted camera-focus message, when known. */
     readonly localPlayerEntity: number | null;
     setLocalPlayerEntity(entity: number | null): void;

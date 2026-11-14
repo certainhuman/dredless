@@ -128,6 +128,10 @@ const {
 } = modelDecoder;
 
 export class ModelState {
+    #entityRevisions = new Map();
+    #entityIds = null;
+    #recordRevisions = new WeakMap();
+    #revision = 0;
     #localPlayerEntity = null;
     #blueprintItems = null;
     #helmOccupied = new Map();
@@ -176,6 +180,28 @@ export class ModelState {
         return this.table(tableId).get(Number(entityId)) || null;
     }
 
+    /** Monotonic local revision, independent of the server's generation counter. */
+    get revision() { return this.#revision; }
+
+    /** Live component IDs without creating entity/debug summaries. */
+    componentEntityIds() {
+        this.#entityIds ??= [...this.#entityRevisions.keys()].sort((a, b) => a - b);
+        return this.#entityIds.values();
+    }
+
+    /** Latest record mutation for a live entity, or zero after removal. */
+    entityRevision(entityId) { return this.#entityRevisions.get(Number(entityId)) ?? 0; }
+
+    /** Revision of a decoded record, without creating entity/debug summaries. */
+    recordRevision(record) { return record ? this.#recordRevisions.get(record) ?? 0 : 0; }
+
+    /** Stateful navigation destination without constructing derived entity lists. */
+    navigationDestination(entityId) {
+        const record = this.record(78, entityId);
+        return this.#navigationUnitAutoWarp.get(Number(entityId))?.destination
+            ?? navigationDestinationFromRecord(record);
+    }
+
     entity(entityId) {
         const id = Number(entityId);
         if (!Number.isFinite(id)) return null;
@@ -199,6 +225,7 @@ export class ModelState {
     }
 
     apply(bytes, {full = false} = {}) {
+        this.#revision++;
         this.#blueprintItems = null;
         const reader = new ModelReader(bytes);
         const update = {
@@ -1164,6 +1191,8 @@ export class ModelState {
             if (delta === 0) break;
             entity += delta;
             removals.push(entity);
+            this.#entityRevisions.delete(entity);
+            this.#entityIds = null;
             // The derived membership index describes the previous apply(), so it
             // can miss component tables added earlier in this same packet (or
             // in a partially decoded section). A removal must clear every table.
@@ -1206,6 +1235,9 @@ export class ModelState {
             if (!records) this.tables.set(tableId, records = new Map());
             let record = records.get(entity);
             if (!record) records.set(entity, record = {...spec?.defaults});
+            if (!this.#entityRevisions.has(entity)) this.#entityIds = null;
+            this.#entityRevisions.set(entity, this.#revision);
+            this.#recordRevisions.set(record, this.#revision);
             record.lastMask = mask;
 
             try {

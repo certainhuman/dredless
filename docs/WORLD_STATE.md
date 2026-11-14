@@ -406,3 +406,28 @@ discrete direction enums have operation-specific wire mappings. [Machines](MACHI
 Readiness does not guarantee all component tables, a local player, a panel, or another ship's interior. Watch `model`/
 `world` events, tolerate missing fields, and inspect [decode errors](PROTOCOL.md#debug-domains-and-state-classes) when
 apparently present objects cannot be read.
+
+## Direct component reads
+
+Renderers and other frequent readers can use `WorldState.model` without building entity debug summaries or category lists:
+
+```js
+const model = client.worlds.shipWorld()?.model;
+if (model) {
+  for (const id of model.componentEntityIds()) {
+    const revision = model.entityRevision(id);
+    const transform = model.record(0, id);
+    // Retain derived render data until this entity's revision changes.
+  }
+}
+```
+
+`componentEntityIds()` returns a sorted iterator over live component entity IDs. `entityRevision(id)` returns the last local
+apply revision that touched the entity, or zero after removal. `revision` increases on every `apply()`, independently of the
+wire generation counter. This covers several packets between reads, removal/recreation of the same ID, and partially
+applied records when decoding reports an error. These indexes are maintained by the decoder; they describe decoded
+component mutations, not local-player selection or other external rendering context.
+
+Raw records mutate in place. `recordRevision(record)` reports their last local apply revision; retain copied render values
+rather than relying on raw record identity. `navigationDestination(id)` reads the tracked navigation destination without
+constructing entity summaries, preserving the destination across flag-only updates.
