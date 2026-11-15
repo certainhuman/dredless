@@ -117,6 +117,9 @@ function normalizeHistoryLimit(value, fallback) {
     return Math.floor(limit);
 }
 
+// Mosaic accepts save attempts independently of its reported danger level.
+const SAVE_ALLOWED_PARENT_WORLD_IDS = new Set([66]);
+
 export class DredlessClient extends EventBus {
     constructor(connection, {
         connect = true,
@@ -273,8 +276,12 @@ export class DredlessClient extends EventBus {
         if (!this.connected || !this.ready) return false;
         const ship = this.worlds.shipWorld();
         if (!ship || ship.isOverworld !== false || ship.parentWorld == null) return false;
-        const parent = this.worlds.worlds.get(Number(ship.parentWorld));
-        return parent?.meta?.danger_level === 0;
+        const parentId = Number(ship.parentWorld);
+        if (SAVE_ALLOWED_PARENT_WORLD_IDS.has(parentId)) return true;
+        const danger = this.worlds.worlds.get(parentId)?.meta?.danger_level;
+        // Missing metadata is not proof that saving is forbidden. The server
+        // remains authoritative, and saveShip waits for its Saved close code.
+        return danger == null || danger === 0;
     }
 
     async saveShip({timeout = 10000} = {}) {
@@ -283,7 +290,7 @@ export class DredlessClient extends EventBus {
             throw new RangeError("timeout must be positive milliseconds no greater than 2147483647");
         }
         if (this.#savePending) throw new Error("A ship save is already in progress");
-        if (!this.canSaveShip()) throw new Error("Saving requires a connected, ready client with its ship in a known Safe Zone");
+        if (!this.canSaveShip()) throw new Error("Saving requires a connected, ready client with a current ship outside a known unsafe zone (Mosaic is allowed)");
         this.#savePending = true;
         try {
             return await new Promise((resolve, reject) => {

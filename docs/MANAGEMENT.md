@@ -79,8 +79,11 @@ client.management.canSave(): boolean;
 client.management.save(options?: {timeout?: number}): Promise<DisconnectInfo>;
 ```
 
-`canSave()` requires a connected/ready client, a current ship with a known parent world, and parent `danger_level === 0`
-(Safe Zone). Missing or unsafe metadata returns `false`. Partial metadata updates retain the last known danger level. It does not check all server-side permission rules.
+`canSave()` requires a connected/ready client and a current ship with a parent-world ID.
+It permits attempts when the parent's `danger_level` is `0` or unknown (including missing parent metadata).
+Mosaic (world `66`) is explicitly whitelisted regardless of its reported danger level. Other known unsafe
+zones return `false`. Partial metadata updates retain the last known danger level.
+This is permission to attempt a save, not a guarantee of success; server permissions still apply.
 
 **Fragment:** this saves the ship and ejects its players:
 

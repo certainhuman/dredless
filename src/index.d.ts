@@ -697,7 +697,7 @@ export class DredlessClient {
     disconnect(code?: number, reason?: string): this;
     sendChatMessage(message?: string): this;
     sendCommsMessage(message?: string): this;
-    /** Whether the connected, ready client's ship has parent-world danger level 0. */
+    /** Whether a connected, ready client may attempt saving: safe or unknown parent danger, or Mosaic (66). */
     canSaveShip(): boolean;
     /** Save and await the server's Saved close code; reject on ineligibility, timeout, or any other disconnect. */
     saveShip(options?: SaveShipOptions): Promise<DisconnectInfo>;
@@ -872,7 +872,7 @@ export interface PlayerDomain {
 }
 
 export interface ShipManagementDomain {
-    /** Checks the current ship's parent-world danger level; server permissions still apply. */
+    /** Allows safe/unknown parent danger or Mosaic (66); requires a connected, ready client. Server confirmation still applies. */
     canSave(): boolean;
 
     /** Save and await the server's Saved close code; reject on ineligibility, timeout, or any other disconnect. */

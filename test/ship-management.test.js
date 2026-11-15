@@ -104,7 +104,7 @@ function saveTestClient() {
     return {client, messages};
 }
 
-test("canSave follows the current ship's parent world and requires known Safe Zone metadata", () => {
+test("canSave follows the current ship's parent world and allows unknown danger and Mosaic while rejecting other known unsafe zones", () => {
     const {client} = saveTestClient();
     assert.equal(client.management.canSave(), false);
     const ship = client.worlds.get(10);
@@ -113,7 +113,7 @@ test("canSave follows the current ship's parent world and requires known Safe Zo
     assert.equal(client.management.canSave(), false, "the ship's own danger level is insufficient");
     ship.readMeta({parent_world: 0});
     const parent = client.worlds.get(0);
-    assert.equal(client.management.canSave(), false, "unknown parent danger level");
+    assert.equal(client.management.canSave(), true, "unknown parent danger permits an attempt");
     client.worlds.get(20).readMeta({is_overworld: true, danger_level: 0});
     parent.readMeta({is_overworld: true, danger_level: 1});
     assert.equal(client.management.canSave(), false, "another Safe Zone does not make this ship saveable");
@@ -137,13 +137,55 @@ test("canSave follows the current ship's parent world and requires known Safe Zo
     assert.equal(client.management.canSave(), false, "an overworld is not a ship");
     client.worlds.currentWorldId = 10;
     ship.readMeta({parent_world: 99});
-    assert.equal(client.management.canSave(), false, "missing parent world");
+    assert.equal(client.management.canSave(), true, "missing parent metadata permits an attempt");
     assert.equal(client.worlds.worlds.has(99), false, "checking eligibility does not create worlds");
+});
+
+test("Mosaic explicitly allows save attempts even with known unsafe danger metadata", () => {
+    const {client} = saveTestClient();
+    client.worlds.currentWorldId = 10;
+    const ship = client.worlds.get(10);
+    ship.readMeta({is_overworld: false, parent_world: 66});
+    assert.equal(client.canSaveShip(), true, "Mosaic without metadata");
+    client.worlds.get(66).readMeta({is_overworld: true, danger_level: 2});
+    assert.equal(client.management.canSave(), true, "Mosaic is whitelisted");
+    ship.readMeta({parent_world: 65});
+    client.worlds.get(65).readMeta({is_overworld: true, danger_level: 2});
+    assert.equal(client.canSaveShip(), false, "whitelist does not include neighboring IDs");
+    client.ready = false;
+    ship.readMeta({parent_world: 66});
+    assert.equal(client.canSaveShip(), false, "Mosaic still requires readiness");
+});
+
+test("unknown danger save attempts still require the server's Saved confirmation", async () => {
+    for (const danger of [undefined, null]) {
+        const {client, messages} = saveTestClient();
+        client.worlds.currentWorldId = 10;
+        client.worlds.get(10).readMeta({is_overworld: false, parent_world: 0});
+        client.worlds.get(0).readMeta({is_overworld: true, danger_level: danger});
+        let confirmed = false;
+        const saving = client.saveShip().then(info => { confirmed = true; return info; });
+        assert.deepEqual(messages, [{type: 4, act: "save_team", arg: null}]);
+        await Promise.resolve();
+        assert.equal(confirmed, false, "sending a request is not confirmation");
+        client.emit("disconnect", normalizeDisconnect(DropReason.Saved));
+        assert.equal((await saving).code, DropReason.Saved);
+    }
+    const {client, messages} = saveTestClient();
+    client.worlds.currentWorldId = 10;
+    client.worlds.get(10).readMeta({is_overworld: false, parent_world: 99});
+    const saving = client.management.save();
+    assert.equal(messages.length, 1, "missing parent metadata also permits a request");
+    client.emit("disconnect", normalizeDisconnect(1006));
+    await assert.rejects(saving, /not confirmed/);
+    client.worlds.get(99).readMeta({is_overworld: true, danger_level: 1});
+    await assert.rejects(client.management.save(), /known unsafe zone/);
+    assert.equal(messages.length, 1, "known unsafe zones do not send requests");
 });
 
 test("management.save sends the save action only when locally eligible", async () => {
     const {client, messages} = saveTestClient();
-    await assert.rejects(client.management.save(), /known Safe Zone/);
+    await assert.rejects(client.management.save(), /current ship/);
     assert.deepEqual(messages, []);
     client.worlds.currentWorldId = 10;
     client.worlds.get(10).readMeta({is_overworld: false, parent_world: 0});
