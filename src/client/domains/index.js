@@ -1518,6 +1518,25 @@ export class ExpandoBoxHandle extends MachineHandle {
     get count() {
         return this.state?.count;
     }
+    #requireAdvanced() {
+        if (!this.state?.advanced) throw new Error("Configuration requires an Advanced Expando Box");
+    }
+
+    configure(config = {}) {
+        this.#requireAdvanced();
+        return this.client.sendAdvancedExpandoBoxConfig(this.id, config);
+    }
+
+    copy(config = {}) {
+        this.#requireAdvanced();
+        return this.client.copyAdvancedExpandoBoxConfig(this.id, config);
+    }
+
+    paste(config = {}) {
+        this.#requireAdvanced();
+        return this.client.pasteAdvancedExpandoBoxConfig(this.id, config);
+    }
+
 }
 
 export class CargoEjectorHandle extends MachineHandle {

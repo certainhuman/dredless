@@ -438,6 +438,24 @@ export interface RankFilterConfig {
     /** 0–7, or 0xffffffff for all current and future ranks. */
     rankMask?: number;
 }
+/** Advanced Expando Box settings. Dimensions are world units (2–100).
+ * fixedSize uses minWidth/minHeight; RGB colors are integers 0–0xffffff.
+ * The server applies expansion, capacity and aspect-ratio rules.
+ */
+export interface AdvancedExpandoBoxConfig {
+    minWidth?: number;
+    maxWidth?: number;
+    minHeight?: number;
+    maxHeight?: number;
+    minEnabled?: boolean;
+    maxEnabled?: boolean;
+    fixedSize?: boolean;
+    backgroundColor?: number;
+    borderColor?: number;
+    /** Background opacity, from 0 to 1. */
+    opacity?: number;
+}
+
 export interface LauncherConfig {
     /** Degrees, 0–360. */
     angle?: number;
@@ -485,7 +503,7 @@ export interface AccountDetails {
 }
 
 export class Session {
-    constructor(gameSession?: string | null, gameVersion?: string | null);
+    constructor(gameSession?: string | null, gameVersion?: string | null, baseUrl?: string);
 
     baseUrl: string;
     cookies: Map<string, string>;
@@ -505,7 +523,7 @@ export class Session {
     get noticeVersion(): number | string | null;
     set noticeVersion(value: number | string | null);
 
-    request(path: string, init?: RequestInit & { body?: BodyInit | Record<string, unknown> | null }): Promise<Response>;
+    request(path: string, init?: Omit<RequestInit, "body"> & { body?: RequestInit["body"] | Record<string, unknown> | null }): Promise<Response>;
 
     fetchAccountStatus(): Promise<unknown>;
 
@@ -543,7 +561,7 @@ export class Session {
 }
 
 export class AnonSession extends Session {
-    constructor(gameSession?: string | null, anonKey?: string | null, gameVersion?: string | null);
+    constructor(gameSession?: string | null, anonKey?: string | null, gameVersion?: string | null, baseUrl?: string);
 
     get anonKey(): string;
 }
@@ -657,6 +675,10 @@ export class DredlessClient {
     readyPromise: Promise<this>;
 
     whenReady(): Promise<this>;
+
+    sendAdvancedExpandoBoxConfig(entity: number, config?: AdvancedExpandoBoxConfig): DredlessClient;
+    copyAdvancedExpandoBoxConfig(entity: number, config?: AdvancedExpandoBoxConfig): DredlessClient;
+    pasteAdvancedExpandoBoxConfig(entity: number, config?: AdvancedExpandoBoxConfig): DredlessClient;
 
     sendLauncherConfig(entity: number, config?: LauncherConfig): DredlessClient;
     setLauncherAngle(entity: number, angle: number, config?: LauncherConfig): DredlessClient;
@@ -1541,6 +1563,10 @@ export interface FluidTankHandle extends MachineHandle {
 
 export interface ExpandoBoxHandle extends MachineHandle {
     state: ExpandoBoxSummary | null;
+    /** Configure/copy/paste require an Advanced Expando Box. */
+    configure(config?: AdvancedExpandoBoxConfig): DredlessClient;
+    copy(config?: AdvancedExpandoBoxConfig): DredlessClient;
+    paste(config?: AdvancedExpandoBoxConfig): DredlessClient;
     item: number | null | undefined;
     count: number | null | undefined;
 }
@@ -2193,14 +2219,21 @@ export interface ItemCrateSummary {
     count: number | null;
     /** Use the box sprite instead of the item's normal sprite. */
     boxSprite: boolean;
+    /** Dimensions in world units; raw dimensions use tenths of a unit. */
     width: number | null;
     height: number | null;
+    rawWidth: number | null;
+    rawHeight: number | null;
     itemState: ModelRecord;
     sizeState: ModelRecord;
 }
 
 export interface ExpandoBoxSummary {
     entity: number;
+    advanced: boolean;
+    config: Required<AdvancedExpandoBoxConfig> | null;
+    sizeConfigState: ModelRecord;
+    colorConfigState: ModelRecord;
     itemId: number | null;
     itemName: string | null;
     count: number | null;
@@ -2240,8 +2273,8 @@ export interface MapMarkerSummary {
 export interface DockingSpringSummary {
     entity: number;
     id: number | null;
-    width: number;
-    height: number;
+    width: number | null;
+    height: number | null;
     state: ModelRecord;
 }
 
@@ -3006,3 +3039,7 @@ export interface DredlessNamespace {
 }
 export const Dredless: DredlessNamespace;
 export default Dredless;
+
+export function buildAdvancedExpandoBoxConfigData(entity: number, config?: AdvancedExpandoBoxConfig): Uint8Array;
+export function buildAdvancedExpandoBoxCopyConfigData(config?: AdvancedExpandoBoxConfig): Uint8Array;
+export function buildAdvancedExpandoBoxPasteConfigData(entity: number, config?: AdvancedExpandoBoxConfig): Uint8Array;

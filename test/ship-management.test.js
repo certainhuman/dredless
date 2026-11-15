@@ -122,7 +122,11 @@ test("canSave follows the current ship's parent world and requires known Safe Zo
     assert.equal(client.canSaveShip(), true);
     parent.readMeta({danger_level: 2});
     assert.equal(client.management.canSave(), false, "eligibility updates when danger changes");
+    parent.readMeta({block_w: 64});
+    assert.equal(client.management.canSave(), false, "partial metadata must retain known danger");
     parent.readMeta({danger_level: 0});
+    parent.readMeta({block_h: 32});
+    assert.equal(client.management.canSave(), true, "partial metadata retains known Safe Zone status");
     client.ready = false;
     assert.equal(client.management.canSave(), false);
     client.ready = true;

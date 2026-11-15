@@ -938,7 +938,7 @@ export const ITEM_SCHEMA = Object.freeze([
     {
         "id": 219,
         "name": "Spawn Point (Packaged)",
-        "desc": "Buildable. Can be set to spawn a specific rank.",
+        "desc": "Buildable. Can be set to spawn specific ranks.",
         "image": "item/spawn",
         "rarity": 0,
         "max_stack": 1,
@@ -959,7 +959,7 @@ export const ITEM_SCHEMA = Object.freeze([
     {
         "id": 220,
         "name": "Door (Packaged)",
-        "desc": "Buildable. Can be restricted to specific ranks. Press R to rotate.",
+        "desc": "Buildable. Can be restricted to specific ranks.",
         "image": "item/door",
         "rarity": 0,
         "max_stack": 1,
@@ -1636,6 +1636,22 @@ export const ITEM_SCHEMA = Object.freeze([
         "desc": "Buildable. A gun which preserves ammo, and has a slightly reduced fire-rate.",
         "image": "item/turret_obtuse",
         "rarity": 1,
+        "max_stack": 1
+    },
+    {
+        "id": 266,
+        "name": "Advanced Expando Box (Packaged)",
+        "desc": "Buildable. Dense bulk storage with configurable size limits. Spills more items when shot.",
+        "image": "item/exbox_adv",
+        "rarity": 2,
+        "max_stack": 1
+    },
+    {
+        "id": 267,
+        "name": "Advanced Logistics Controller",
+        "desc": "Component. Used to produce advanced logistics machinery.",
+        "image": "item/adv_logi_controller",
+        "rarity": 2,
         "max_stack": 1
     },
     {

@@ -1,4 +1,10 @@
 export {
+    buildAdvancedExpandoBoxConfigData,
+    buildAdvancedExpandoBoxCopyConfigData,
+    buildAdvancedExpandoBoxPasteConfigData,
+    type AdvancedExpandoBoxConfig
+} from "../../index.js";
+export {
     buildLauncherConfigData,
     buildLauncherCopyConfigData,
     buildLauncherPasteConfigData,

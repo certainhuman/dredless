@@ -1,3 +1,4 @@
+import {encodeUnsigned} from "../codec/ui-integer.js";
 import {encoder} from "../../constants.js";
 
 function uint32(value, name) {
@@ -7,12 +8,6 @@ function uint32(value, name) {
     return value;
 }
 
-function encodeUnsigned(value) {
-    if (value < 64) return [value];
-    if (value < 256) return [0x80, value];
-    if (value < 65536) return [0x81, value & 255, value >>> 8];
-    return [0x82, value & 255, value >>> 8 & 255, value >>> 16 & 255, value >>> 24];
-}
 
 function encodeFloat(value, name, max) {
     if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > max) {

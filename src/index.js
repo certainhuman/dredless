@@ -1,3 +1,4 @@
+export {buildAdvancedExpandoBoxConfigData, buildAdvancedExpandoBoxCopyConfigData, buildAdvancedExpandoBoxPasteConfigData} from "./protocol/outbound/advanced-expando.js";
 export {
     buildLauncherConfigData,
     buildLauncherCopyConfigData,

@@ -919,7 +919,7 @@ export class ModelState {
         const thrusterRecord = rec(50);
         const labelRecord = rec(9);
         const zoneLabelRecord = rec(25);
-        const dockingSpringRecord = rec(26);
+        const dockingSpringRecord = rec(22);
         const hugeThrusterRecord = rec(23);
         const bodyStateRecord = rec(1);
         const typeRecord = rec(7);
@@ -934,7 +934,8 @@ export class ModelState {
         const dynamicBody = bodyStateRecord?.q20 === -4;
         const typeId = entityTypeIdFromRecord(typeRecord);
         const itemHolder = summarizeItemHolder(entityId, itemHolderRecord);
-        const isExpandoBox = typeId === EXPANDO_BOX_TYPE_ID || markerTypeId === EXPANDO_BOX_TYPE_ID;
+        const isAdvancedExpandoBox = typeId === 266 || Boolean(rec(82) || rec(83));
+        const isExpandoBox = isAdvancedExpandoBox || typeId === EXPANDO_BOX_TYPE_ID || markerTypeId === EXPANDO_BOX_TYPE_ID;
         const health = summarizeHealth(entityId, healthRecord);
         const projectile = summarizeProjectile(entityId, rec(24));
         const combatBeams = summarizeCombatBeams(entityId, rec(15));
@@ -971,10 +972,10 @@ export class ModelState {
         const door = typeId === 220 ? summarizeDoor(entityId, spawnPointRecord, doorRecord, rec(80)) : null;
         const shipSize = shipControl && this.isOverworld ? summarizeShipSize(entityId, rec(3)) : null;
         const hoverOutline = summarizeHoverOutline(entityId, crateSizeRecord);
-        const expandoBox = isExpandoBox ? summarizeExpandoBox(entityId, itemHolderRecord, expandoSizeRecord) : null;
+        const expandoBox = isExpandoBox ? summarizeExpandoBox(entityId, itemHolderRecord, expandoSizeRecord, rec(82), rec(83), isAdvancedExpandoBox) : null;
         const mapMarker = this.isOverworld ? summarizeMapMarker(entityId, labelRecord, zoneLabelRecord, crateSizeRecord) : null;
         const dockingSpring = this.isOverworld
-            ? summarizeDockingSpring(entityId, dockingSpringRecord, bodyStateRecord, crateSizeRecord)
+            ? summarizeDockingSpring(entityId, dockingSpringRecord, crateSizeRecord)
             : null;
         const hugeThruster = this.isOverworld
             ? summarizeHugeThruster(entityId, hugeThrusterRecord, crateSizeRecord)

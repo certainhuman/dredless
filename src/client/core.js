@@ -36,6 +36,7 @@ import {
 } from "../protocol/outbound/ship-management.js";
 import {buildSignTextMessage} from "../protocol/outbound/sign.js";
 import {
+    buildAdvancedExpandoBoxConfigData, buildAdvancedExpandoBoxCopyConfigData, buildAdvancedExpandoBoxPasteConfigData,
     buildLauncherConfigData,
     buildLauncherCopyConfigData,
     buildLauncherPasteConfigData,
@@ -569,6 +570,23 @@ export class DredlessClient extends EventBus {
 
     fabricatorEject(row) {
         return this.sendFabricatorMessage("eject", [row, -1, -1]);
+    }
+
+    #advancedExpandoBoxConfigDefaults(entity, config) {
+        const observed = this.worlds.shipWorld()?.entity(entity)?.contents?.expandoBox?.config;
+        return {...observed, ...Object.fromEntries(Object.entries(config).filter(([, value]) => value !== undefined))};
+    }
+
+    sendAdvancedExpandoBoxConfig(entity, config = {}) {
+        return this.sendUiConfig(buildAdvancedExpandoBoxConfigData(entity, this.#advancedExpandoBoxConfigDefaults(entity, config)));
+    }
+
+    copyAdvancedExpandoBoxConfig(entity, config = {}) {
+        return this.sendUiConfig(buildAdvancedExpandoBoxCopyConfigData(this.#advancedExpandoBoxConfigDefaults(entity, config)));
+    }
+
+    pasteAdvancedExpandoBoxConfig(entity, config = {}) {
+        return this.sendUiConfig(buildAdvancedExpandoBoxPasteConfigData(entity, this.#advancedExpandoBoxConfigDefaults(entity, config)));
     }
 
     sendLauncherConfig(entity, config = {}) {
@@ -1464,7 +1482,7 @@ export class DredlessClient extends EventBus {
     }
 
     #navigationUnitConfigDefaults(entity, config = {}) {
-        const summary = this.entity(entity)?.contents?.navigationUnit || null;
+        const summary = this.worlds.shipWorld()?.entity(entity)?.contents?.navigationUnit || null;
         return {
             destination: config.destination ?? summary?.destination,
             page: config.page ?? 0,

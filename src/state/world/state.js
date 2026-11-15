@@ -137,7 +137,7 @@ export class WorldState {
     }
 
     readMeta(packet) {
-        this.meta = packet;
+        this.meta = {...this.meta, ...packet};
         this.seed = packet.seed ?? this.seed;
         const isOverworld = packet.is_overworld ?? this.isOverworld;
         this.isOverworld = isOverworld == null ? null : Boolean(isOverworld);

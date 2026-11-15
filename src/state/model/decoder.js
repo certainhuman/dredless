@@ -359,7 +359,17 @@ export const MODEL_TABLE_SPECS = new Map([
     // Append new wire components without shifting stable Dredless table IDs.
     [79, {name: "launcher_config", defaults: {q20: 0, q24: 300}, fields: numericFields({1: 20, 2: 24})}],
     [80, {name: "rank_filter", defaults: {q20: 4}, fields: numericFields({1: 20})}],
-    [81, {name: "spawn_point", fields: []}]
+    [81, {name: "spawn_point", fields: []}],
+    // Official production WASM e0ed7795 (2026-11-14), dispatcher tags 173/174.
+    // Keep the wire field names until their public domain semantics are exposed.
+    [82, {
+        name: "advanced_expando_size_config",
+        defaults: {q20: 20, q24: 100, q28: 20, q32: 100, q36: 0, q37: 0, q38: 0, q39: 0},
+        packedBeforeValues: true,
+        packedBits: [{bit: 16, offset: 37}, {bit: 32, offset: 38}, {bit: 64, offset: 39}],
+        fields: numericFields({1: 20, 2: 24, 4: 28, 8: 32})
+    }],
+    [83, {name: "advanced_expando_color_config", defaults: {q20: 0xdddddd, q24: 0x404040, q28: 100, q32: 0}, fields: numericFields({1: 20, 2: 24, 4: 28})}]
 ]);
 
 // Precompute everything about a spec that is fixed at module load. Decoding a
@@ -466,7 +476,9 @@ export const WIRE_TAG_TABLES = new Map([
     [169, 77],
     [170, 79],
     [171, 80],
-    [172, 81]
+    [172, 81],
+    [173, 82],
+    [174, 83]
 ]);
 
 export const MASK_ONLY_TABLES = new Set([13, 22, 23, 27, 28, 30, 36, 40, 46, 48, 52, 58, 64, 65, 66, 68, 73, 74]);
@@ -484,7 +496,7 @@ export const ENTITY_FOOTPRINTS = new Map([
 export const PLACED_ENTITY_TYPE_IDS = new Set([
     215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 226, 227, 228, 229,
     230, 231, 240, 241, 242, 243, 245, 246, 247, 248, 249, 250, 251, 252,
-    253, 255, 256, 257, 258, 259, 260, 261, 263, 264, 265
+    253, 255, 256, 257, 258, 259, 260, 261, 263, 264, 265, 266
 ]);
 
 export const FabricatorType = Object.freeze({
@@ -1216,14 +1228,17 @@ export function summarizeShipWorldMetadata(lockdownRecord, shipRecord) {
 
 export function summarizeItemCrate(entity, sizeRecord, itemRecord = null, healthRecord = null) {
     if (!sizeRecord) return null;
+    const size = scaledSizeSummary(sizeRecord);
     const itemId = itemRecord?.q20 ?? null;
     const count = itemRecord?.q24 ?? null;
     return {
         entity,
         ...itemSummary(itemId, count),
         boxSprite: Boolean(itemRecord?.q29),
-        width: sizeRecord.q20 ?? null,
-        height: sizeRecord.q24 ?? null,
+        width: size.width,
+        height: size.height,
+        rawWidth: size.rawWidth,
+        rawHeight: size.rawHeight,
         itemState: cloneRecord(itemRecord || healthRecord || {}),
         sizeState: cloneRecord(sizeRecord)
     };
@@ -1242,11 +1257,26 @@ export function scaledSizeSummary(record) {
     };
 }
 
-export function summarizeExpandoBox(entity, itemHolderRecord, sizeRecord) {
-    if (!itemHolderRecord && !sizeRecord) return null;
+export function summarizeExpandoBox(entity, itemHolderRecord, sizeRecord, sizeConfig = null, colorConfig = null, advanced = false) {
+    if (!itemHolderRecord && !sizeRecord && !advanced) return null;
     const size = scaledSizeSummary(sizeRecord);
     return {
         entity,
+        advanced,
+        config: advanced ? {
+            minWidth: (sizeConfig?.q20 ?? 20) / 10,
+            maxWidth: (sizeConfig?.q24 ?? 100) / 10,
+            minHeight: (sizeConfig?.q28 ?? 20) / 10,
+            maxHeight: (sizeConfig?.q32 ?? 100) / 10,
+            minEnabled: Boolean(sizeConfig?.q37),
+            maxEnabled: Boolean(sizeConfig?.q38),
+            fixedSize: Boolean(sizeConfig?.q39),
+            backgroundColor: (colorConfig?.q20 ?? 0xdddddd) >>> 0,
+            borderColor: (colorConfig?.q24 ?? 0x404040) >>> 0,
+            opacity: (colorConfig?.q28 ?? 100) / 100
+        } : null,
+        sizeConfigState: cloneRecord(sizeConfig || {}),
+        colorConfigState: cloneRecord(colorConfig || {}),
         ...itemSummary(itemHolderRecord?.q20 ?? null, itemHolderRecord?.q24 ?? null),
         width: size?.width ?? null,
         height: size?.height ?? null,
@@ -1288,13 +1318,15 @@ export function summarizeMapMarker(entity, labelRecord, zoneRecord = null, sizeR
     };
 }
 
-export function summarizeDockingSpring(entity, springRecord, bodyRecord = null, sizeRecord = null) {
-    if (!springRecord || bodyRecord?.q32 !== -1 || sizeRecord?.q20 !== 160 || sizeRecord?.q24 !== 160) return null;
+export function summarizeDockingSpring(entity, springRecord, sizeRecord = null) {
+    // Wire 85 is the marker iterated by the official dock_springs renderer.
+    // Generic wire 89 plus size/body heuristics also matched decorative walls.
+    if (!springRecord) return null;
     return {
         entity,
         id: springRecord.q20 ?? null,
-        width: sizeRecord.q20,
-        height: sizeRecord.q24,
+        width: sizeRecord?.q20 == null ? null : sizeRecord.q20 / 10,
+        height: sizeRecord?.q24 == null ? null : sizeRecord.q24 / 10,
         state: cloneRecord(springRecord)
     };
 }

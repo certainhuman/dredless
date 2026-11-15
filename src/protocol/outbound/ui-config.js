@@ -1,3 +1,5 @@
+export {buildAdvancedExpandoBoxConfigData, buildAdvancedExpandoBoxCopyConfigData, buildAdvancedExpandoBoxPasteConfigData} from "./advanced-expando.js";
+import {encodeUnsigned} from "../codec/ui-integer.js";
 import {encoder} from "../../constants.js";
 export * from "./machine-config.js";
 
@@ -221,16 +223,12 @@ function encodeLoaderCycle(cycle) {
 }
 
 function encodeUiCommandTarget(entity, action = 0) {
-    const entityId = requireUint16(entity, "entity");
-    const actionId = requireByteInteger(action, "action");
-    if (actionId && entityId > 0xff) {
-        throw new RangeError(`copy/paste UI config currently requires an entity id below 256`);
+    const entityId = Number(entity);
+    if (!Number.isInteger(entityId) || entityId < 0 || entityId > 0xffffffff) {
+        throw new RangeError("entity must be an unsigned 32-bit integer");
     }
-    return [
-        NAV_UNIT_HEADER_TAG,
-        actionId ? actionId : (entityId >> 8) & 0xff,
-        entityId & 0xff
-    ];
+    const actionId = requireByteInteger(action, "action");
+    return [NAV_UNIT_HEADER_TAG, actionId, ...encodeUnsigned(entityId)];
 }
 
 function encodeUiCommandSection(commandName) {

@@ -437,3 +437,46 @@ Cargo ejector rendering state uses table 49 `q20 / 100` for `progress`,
 `q24` for the signed `direction` offset, `q28 / 100` for `extension`, and
 `q33` for `noMount`. `active` reports a nonzero cycle or extension; it is
 not the mount flag. The summary also exposes the raw `state`.
+
+## Advanced Expando Boxes
+
+Item `266` is an Advanced Expando Box; item `267` is the Advanced Logistics Controller
+crafting component. `ship.machines.expandoBoxes()` includes both basic and advanced boxes.
+An advanced box exposes `state.advanced === true` and `state.config`, containing its
+minimum/maximum dimensions, enable flags, RGB colors, and opacity. Actual observed
+`state.width` and `state.height` remain separate from the configured limits.
+
+```js
+const box = client.currentShip().machines.expandoBox(entityId);
+box.configure({minEnabled: true, minWidth: 4, minHeight: 2, opacity: 0.5});
+box.copy();                    // Copies observed settings into clipboard class 11.
+box.paste({backgroundColor: 0x224466});
+```
+
+`configure`, `copy`, and `paste` preserve omitted settings from the observed configuration.
+They require an advanced box and return immediately; observe subsequent replicated state
+for confirmation. Basic boxes retain their inventory and dimensions but reject these methods.
+
+`AdvancedExpandoBoxConfig` fields:
+
+| Field | Meaning |
+| --- | --- |
+| `minWidth`, `minHeight` | Minimum dimensions; also the dimensions used by fixed-size mode |
+| `maxWidth`, `maxHeight` | Maximum dimensions |
+| `minEnabled`, `maxEnabled` | Enable the respective limits |
+| `fixedSize` | Request fixed dimensions instead of automatic expansion |
+| `backgroundColor`, `borderColor` | Integer RGB colors, `0x000000`–`0xffffff` |
+| `opacity` | Background opacity, `0`–`1` |
+
+Dimensions use world units and accept values from `2` to `100`. Defaults are minimum
+`2×2`, maximum `10×10`, all limit flags disabled, background `0xdddddd`, border
+`0x404040`, and opacity `1`. The server enforces expansion space, capacity, and the
+4:1 aspect-ratio limit. Like the official client, Dredless permits minimum dimensions
+larger than maximum dimensions; the maximum applies where enabled.
+
+Low-level builders are `buildAdvancedExpandoBoxConfigData(entity, config?)`,
+`buildAdvancedExpandoBoxCopyConfigData(config?)`, and
+`buildAdvancedExpandoBoxPasteConfigData(entity, config?)`. They return UI configuration
+bytes and use defaults for omitted fields; they cannot read observed state. Direct client
+methods are `sendAdvancedExpandoBoxConfig`, `copyAdvancedExpandoBoxConfig`, and
+`pasteAdvancedExpandoBoxConfig`, each taking an entity ID and optional settings.

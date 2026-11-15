@@ -80,12 +80,12 @@ client.management.save(options?: {timeout?: number}): Promise<DisconnectInfo>;
 ```
 
 `canSave()` requires a connected/ready client, a current ship with a known parent world, and parent `danger_level === 0`
-(Safe Zone). Missing or unsafe metadata returns `false`. It does not check all server-side permission rules.
+(Safe Zone). Missing or unsafe metadata returns `false`. Partial metadata updates retain the last known danger level. It does not check all server-side permission rules.
 
 **Fragment:** this saves the ship and ejects its players:
 
 ```js
-if (!client.management.canSave()) throw new Error("Ship is not in a known Safe Zone");
+if (!client.management.canSave()) throw new Error("Ship is not locally eligible to save");
 const result = await client.management.save();
 console.log(result.name); // Saved
 ```
