@@ -90,6 +90,13 @@ function encodeValue(key, value, entry) {
     if (typeof value === "number") {
         const schemaFormat = COMMAND_DEFAULT_FORMATS[key];
         let format = schemaFormat && schemaFormat !== "nil" ? schemaFormat : null;
+        if (format === "uint") {
+            // A narrower format would silently wrap the value.
+            if (!Number.isInteger(value) || value < 0 || value > 0xffffffff) {
+                throw new RangeError(`Command field ${key} must be an integer from 0 to 4294967295, got ${value}`);
+            }
+            format = value <= 0x7f ? "positive-fixint" : value <= 0xff ? "uint8" : value <= 0xffff ? "uint16" : "uint32";
+        }
         if (!format) {
             if (!Number.isInteger(value)) format = "float32";
             else if (value >= 0) {

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {buildCommandDefaults} from "../src/protocol/outbound/commands.js";
+import {buildCommandBody, buildCommandDefaults, buildSignedCommandPacket} from "../src/protocol/outbound/commands.js";
+import {decodeMsgpack} from "../src/protocol/codec/msgpack.js";
 
 test("held item placement command fields match door placement captures", () => {
     const command = buildCommandDefaults({
@@ -68,4 +69,22 @@ test("screen dimensions encode browser viewport size on signed input commands", 
     assert.equal(command.vy, 8.619000434875488);
     assert.equal(command.scr_w, 1672);
     assert.equal(command.scr_h, 977);
+});
+
+// The official client sent n 2-127 as fixint, 128-255 as uint8 and 256+ as
+// uint16 (capture of 21 Oct 2026); it counts in a u32. A fixed uint16 sent
+// the 65,536th command as n=0 and the server dropped the bot (24 Nov 2026).
+test("command numbers use the smallest unsigned format and never wrap", () => {
+    const numberBytes = n => {
+        const body = buildCommandBody({n});
+        const at = body.indexOf(0x6e, body.indexOf(0xa1)) + 1; // after the "n" key
+        return {marker: body[at], decoded: decodeMsgpack(body).n};
+    };
+    for (const [n, marker] of [[1, 0x01], [127, 0x7f], [128, 0xcc], [255, 0xcc], [256, 0xcd],
+        [65535, 0xcd], [65536, 0xce], [65537, 0xce], [4294967295, 0xce]]) {
+        assert.deepEqual(numberBytes(n), {marker, decoded: n}, `n=${n}`);
+    }
+    const signed = buildSignedCommandPacket({n: 65536}, 12345);
+    assert.equal(decodeMsgpack(signed.subarray(0, signed.length - 32)).n, 65536);
+    for (const n of [-1, 1.5, 4294967296]) assert.throws(() => buildCommandBody({n}), RangeError, `n=${n}`);
 });

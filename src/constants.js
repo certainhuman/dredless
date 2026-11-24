@@ -44,7 +44,11 @@ export const COMMAND_FIELDS = [
 
 export const COMMAND_DEFAULT_FORMATS = {
     type: "positive-fixint",
-    n: "uint16",
+    // The official client counts commands in a u32 and writes the smallest
+    // unsigned format (fixint, then uint8, uint16, uint32). A fixed uint16
+    // wrapped the 65,536th command to 0, and the server drops a connection
+    // whose command number goes backwards (ProtocolError).
+    n: "uint",
     x: "float32",
     y: "float32",
     mx: "float32",
